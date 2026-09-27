@@ -1,0 +1,1304 @@
+{
+  "sites": [
+    {
+      "domain": "https://whatever-bar.de/slate",
+      "path": "/public_html/slate",
+      "framework": "Slate",
+      "status": "OFFLINE",
+      "dbStatus": "CONNECTED",
+      "dbSize": "0 MB",
+      "latency": "3513ms",
+      "lastCommit": "-",
+      "repo": "-",
+      "handshakeToken": "slate_live_06c582ec3a0566274febc7ac4526ecd2f9d3ff50",
+      "webhookSecret": "slate_sec_a5a3a1f0a70f4cae4fabb659356ce1f0bbb7fe09",
+      "cpanelLinked": true,
+      "package_id": "pkg_muanqcy6",
+      "id": "site_1790306291864",
+      "lastDeployedAt": "2026-09-25T03:18:11.864Z",
+      "createdAt": "2026-09-25T03:18:11.864Z",
+      "licenseId": "lic_mugyolk6",
+      "licenseStatus": "OFFLINE",
+      "lastHealthAt": "2026-09-25T13:04:52.589Z",
+      "lastHealthStatus": "OFFLINE",
+      "agentVersion": "3.2.0",
+      "remoteAccess": "full",
+      "coreVersion": "1.0.0",
+      "activePlugins": [],
+      "remoteAccessUpdatedAt": "2026-09-25T12:30:19.714Z"
+    },
+    {
+      "domain": "https://new-e2e-test.example.io",
+      "path": "/public_html",
+      "framework": "WordPress",
+      "status": "ONLINE",
+      "dbStatus": "CONNECTED",
+      "dbSize": "2.4 MB",
+      "latency": "24ms",
+      "lastCommit": "init",
+      "repo": "org/new-e2e-test-example-io",
+      "handshakeToken": "slate_live_2f9d421394825265c518b805b7a1c315a293878a",
+      "webhookSecret": "slate_sec_51b17c94378aef6c1679d88615574db5",
+      "id": "site_1789259409894",
+      "lastDeployedAt": "2026-09-13T00:30:09.894Z",
+      "createdAt": "2026-09-13T00:30:09.894Z"
+    },
+    {
+      "domain": "https://e2e-test-app.example.com",
+      "path": "/var/www/e2e",
+      "framework": "Laravel",
+      "status": "ONLINE",
+      "dbStatus": "CONNECTED",
+      "dbSize": "2.4 MB",
+      "latency": "24ms",
+      "lastCommit": "init",
+      "repo": "test/e2e-test-repo",
+      "handshakeToken": "slate_live_215c378b6640e9e3df7ef86f4d7953f2d55dba9d",
+      "webhookSecret": "slate_sec_951f0012e53f0d1e4d37caa9553ab62c",
+      "id": "site_1789259282056",
+      "lastDeployedAt": "2026-09-13T00:28:02.056Z",
+      "createdAt": "2026-09-13T00:28:02.056Z"
+    },
+    {
+      "domain": "https://e2e-test-app.example.com",
+      "path": "/var/www/e2e",
+      "framework": "Laravel",
+      "status": "ONLINE",
+      "dbStatus": "CONNECTED",
+      "dbSize": "2.4 MB",
+      "latency": "24ms",
+      "lastCommit": "init",
+      "repo": "test/e2e-test-repo",
+      "handshakeToken": "slate_live_e6a8d5e5fc517b7cc6c94a9e600c8e078a6b296b",
+      "webhookSecret": "slate_sec_b918618a3ab482009c5cd39b2616fcd3",
+      "id": "site_1789259270403",
+      "lastDeployedAt": "2026-09-13T00:27:50.403Z",
+      "createdAt": "2026-09-13T00:27:50.403Z"
+    },
+    {
+      "id": "site_2",
+      "domain": "https://shop.apexgear.io",
+      "path": "/var/www/html/store",
+      "framework": "React / Node",
+      "status": "ONLINE",
+      "dbStatus": "CONNECTED",
+      "dbSize": "128.5 MB",
+      "latency": "52ms",
+      "lastCommit": "fa4c90e",
+      "repo": "org/apex-storefront",
+      "handshakeToken": "slate_live_4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b",
+      "webhookSecret": "slate_sec_apex_storefront_2",
+      "lastDeployedAt": "2026-09-10T22:14:07.957Z",
+      "createdAt": "2026-08-28T00:14:07.957Z"
+    },
+    {
+      "id": "site_3",
+      "domain": "https://demo.slate-saas.net",
+      "path": "/public_html",
+      "framework": "Laravel",
+      "status": "ONLINE",
+      "dbStatus": "CONNECTED",
+      "dbSize": "14.9 MB",
+      "latency": "29ms",
+      "lastCommit": "77cd10a",
+      "repo": "org/slate-demo-php",
+      "handshakeToken": "slate_live_1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c",
+      "webhookSecret": "slate_sec_slate_demo_php_3",
+      "lastDeployedAt": "2026-09-10T19:14:07.957Z",
+      "createdAt": "2026-09-08T00:14:07.957Z"
+    },
+    {
+      "id": "site_1",
+      "domain": "https://portal.clientalpha.com",
+      "path": "/public_html/app",
+      "framework": "WordPress",
+      "status": "ONLINE",
+      "dbStatus": "CONNECTED",
+      "dbSize": "48.2 MB",
+      "latency": "34ms",
+      "lastCommit": "b89a2f1",
+      "repo": "org/clientalpha-portal",
+      "handshakeToken": "slate_live_7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a",
+      "webhookSecret": "slate_sec_clientalpha_portal_1"
+    }
+  ],
+  "databases": [
+    {
+      "name": "whatever_dc322d",
+      "user": "whatever_udc32",
+      "host": "localhost",
+      "port": 3306,
+      "password": "s%$#8JNZuQVF#otpp7",
+      "mode": "cpanel",
+      "size": "0 MB",
+      "tablesCount": 0,
+      "status": "ERROR",
+      "linkedSiteId": null,
+      "provisionedAt": "2026-09-13T19:08:20.018Z",
+      "lastTested": "2026-09-21T08:29:57.940Z",
+      "id": "db_1789326500018",
+      "createdAt": "2026-09-13T19:08:20.018Z"
+    },
+    {
+      "id": "db_1",
+      "name": "clientalpha_portal_db",
+      "user": "calpha_usr",
+      "host": "127.0.0.1",
+      "port": 3306,
+      "mode": "mysql",
+      "size": "48.2 MB",
+      "tablesCount": 38,
+      "status": "ACTIVE",
+      "linkedSiteId": "site_1",
+      "createdAt": "2026-09-04T00:14:07.957Z"
+    },
+    {
+      "id": "db_2",
+      "name": "apex_store_db",
+      "user": "apex_admin",
+      "host": "127.0.0.1",
+      "port": 3306,
+      "mode": "mysql",
+      "size": "128.5 MB",
+      "tablesCount": 64,
+      "status": "ACTIVE",
+      "linkedSiteId": "site_2",
+      "createdAt": "2026-08-28T00:14:07.957Z"
+    },
+    {
+      "id": "db_3",
+      "name": "cpanel_slatedemo",
+      "user": "slatedemo_user",
+      "host": "cpanel.slate-saas.net",
+      "port": 3306,
+      "mode": "cpanel",
+      "size": "14.9 MB",
+      "tablesCount": 22,
+      "status": "ACTIVE",
+      "linkedSiteId": "site_3",
+      "createdAt": "2026-09-08T00:14:07.957Z"
+    }
+  ],
+  "deployments": [
+    {
+      "siteId": "site_1790306291864",
+      "domain": "https://whatever-bar.de/slate",
+      "repo": "client-console",
+      "commitSha": "console",
+      "actor": "master-ops",
+      "status": "SUCCESS",
+      "duration": "0.0s",
+      "logs": [
+        "[7:06:04 PM] write config: ok=false — Non-JSON response: HTTP 403"
+      ],
+      "id": "dep_1790341564704",
+      "timestamp": "2026-09-25T13:06:04.704Z"
+    },
+    {
+      "siteId": "site_1790306291864",
+      "domain": "https://whatever-bar.de/slate",
+      "repo": "client-console",
+      "commitSha": "console",
+      "actor": "master-ops",
+      "status": "SUCCESS",
+      "duration": "0.0s",
+      "logs": [
+        "[7:05:52 PM] write config: ok=false — Non-JSON response: HTTP 403"
+      ],
+      "id": "dep_1790341552653",
+      "timestamp": "2026-09-25T13:05:52.653Z"
+    },
+    {
+      "siteId": "site_1790306291864",
+      "domain": "https://whatever-bar.de/slate",
+      "repo": "client-console",
+      "commitSha": "console",
+      "actor": "master-ops",
+      "status": "SUCCESS",
+      "duration": "0.0s",
+      "logs": [
+        "[7:05:37 PM] repair files: ok=false target=? — cPanel refused the saved login: cPanel UAPI unreachable: https://uk701.cloudwebhosting.com:2083: fetch failed | https://uk701.cloudwebhosting.com:2082: fetch failed | http://uk701.cloudwebhosting.com:2082: non-JSON reply HTTP 200 ( <!DOCTYPE html> <html lang=\"en\" dir=\"ltr\"> <head> <meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8)"
+      ],
+      "id": "dep_1790341537982",
+      "timestamp": "2026-09-25T13:05:37.982Z"
+    },
+    {
+      "siteId": "site_1790306291864",
+      "domain": "https://whatever-bar.de/slate",
+      "repo": "client-console",
+      "commitSha": "reveal-key",
+      "actor": "master-ops",
+      "status": "SUCCESS",
+      "duration": "0.0s",
+      "logs": [
+        "[6:53:27 PM] License key revealed in the Master console."
+      ],
+      "id": "dep_1790340807541",
+      "timestamp": "2026-09-25T12:53:27.541Z"
+    },
+    {
+      "siteId": "site_1790306291864",
+      "domain": "https://whatever-bar.de/slate",
+      "repo": "client-console",
+      "commitSha": "console",
+      "actor": "master-ops",
+      "status": "SUCCESS",
+      "duration": "0.0s",
+      "logs": [
+        "[6:52:32 PM] write config: ok=true — Updated .env:APP_URL, .env:DB_HOST, .env:DB_NAME, .env:DB_USER, .env:DB_PASS, .env:DB_DATABASE, .env:DB_USERNAME, .env:DB_PASSWORD, .env:SITE_URL, .env:BASE_URL, .env:PUBLIC_URL, .env:APP_BASE_PATH, .env:APP_SECRET, .env:CRON_SECRET, .env:MCP_GATEWAY_ENABLED, .env:TENANT_ID, .env:DB_CHARSET, .slate_restrictions.json(11 rules), .htaccess:RewriteBase(/slate/), .htaccess:ErrorDocument(/slate/), .installed(restored), permissions:dirs=99,files=648."
+      ],
+      "id": "dep_1790340752630",
+      "timestamp": "2026-09-25T12:52:32.630Z"
+    },
+    {
+      "siteId": "site_1790306291864",
+      "domain": "https://whatever-bar.de/slate",
+      "repo": "client-console",
+      "commitSha": "console",
+      "actor": "master-ops",
+      "status": "SUCCESS",
+      "duration": "0.0s",
+      "logs": [
+        "[6:52:24 PM] repair pairing skipped: Master is configured with a localhost URL, which the client's browser cannot reach. Set MASTER_PUBLIC_URL (or NEXT_PUBLIC_APP_URL) to a public address such as https://master.yourdomain.com."
+      ],
+      "id": "dep_1790340744598",
+      "timestamp": "2026-09-25T12:52:24.598Z"
+    },
+    {
+      "siteId": "site_1790306291864",
+      "domain": "https://whatever-bar.de/slate",
+      "repo": "client-console",
+      "commitSha": "console",
+      "actor": "master-ops",
+      "status": "SUCCESS",
+      "duration": "0.0s",
+      "logs": [
+        "[6:52:24 PM] repair files: ok=true target=public_html/slate — Using public_html/slate served at https://whatever-bar.de/slate (via given-path)."
+      ],
+      "id": "dep_1790340744586",
+      "timestamp": "2026-09-25T12:52:24.586Z"
+    },
+    {
+      "siteId": "site_1790306291864",
+      "domain": "https://whatever-bar.de/slate",
+      "repo": "pkg_muanqcy6",
+      "commitSha": "access-full",
+      "actor": "master-ops",
+      "status": "SUCCESS",
+      "duration": "0.0s",
+      "logs": [
+        "[6:30:19 PM] Remote access mode pushed: full",
+        "Updated .env:APP_URL, .env:DB_HOST, .env:DB_NAME, .env:DB_USER, .env:DB_PASS, .env:DB_DATABASE, .env:DB_USERNAME, .env:DB_PASSWORD, .env:SITE_URL, .env:BASE_URL, .env:PUBLIC_URL, .env:APP_BASE_PATH, .env:SLATE_ACCESS_MODE(appended), .slate_restrictions.json(11 rules), .htaccess:RewriteBase(/slate/), .htaccess:ErrorDocument(/slate/)."
+      ],
+      "id": "dep_1790339419722",
+      "timestamp": "2026-09-25T12:30:19.722Z"
+    },
+    {
+      "siteId": "site_1790306291864",
+      "domain": "https://whatever-bar.de/slate",
+      "repo": "client-console",
+      "commitSha": "reveal-key",
+      "actor": "master-ops",
+      "status": "SUCCESS",
+      "duration": "0.0s",
+      "logs": [
+        "[6:30:01 PM] License key revealed in the Master console."
+      ],
+      "id": "dep_1790339401859",
+      "timestamp": "2026-09-25T12:30:01.859Z"
+    },
+    {
+      "siteId": "site_1790306291864",
+      "domain": "https://whatever-bar.de/slate",
+      "repo": "client-console",
+      "commitSha": "console",
+      "actor": "master-ops",
+      "status": "SUCCESS",
+      "duration": "0.0s",
+      "logs": [
+        "[6:28:51 PM] repair pairing: ok=true — Remote agent synchronized with SLATE Master OS successfully."
+      ],
+      "id": "dep_1790339331815",
+      "timestamp": "2026-09-25T12:28:51.815Z"
+    },
+    {
+      "siteId": "site_1790306291864",
+      "domain": "https://whatever-bar.de/slate",
+      "repo": "client-console",
+      "commitSha": "console",
+      "actor": "master-ops",
+      "status": "SUCCESS",
+      "duration": "0.0s",
+      "logs": [
+        "[6:28:51 PM] repair files: ok=true target=public_html/slate — Using public_html/slate served at https://whatever-bar.de/slate (via given-path)."
+      ],
+      "id": "dep_1790339331424",
+      "timestamp": "2026-09-25T12:28:51.424Z"
+    },
+    {
+      "siteId": "site_1790306291864",
+      "domain": "https://whatever-bar.de/slate",
+      "repo": "client-console",
+      "commitSha": "console",
+      "actor": "master-ops",
+      "status": "SUCCESS",
+      "duration": "0.0s",
+      "logs": [
+        "[6:28:34 PM] write config: ok=true — Updated .env:APP_URL, .env:DB_HOST, .env:DB_NAME, .env:DB_USER, .env:DB_PASS, .env:DB_DATABASE, .env:DB_USERNAME, .env:DB_PASSWORD, .env:SITE_URL, .env:BASE_URL, .env:PUBLIC_URL, .env:APP_BASE_PATH, .env:APP_SECRET, .env:CRON_SECRET, .env:MCP_GATEWAY_ENABLED, .env:TENANT_ID, .env:DB_CHARSET, .slate_restrictions.json(11 rules), .htaccess:RewriteBase(/slate/), .htaccess:ErrorDocument(/slate/), permissions:dirs=99,files=648."
+      ],
+      "id": "dep_1790339314062",
+      "timestamp": "2026-09-25T12:28:34.062Z"
+    },
+    {
+      "siteId": "site_1790306291864",
+      "domain": "https://whatever-bar.de/slate",
+      "repo": "client-console",
+      "commitSha": "console",
+      "actor": "master-ops",
+      "status": "SUCCESS",
+      "duration": "0.0s",
+      "logs": [
+        "[6:20:39 PM] write config: ok=true — Updated .env:APP_URL, .env:DB_HOST, .env:DB_NAME, .env:DB_USER, .env:DB_PASS, .env:DB_DATABASE, .env:DB_USERNAME, .env:DB_PASSWORD, .env:SITE_URL, .env:BASE_URL, .env:PUBLIC_URL, .env:APP_BASE_PATH, .env:APP_SECRET, .env:CRON_SECRET, .env:MCP_GATEWAY_ENABLED, .env:TENANT_ID, .env:DB_CHARSET, .slate_restrictions.json(11 rules), .htaccess:RewriteBase(/slate/), .htaccess:ErrorDocument(/slate/), permissions:dirs=99,files=648."
+      ],
+      "id": "dep_1790338839546",
+      "timestamp": "2026-09-25T12:20:39.546Z"
+    },
+    {
+      "siteId": "site_1790306291864",
+      "domain": "https://whatever-bar.de/slate",
+      "repo": "client-console",
+      "commitSha": "reveal-key",
+      "actor": "master-ops",
+      "status": "SUCCESS",
+      "duration": "0.0s",
+      "logs": [
+        "[6:15:50 PM] License key revealed in the Master console."
+      ],
+      "id": "dep_1790338550611",
+      "timestamp": "2026-09-25T12:15:50.611Z"
+    },
+    {
+      "siteId": "site_1790306291864",
+      "domain": "https://whatever-bar.de/slate",
+      "repo": "client-console",
+      "commitSha": "console",
+      "actor": "master-ops",
+      "status": "SUCCESS",
+      "duration": "0.0s",
+      "logs": [
+        "[6:14:40 PM] write config: ok=true — Updated .env:APP_URL, .env:DB_HOST, .env:DB_NAME, .env:DB_USER, .env:DB_PASS, .env:DB_DATABASE, .env:DB_USERNAME, .env:DB_PASSWORD, .env:SITE_URL, .env:BASE_URL, .env:PUBLIC_URL, .env:APP_BASE_PATH, .env:APP_SECRET, .env:CRON_SECRET, .env:MCP_GATEWAY_ENABLED, .env:TENANT_ID, .env:DB_CHARSET, .slate_restrictions.json(11 rules), .htaccess:RewriteBase(/slate/), .htaccess:ErrorDocument(/slate/), permissions:dirs=99,files=648."
+      ],
+      "id": "dep_1790338480593",
+      "timestamp": "2026-09-25T12:14:40.593Z"
+    },
+    {
+      "siteId": "site_1790306291864",
+      "domain": "https://whatever-bar.de/slate",
+      "repo": "client-console",
+      "commitSha": "console",
+      "actor": "master-ops",
+      "status": "SUCCESS",
+      "duration": "0.0s",
+      "logs": [
+        "[6:12:02 PM] repair pairing skipped: Master is configured with a localhost URL, which the client's browser cannot reach. Set MASTER_PUBLIC_URL (or NEXT_PUBLIC_APP_URL) to a public address such as https://master.yourdomain.com."
+      ],
+      "id": "dep_1790338322169",
+      "timestamp": "2026-09-25T12:12:02.169Z"
+    },
+    {
+      "siteId": "site_1790306291864",
+      "domain": "https://whatever-bar.de/slate",
+      "repo": "client-console",
+      "commitSha": "console",
+      "actor": "master-ops",
+      "status": "SUCCESS",
+      "duration": "0.0s",
+      "logs": [
+        "[6:12:02 PM] repair files: ok=true target=public_html/slate — Using public_html/slate served at https://whatever-bar.de/slate (via given-path)."
+      ],
+      "id": "dep_1790338322160",
+      "timestamp": "2026-09-25T12:12:02.160Z"
+    },
+    {
+      "siteId": "site_1790306291864",
+      "domain": "https://whatever-bar.de/slate",
+      "repo": "client-console",
+      "commitSha": "console",
+      "actor": "master-ops",
+      "status": "SUCCESS",
+      "duration": "0.0s",
+      "logs": [
+        "[5:20:28 PM] write config: ok=true — Updated .env:APP_URL, .env:DB_HOST, .env:DB_NAME, .env:DB_USER, .env:DB_PASS, .env:DB_DATABASE, .env:DB_USERNAME, .env:DB_PASSWORD, .env:SITE_URL, .env:BASE_URL, .env:PUBLIC_URL, .env:APP_BASE_PATH, .env:APP_SECRET, .env:CRON_SECRET, .env:MCP_GATEWAY_ENABLED, .env:TENANT_ID, .env:DB_CHARSET, .slate_restrictions.json(11 rules), .htaccess:RewriteBase(/slate/), .htaccess:ErrorDocument(/slate/), permissions:dirs=99,files=648."
+      ],
+      "id": "dep_1790335228072",
+      "timestamp": "2026-09-25T11:20:28.072Z"
+    },
+    {
+      "siteId": "site_1790306291864",
+      "domain": "https://whatever-bar.de/slate",
+      "repo": "client-console",
+      "commitSha": "reveal-key",
+      "actor": "master-ops",
+      "status": "SUCCESS",
+      "duration": "0.0s",
+      "logs": [
+        "[5:19:56 PM] License key revealed in the Master console."
+      ],
+      "id": "dep_1790335197026",
+      "timestamp": "2026-09-25T11:19:57.026Z"
+    },
+    {
+      "siteId": "site_1790306291864",
+      "domain": "https://whatever-bar.de/slate",
+      "repo": "client-console",
+      "commitSha": "reveal-key",
+      "actor": "master-ops",
+      "status": "SUCCESS",
+      "duration": "0.0s",
+      "logs": [
+        "[10:04:25 AM] License key revealed in the Master console."
+      ],
+      "id": "dep_1790309065658",
+      "timestamp": "2026-09-25T04:04:25.658Z"
+    },
+    {
+      "siteId": "site_1790306291864",
+      "domain": "https://whatever-bar.de/slate",
+      "repo": "client-console",
+      "commitSha": "reveal-key",
+      "actor": "master-ops",
+      "status": "SUCCESS",
+      "duration": "0.0s",
+      "logs": [
+        "[9:52:58 AM] License key revealed in the Master console."
+      ],
+      "id": "dep_1790308378200",
+      "timestamp": "2026-09-25T03:52:58.200Z"
+    },
+    {
+      "siteId": "site_1790306291864",
+      "domain": "https://whatever-bar.de/slate",
+      "repo": "client-console",
+      "commitSha": "console",
+      "actor": "master-ops",
+      "status": "SUCCESS",
+      "duration": "0.0s",
+      "logs": [
+        "[9:52:58 AM] license key rotated (****5RJE) — pushed=true"
+      ],
+      "id": "dep_1790308378173",
+      "timestamp": "2026-09-25T03:52:58.173Z"
+    },
+    {
+      "siteId": "site_1789086755888",
+      "domain": "https://whatever-bar.de",
+      "repo": "org/whatever-bar-de",
+      "commitSha": "d99b35b",
+      "actor": "admin-ops",
+      "status": "SUCCESS",
+      "duration": "3.5s",
+      "logs": [
+        "[07:34:24] TRIGGERING REDEPLOYMENT FOR https://whatever-bar.de (PID: 6107)",
+        "[07:34:24] GitHub API unavailable, using cached commit reference",
+        "[07:34:24] Synced latest commit object: d99b35b [HEAD -> main]",
+        "[07:34:24] Verifying target directory payload: /public_html/slate",
+        "[07:34:24] Running framework pre-checks for Vanilla PHP... OK",
+        "[07:34:24] Pinging remote agent at https://whatever-bar.de/public_html/slate/auth.php?action=diagnostics...",
+        "[07:34:24] Remote agent returned HTTP 404 - deployment may need manual intervention",
+        "[07:34:24] Dispatching secure payload via auth.php handshake token...",
+        "[07:34:24] Handshake returned HTTP 404",
+        "[07:34:24] Unpacking delta archive and linking runtime dependencies...",
+        "[07:34:24] Executing cache invalidation and opcache_reset()... DONE",
+        "[07:34:24] Health probe HTTP/2 GET https://whatever-bar.de: 200 OK (Latency: 1258ms)",
+        "[07:34:24] REDEPLOYMENT FINISHED SUCCESSFULLY. Target is ONLINE."
+      ],
+      "id": "dep_1789090467823",
+      "timestamp": "2026-09-11T01:34:27.824Z"
+    },
+    {
+      "siteId": "site_1789086755888",
+      "domain": "https://whatever-bar.de",
+      "repo": "org/whatever-bar-de",
+      "commitSha": "8afc327",
+      "actor": "terminal-cli",
+      "status": "SUCCESS",
+      "duration": "2.8s",
+      "logs": [
+        "[06:54:06] CLI DISPATCH TRIGGERED FOR https://whatever-bar.de",
+        "[06:54:06] Remote tree checkout: org/whatever-bar-de (8afc327)",
+        "[06:54:06] Pushed payload to /public_html/slate via auth.php",
+        "[06:54:06] DEPLOYMENT SUCCEEDED. Target ONLINE."
+      ],
+      "id": "dep_1789088046948",
+      "timestamp": "2026-09-11T00:54:06.948Z"
+    },
+    {
+      "siteId": "site_1789085864259",
+      "domain": "https://test-persist.io",
+      "repo": "org/test-persist-io",
+      "commitSha": "c24345b",
+      "actor": "admin-ops",
+      "status": "SUCCESS",
+      "duration": "1.9s",
+      "logs": [
+        "[06:17:44] TRIGGERING REDEPLOYMENT FOR https://test-persist.io (PID: 8438)",
+        "[06:17:44] Initializing Git tree fetch from remote: org/test-persist-io...",
+        "[06:17:44] Synced latest commit object: c24345b [HEAD -> main]",
+        "[06:17:44] Verifying target directory payload: /var/www",
+        "[06:17:44] Running framework pre-checks for Laravel... OK",
+        "[06:17:44] Dispatching secure payload via auth.php handshake token...",
+        "[06:17:44] Unpacking delta archive and linking runtime dependencies...",
+        "[06:17:44] Executing cache invalidation and opcache_reset()... DONE",
+        "[06:17:44] Health probe HTTP/2 GET https://test-persist.io: 200 OK (Latency: 32ms)",
+        "[06:17:44] REDEPLOYMENT FINISHED SUCCESSFULLY. Target is ONLINE."
+      ],
+      "id": "dep_1789085864964",
+      "timestamp": "2026-09-11T00:17:44.964Z"
+    },
+    {
+      "id": "dep_1",
+      "siteId": "site_1",
+      "domain": "https://portal.clientalpha.com",
+      "repo": "org/clientalpha-portal",
+      "commitSha": "b89a2f1",
+      "actor": "devops-lead",
+      "status": "SUCCESS",
+      "duration": "4.2s",
+      "timestamp": "2026-09-10T23:29:07.957Z",
+      "logs": [
+        "[05:25:01] INITIATING ZERO-TOUCH CI/CD PIPELINE FOR portal.clientalpha.com",
+        "[05:25:02] Authenticating via SLATE agent handshake token... SUCCESS [200 OK]",
+        "[05:25:02] Target runtime verified: PHP 8.2 / PDO MySQL / ZipArchive",
+        "[05:25:03] Pulling commit b89a2f1 from org/clientalpha-portal (branch: main)",
+        "[05:25:04] Synchronizing release payload to /public_html/app...",
+        "[05:25:04] Atomic file swap and cache invalidation completed.",
+        "[05:25:05] Target environment responded 200 OK. Health check latency: 34ms.",
+        "[05:25:05] DEPLOYMENT COMPLETE (Duration: 4.2s) - Status: ONLINE"
+      ]
+    },
+    {
+      "id": "dep_2",
+      "siteId": "site_2",
+      "domain": "https://shop.apexgear.io",
+      "repo": "org/apex-storefront",
+      "commitSha": "fa4c90e",
+      "actor": "frontend-team",
+      "status": "SUCCESS",
+      "duration": "6.8s",
+      "timestamp": "2026-09-10T22:14:07.957Z",
+      "logs": [
+        "[04:10:10] INITIATING CI/CD BUILD FOR shop.apexgear.io",
+        "[04:10:11] Target node: /var/www/html/store verified.",
+        "[04:10:13] Building React/Next.js standalone bundle (fa4c90e)...",
+        "[04:10:15] Deploying artifact archive to edge cluster...",
+        "[04:10:16] Zero-downtime container hot-reload executed.",
+        "[04:10:17] Health probe: Latency 52ms. Status: ONLINE"
+      ]
+    }
+  ],
+  "settings": {
+    "githubTokenEncrypted": "f9e778d6b846838f7d9e2ded:ac0b0025cae94d0d9887e7bb3f7ce48e:957bda9e4d7fde8f137e2e37ca27e60626b7b900a6287d511fc2038813ee207e36736424a0cda877",
+    "githubUsername": "dreammy1",
+    "githubAvatar": "https://avatars.githubusercontent.com/u/50229363?v=4",
+    "autoSyncInterval": 30,
+    "notifyOnDeploy": true
+  },
+  "migrations": [
+    {
+      "title": "Server-to-Server Live Clone",
+      "source": {
+        "serverName": "Source Server (Export) 1",
+        "cpanelHost": "https://premium106.web-hosting.com",
+        "cpanelPort": 2083,
+        "cpanelUser": "rakilluy",
+        "cpanelApiToken": "LT7QVEB424VR17GT0YOOOZPHK63QQU9K",
+        "fileManagerPath": "/public_html/solaya",
+        "siteUrl": "https://rakibhasaan.com",
+        "dbHost": "localhost",
+        "dbName": "rakilluy_rakilluy_solaya",
+        "dbUser": "rakilluy_rakilluy_solaya",
+        "dbPass": "rakilluy_solaya"
+      },
+      "destination": {
+        "serverName": "Destination Server (Import) 2",
+        "cpanelHost": "https://uk701.cloudwebhosting.com",
+        "cpanelPort": 2083,
+        "cpanelUser": "whatever",
+        "cpanelApiToken": "OZSDJTQP01QXZO3OSXF65UBSDN6INLAI",
+        "fileManagerPath": "/public_html/slate",
+        "siteUrl": "https://whatever-bar.de/slate",
+        "dbHost": "localhost",
+        "dbName": "whatever_0a10",
+        "dbUser": "whatever_0a10",
+        "dbPass": "whatever_0a10"
+      },
+      "options": {
+        "syncFiles": true,
+        "syncDatabase": true,
+        "replaceDomainUrls": true,
+        "fixFilePermissions": true
+      },
+      "status": "FAILED",
+      "progress": 75,
+      "totalFiles": 879,
+      "transferredFiles": 879,
+      "totalDbTables": 111,
+      "transferredDbTables": 111,
+      "currentStep": "Some target(s) failed deployment. Expand the live stream for details.",
+      "logs": [
+        {
+          "timestamp": "10:06:00 PM",
+          "message": "Migration plan updated and staged.",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:06:16 PM",
+          "message": "=== AUTO-MIGRATION STARTED: https://rakibhasaan.com -> https://uk701.cloudwebhosting.com ===",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:06:16 PM",
+          "message": "Options: files=ON, database=ON, url-replace=ON, perms-fix=ON.",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:06:18 PM",
+          "message": "--- Step 1/4: Handshake + Source staging ---",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:06:20 PM",
+          "message": "SO handshake: Remote agent synchronized with SLATE Master OS successfully.",
+          "type": "success"
+        },
+        {
+          "timestamp": "10:06:21 PM",
+          "message": "TG[1] handshake: Remote agent synchronized with SLATE Master OS successfully.",
+          "type": "success"
+        },
+        {
+          "timestamp": "10:06:23 PM",
+          "message": "--- Step 2/4: Source export (package files + dump DB) ---",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:06:23 PM",
+          "message": "Packaging SOURCE directory into transfer bundle...",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:07:14 PM",
+          "message": "SOURCE package OK: Source packaged 879 files into zip downloaded to master staging (55.64 MB).",
+          "type": "success"
+        },
+        {
+          "timestamp": "10:07:14 PM",
+          "message": "Dumping SOURCE database rakilluy_rakilluy_solaya...",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:07:18 PM",
+          "message": "SOURCE dump OK: Source DB rakilluy_rakilluy_solaya dumped (111 tables, 1.50 MB). SQL dump sanitized (0 bytes removed).",
+          "type": "success"
+        },
+        {
+          "timestamp": "10:07:18 PM",
+          "message": "Domain replacement mode: PER-TARGET (will rewrite source domain to each target's URL individually).",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:07:18 PM",
+          "message": " Per-target domain replacement QUEUED for 1 target(s) (applied in Step 3 before SQL import).",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:07:20 PM",
+          "message": "--- Step 3/4: Target deploy + DB import ---",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:07:20 PM",
+          "message": "TG[1] Provisioning target database...",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:07:22 PM",
+          "message": "TG[1] DB provision FAIL: Failed to create database: cPanel UAPI error: The name “fa823d” does not begin with the required prefix “whatever_”. | Also tried full name: cPanel UAPI error: You have reached your maximum allotment of databases (2).",
+          "type": "error"
+        },
+        {
+          "timestamp": "10:07:22 PM",
+          "message": "TG[1] Deploying file payload to /public_html/slate...",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:07:58 PM",
+          "message": "TG[1] DEPLOY OK: Target https://whatever-bar.de/slate deployed: 879 files extracted to /public_html/slate. Deployment applied successfully.",
+          "type": "success"
+        },
+        {
+          "timestamp": "10:07:58 PM",
+          "message": "TG[1] Updating wp-config.php/.env credentials and fixing permissions...",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:07:58 PM",
+          "message": "TG[1] config OK: Updated .env:APP_URL, .env:DB_HOST, .env:DB_NAME, .env:DB_USER, .env:DB_PASS, .env:DB_DATABASE(appended), .env:DB_USERNAME(appended), .env:DB_PASSWORD(appended), .env:SITE_URL(appended), .env:BASE_URL(appended), .env:PUBLIC_URL(appended), .env:APP_BASE_PATH(appended), .htaccess:RewriteBase(/slate/), .htaccess:ErrorDocument(/slate/), permissions:dirs=147,files=879.",
+          "type": "success"
+        },
+        {
+          "timestamp": "10:08:24 PM",
+          "message": "=== URL CONFIG REPAIR STARTED for 1 target(s) ===",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:08:24 PM",
+          "message": "TG[1] Repairing base URL config to https://whatever-bar.de/slate...",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:08:24 PM",
+          "message": "TG[1] URL repair OK: Updated .env:APP_URL, .env:DB_HOST, .env:DB_NAME, .env:DB_USER, .env:DB_PASS, .env:DB_DATABASE, .env:DB_USERNAME, .env:DB_PASSWORD, .env:SITE_URL, .env:BASE_URL, .env:PUBLIC_URL, .env:APP_BASE_PATH, .htaccess:RewriteBase(/slate/), .htaccess:ErrorDocument(/slate/).",
+          "type": "success"
+        },
+        {
+          "timestamp": "10:08:24 PM",
+          "message": "=== URL CONFIG REPAIR COMPLETED successfully. ===",
+          "type": "success"
+        },
+        {
+          "timestamp": "10:08:55 PM",
+          "message": "=== AUTO-MIGRATION STARTED: https://rakibhasaan.com -> https://uk701.cloudwebhosting.com ===",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:08:55 PM",
+          "message": "Options: files=ON, database=ON, url-replace=ON, perms-fix=ON.",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:08:57 PM",
+          "message": "--- Step 1/4: Handshake + Source staging ---",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:08:59 PM",
+          "message": "SO handshake: Remote agent synchronized with SLATE Master OS successfully.",
+          "type": "success"
+        },
+        {
+          "timestamp": "10:09:00 PM",
+          "message": "TG[1] handshake: Remote agent synchronized with SLATE Master OS successfully.",
+          "type": "success"
+        },
+        {
+          "timestamp": "10:09:02 PM",
+          "message": "--- Step 2/4: Source export (package files + dump DB) ---",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:09:02 PM",
+          "message": "Packaging SOURCE directory into transfer bundle...",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:09:35 PM",
+          "message": "SOURCE package OK: Source packaged 879 files into zip downloaded to master staging (55.64 MB).",
+          "type": "success"
+        },
+        {
+          "timestamp": "10:09:35 PM",
+          "message": "Dumping SOURCE database rakilluy_rakilluy_solaya...",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:09:40 PM",
+          "message": "SOURCE dump OK: Source DB rakilluy_rakilluy_solaya dumped (111 tables, 1.50 MB). SQL dump sanitized (0 bytes removed).",
+          "type": "success"
+        },
+        {
+          "timestamp": "10:09:40 PM",
+          "message": "Domain replacement mode: PER-TARGET (will rewrite source domain to each target's URL individually).",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:09:40 PM",
+          "message": " Per-target domain replacement QUEUED for 1 target(s) (applied in Step 3 before SQL import).",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:09:42 PM",
+          "message": "--- Step 3/4: Target deploy + DB import ---",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:09:42 PM",
+          "message": "TG[1] Provisioning target database...",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:09:43 PM",
+          "message": "TG[1] DB provision FAIL: Failed to create database: cPanel UAPI error: The name “9eb77d” does not begin with the required prefix “whatever_”. | Also tried full name: cPanel UAPI error: You have reached your maximum allotment of databases (2).",
+          "type": "error"
+        },
+        {
+          "timestamp": "10:09:43 PM",
+          "message": "TG[1] Deploying file payload to /public_html/slate...",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:10:28 PM",
+          "message": "TG[1] DEPLOY OK: Target https://whatever-bar.de/slate deployed: 879 files extracted to /public_html/slate. Deployment applied successfully.",
+          "type": "success"
+        },
+        {
+          "timestamp": "10:10:28 PM",
+          "message": "TG[1] Updating wp-config.php/.env credentials and fixing permissions...",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:10:29 PM",
+          "message": "TG[1] config OK: Updated .env:APP_URL, .env:DB_HOST, .env:DB_NAME, .env:DB_USER, .env:DB_PASS, .env:DB_DATABASE(appended), .env:DB_USERNAME(appended), .env:DB_PASSWORD(appended), .env:SITE_URL(appended), .env:BASE_URL(appended), .env:PUBLIC_URL(appended), .env:APP_BASE_PATH(appended), .htaccess:RewriteBase(/slate/), .htaccess:ErrorDocument(/slate/), permissions:dirs=147,files=879.",
+          "type": "success"
+        }
+      ],
+      "id": "mig_mtxrn5uk",
+      "createdAt": "2026-09-12T02:28:31.964Z",
+      "completedAt": "2026-09-14T12:25:33.889Z",
+      "targets": [
+        {
+          "serverName": "Destination Server (Import) 2",
+          "cpanelHost": "https://uk701.cloudwebhosting.com",
+          "cpanelPort": 2083,
+          "cpanelUser": "whatever",
+          "cpanelApiToken": "OZSDJTQP01QXZO3OSXF65UBSDN6INLAI",
+          "fileManagerPath": "/public_html/slate",
+          "siteUrl": "https://whatever-bar.de/slate",
+          "dbHost": "localhost",
+          "dbName": "whatever_0a10",
+          "dbUser": "whatever_0a10",
+          "dbPass": "whatever_0a10"
+        }
+      ],
+      "_meta": {
+        "srcZipPaths": {
+          "__default": "C:\\Users\\TID2FB~1.S\\AppData\\Local\\Temp\\slate-migration\\src-files-1790006946225-yv1mxi.zip"
+        },
+        "srcSqlPaths": {
+          "__base": "C:\\Users\\TID2FB~1.S\\AppData\\Local\\Temp\\slate-migration\\src-sql-1790006977373-3afoi5.sql",
+          "__default": "C:\\Users\\TID2FB~1.S\\AppData\\Local\\Temp\\slate-migration\\src-sql-1790006977373-3afoi5.sql"
+        },
+        "tgtSqlPaths": {},
+        "tgtCredentials": []
+      },
+      "error": "One or more targets failed to deploy/import. Review logs and retry."
+    },
+    {
+      "id": "mig_sample_1",
+      "title": "Live Production Cluster Sync (cPanel US -> EU)",
+      "source": {
+        "serverName": "cPanel Node US-East (Old Host)",
+        "cpanelHost": "cpanel.useast-legacy.net",
+        "cpanelPort": 2083,
+        "cpanelUser": "legacyalpha",
+        "cpanelApiToken": "CPANEL_TOKEN_ALPHA_US_SEC_99",
+        "fileManagerPath": "/home/legacyalpha/public_html",
+        "siteUrl": "https://legacy-portal.clientalpha.com",
+        "dbHost": "localhost",
+        "dbName": "legacyalpha_wp",
+        "dbUser": "legacyalpha_usr",
+        "dbPass": "masked"
+      },
+      "destination": {
+        "serverName": "cPanel Node EU-Central (Target Cloud)",
+        "cpanelHost": "cpanel.eucloud-speed.net",
+        "cpanelPort": 2083,
+        "cpanelUser": "apexcloud",
+        "cpanelApiToken": "CPANEL_TOKEN_EU_SPEED_88",
+        "fileManagerPath": "/home/apexcloud/public_html",
+        "siteUrl": "https://portal.clientalpha.com",
+        "dbHost": "localhost",
+        "dbName": "apexcloud_wp_mirror",
+        "dbUser": "apexcloud_usr",
+        "dbPass": "masked"
+      },
+      "options": {
+        "syncFiles": true,
+        "syncDatabase": true,
+        "replaceDomainUrls": true,
+        "fixFilePermissions": true
+      },
+      "status": "COMPLETED",
+      "progress": 100,
+      "totalFiles": 4218,
+      "transferredFiles": 4218,
+      "totalDbTables": 38,
+      "transferredDbTables": 38,
+      "currentStep": "Migration finished successfully. Target site is verified mirror copy.",
+      "logs": [
+        {
+          "timestamp": "10:14:02",
+          "message": "Handshake verified with Source cPanel Node US-East.",
+          "type": "success"
+        },
+        {
+          "timestamp": "10:14:05",
+          "message": "Handshake verified with Destination cPanel Node EU-Central.",
+          "type": "success"
+        },
+        {
+          "timestamp": "10:14:15",
+          "message": "Database exported (legacyalpha_wp: 38 tables, 64.2 MB).",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:14:35",
+          "message": "SQL search-and-replace applied: legacy-portal.clientalpha.com -> portal.clientalpha.com",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:14:55",
+          "message": "Database imported into Destination (apexcloud_wp_mirror).",
+          "type": "success"
+        },
+        {
+          "timestamp": "10:15:20",
+          "message": "File tree compressed into stream bundle (4,218 files).",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:16:40",
+          "message": "All files extracted to destination /home/apexcloud/public_html.",
+          "type": "success"
+        },
+        {
+          "timestamp": "10:16:48",
+          "message": "Configured wp-config.php / .env credentials and file permissions (0644/0755).",
+          "type": "success"
+        }
+      ],
+      "createdAt": "2026-09-11T10:14:00Z",
+      "completedAt": "2026-09-11T10:16:50Z"
+    }
+  ],
+  "packages": [
+    {
+      "id": "pkg_muanqcy6",
+      "slug": "business-ops",
+      "name": "Business Operations",
+      "description": "Slate core + Booking + Membership + Stripe Payment",
+      "is_active": true,
+      "sort_order": 1,
+      "pluginSet": [
+        "booking",
+        "membership",
+        "stripe-payment"
+      ],
+      "restrictions": [
+        {
+          "match": "admin/settings.php",
+          "mode": "block"
+        },
+        {
+          "match": "admin/plugins.php",
+          "mode": "block"
+        },
+        {
+          "match": "admin/users.php",
+          "mode": "block"
+        },
+        {
+          "match": "admin/roles.php",
+          "mode": "block"
+        },
+        {
+          "match": "plugins/booking/admin/new.php",
+          "mode": "block"
+        },
+        {
+          "match": "plugins/booking/admin/settings.php",
+          "mode": "block"
+        },
+        {
+          "match": "plugins/stripe-payment/admin/*",
+          "mode": "block"
+        },
+        {
+          "match": "plugins/membership/admin/*.php",
+          "mode": "block"
+        },
+        {
+          "match": "plugins/booking/admin/appointments.php",
+          "mode": "readonly"
+        },
+        {
+          "match": "plugins/booking/admin/customers.php",
+          "mode": "readonly"
+        },
+        {
+          "match": "plugins/membership/admin/members.php",
+          "mode": "readonly"
+        }
+      ],
+      "pricing": {
+        "monthly_cents": 2900,
+        "yearly_cents": 29000,
+        "lifetime_cents": 99000,
+        "currency": "USD"
+      },
+      "githubRef": "v1.4.0",
+      "createdAt": "2026-09-21T03:00:02.958Z"
+    },
+    {
+      "id": "pkg_muaocpsv",
+      "slug": "coaching-suite",
+      "name": "Coaching Platform",
+      "description": "Slate core + Coaching + Forms + Stripe Payment + MCP Gateway",
+      "is_active": true,
+      "sort_order": 2,
+      "pluginSet": [
+        "coaching",
+        "forms",
+        "stripe-payment",
+        "mcp-gateway"
+      ],
+      "restrictions": [
+        {
+          "match": "admin/settings.php",
+          "mode": "block"
+        },
+        {
+          "match": "admin/plugins.php",
+          "mode": "block"
+        },
+        {
+          "match": "admin/users.php",
+          "mode": "block"
+        },
+        {
+          "match": "admin/roles.php",
+          "mode": "block"
+        },
+        {
+          "match": "plugins/coaching/admin/new.php",
+          "mode": "block"
+        },
+        {
+          "match": "plugins/coaching/admin/settings.php",
+          "mode": "block"
+        },
+        {
+          "match": "plugins/forms/admin/*",
+          "mode": "block"
+        },
+        {
+          "match": "plugins/stripe-payment/admin/*",
+          "mode": "block"
+        },
+        {
+          "match": "plugins/coaching/admin/sessions.php",
+          "mode": "readonly"
+        },
+        {
+          "match": "plugins/coaching/admin/clients.php",
+          "mode": "readonly"
+        },
+        {
+          "match": "admin/contact_forms.php",
+          "mode": "readonly"
+        }
+      ],
+      "pricing": {
+        "monthly_cents": 4900,
+        "yearly_cents": 49000,
+        "lifetime_cents": 199000,
+        "currency": "USD"
+      },
+      "githubRef": "v1.4.0",
+      "createdAt": "2026-09-21T03:17:26.047Z"
+    }
+  ],
+  "orders": [
+    {
+      "package_id": "pkg_muanqcy6",
+      "billing_cycle": "monthly",
+      "siteUrl": "https://whatever-bar.de/slate",
+      "base_path": "/slate",
+      "fileManagerPath": "/public_html/slate",
+      "cpanelHost": "https://uk701.cloudwebhosting.com",
+      "cpanelUser": "whatever",
+      "cpanelApiTokenEncrypted": "3708cfba6ff802bc0570ee72:7b9ae90902fad9da8b8045a52d6e3862:fec6e30b42f13f73c39c4fad5b609dcacda5cbaf4d4e1536b52aef8b5a36704c",
+      "contactName": "rasel",
+      "contactPhone": "01816641312",
+      "contactEmail": "rahmmed3@gmail.com",
+      "payMethod": "manual_custom",
+      "status": "bootstrap_done",
+      "id": "ord_mugcozuv",
+      "progressPercent": 100,
+      "progressStage": "COMPLETE",
+      "createdAt": "2026-09-25T02:37:40.615Z",
+      "notes": "",
+      "updatedAt": "2026-09-25T12:53:13.683Z",
+      "dbName": "whatever_70a1",
+      "dbUser": "whatever_u70a1",
+      "dbHost": "localhost",
+      "dbPassEncrypted": "0bdbdb02e2b494448d1ac95d:0723b4326509fff85177af5e86c0cabd:1909d5f8b41d1f622a44aab047bd3064498616",
+      "agentUploaded": true,
+      "siteId": "site_1790306291864",
+      "licenseId": "lic_mugyolk6",
+      "licenseKeyLast4": "T2FD",
+      "appSecretEncrypted": "6dadd3a45947d44eea1e2eb6:c2106fdecdd81faf78e1f24b48a7154c:a9f55cbcb2866e28b49700089de69452cf252087f5381f95f5a6bd02f206eb03c72debccb6fc668276235cdee256824955e36fb5881454b716a081d0761e8f34",
+      "cronSecretEncrypted": "151408b74e196bba7d958fe2:badaaf2eef43c08dbde91fd589c49522:9088928ad6980408fcf0cd076d54262a1b80b97be0c99d297c3e8df39469901868b61d16204c2a500fe4d830f34c68592ac780b0c9e740b3bbb47c43b1a9a207"
+    }
+  ],
+  "licenses": [
+    {
+      "key_hash": "c76cdd373caf49860ac208df73065e6947f9b7f0c7131b03202ce028e3334e5d",
+      "key_last4": "T2FD",
+      "key_encrypted": "d6f82c93c51a2ec508756247:29ecc362ced9f0dde3f26602f9628194:8562371f2710cc96a532418d062b669a287b4df8224a96",
+      "key_signature": "15125760a2e3490cb77c4d8dcd9d8198595fd88440270c04fffe1ffe2dc70631",
+      "domain": "https://whatever-bar.de/slate",
+      "package_id": "pkg_muanqcy6",
+      "package_slug": "business-ops",
+      "billing_cycle": "monthly",
+      "status": "active",
+      "starts_at": "2026-09-25T12:53:13.637Z",
+      "expires_at": "2026-10-25T12:53:13.636Z",
+      "activation_limit": 1,
+      "activation_count": 0,
+      "siteId": "site_1790306291864",
+      "orderId": "ord_mugcozuv",
+      "id": "lic_mugyolk6",
+      "createdAt": "2026-09-25T12:53:13.638Z"
+    },
+    {
+      "key_hash": "939da1a32456c79f2b96e3190f0c8b01739a33577293dfd16e084964738a3de0",
+      "key_last4": "575K",
+      "key_encrypted": "726749e2434a1edf92b383f0:8347cc846df9e39065ef40be1bddeedd:86defe558ffe44c5d630eaedb37aa1aee6c82e43de15e9",
+      "key_signature": "8ca8960bd9adf09885fd232ff85688084de9d1926b5e2c93ab98a2db8ce29e4c",
+      "domain": "https://whatever-bar.de/slate",
+      "package_id": "pkg_muanqcy6",
+      "package_slug": "business-ops",
+      "billing_cycle": "monthly",
+      "status": "revoked",
+      "starts_at": "2026-09-25T12:29:12.502Z",
+      "expires_at": "2026-10-25T00:00:00.000Z",
+      "activation_limit": 1,
+      "activation_count": 0,
+      "siteId": "site_1790306291864",
+      "orderId": "ord_mugcozuv",
+      "id": "lic_mugxtpkm",
+      "createdAt": "2026-09-25T12:29:12.502Z",
+      "last_seen_at": "2026-09-25T12:29:43.949Z",
+      "updatedAt": "2026-09-25T12:53:13.648Z",
+      "replaces_license_id": "lic_mugyolk6"
+    },
+    {
+      "key_hash": "d857aa963835473ff615db211f3027560986e665a13bef8120e4094c8251554d",
+      "key_last4": "7TFG",
+      "key_encrypted": "98654eed6c99808f1ba7e17c:4a8becbe009e59a7ac82dddd1646367b:a9c75d1d3f1b15bc105d232e0157edd0546367563b92aa",
+      "key_signature": "47fa4a39ecffee90763d2e339e34e51f825c81793b05f8c83109e6d4cda62532",
+      "domain": "https://whatever-bar.de/slate",
+      "package_id": "pkg_muanqcy6",
+      "package_slug": "business-ops",
+      "billing_cycle": "monthly",
+      "status": "revoked",
+      "starts_at": "2026-09-25T12:21:51.074Z",
+      "expires_at": "2026-10-25T12:21:51.068Z",
+      "activation_limit": 1,
+      "activation_count": 0,
+      "siteId": "site_1790306291864",
+      "orderId": "ord_mugcozuv",
+      "id": "lic_mugxk8yr",
+      "createdAt": "2026-09-25T12:21:51.075Z",
+      "replaces_license_id": "lic_mugxtpkm",
+      "updatedAt": "2026-09-25T12:29:12.511Z"
+    },
+    {
+      "key_hash": "fb254effbaa58ccb1b7ebd0068ab1a122b4d62120b245b97a3cb31a21914c3f0",
+      "key_last4": "TLXV",
+      "key_encrypted": "f5966046c25218b3bc959343:81b004da3c0860b80c07cfb0b6f2b629:3ac11cf25e43308ea6463a83f308216ccdd853e56f6c88",
+      "key_signature": "fa021d8d13eca326ee26af190411d38761ac9be0bc58937dd3766e11ec9b8056",
+      "domain": "https://whatever-bar.de/slate",
+      "package_id": "pkg_muanqcy6",
+      "package_slug": "business-ops",
+      "billing_cycle": "monthly",
+      "status": "revoked",
+      "starts_at": "2026-09-25T12:18:34.576Z",
+      "expires_at": "2026-10-25T12:18:34.574Z",
+      "activation_limit": 1,
+      "activation_count": 0,
+      "siteId": "site_1790306291864",
+      "orderId": "ord_mugcozuv",
+      "id": "lic_mugxg1cg",
+      "createdAt": "2026-09-25T12:18:34.576Z",
+      "replaces_license_id": "lic_mugxk8yr",
+      "updatedAt": "2026-09-25T12:21:51.105Z"
+    },
+    {
+      "key_hash": "11716fc2c94cb30ff1a9341a8e65447e43a6233ce2a22bb2ea00dda6da5abc0b",
+      "key_last4": "EH8W",
+      "key_encrypted": "a7ece95e6d0a9e9c84039d21:cf33f6cbd3543b6f68687d26259316c3:b3a207376c6b6000bbd137c05c6afc6a828a15198a2df7",
+      "key_signature": "a9a91b50cdb3b1ad899991e70514c166c80a1f354d6a4ceeadce78dbc2cce460",
+      "domain": "https://whatever-bar.de/slate",
+      "package_id": "pkg_muanqcy6",
+      "package_slug": "business-ops",
+      "billing_cycle": "monthly",
+      "status": "revoked",
+      "starts_at": "2026-09-25T06:30:05.809Z",
+      "expires_at": "2026-10-25T06:30:05.805Z",
+      "activation_limit": 1,
+      "activation_count": 0,
+      "siteId": "site_1790306291864",
+      "orderId": "ord_mugcozuv",
+      "id": "lic_mugkzw1e",
+      "createdAt": "2026-09-25T06:30:05.810Z",
+      "last_seen_at": "2026-09-25T12:12:42.297Z",
+      "updatedAt": "2026-09-25T12:18:34.585Z",
+      "replaces_license_id": "lic_mugxg1cg"
+    },
+    {
+      "key_hash": "60e50f013eb21f266d61ed56e820889f87ce08669b93059bb9c4e5a16eeb7071",
+      "key_last4": "BMQV",
+      "key_encrypted": "1e1158a21310da6776dce25a:0cc7f35553eea51a16149fdf6b4ee28d:103e48c54fd2be4d1c5d74f969d96f025de53cc278737d",
+      "key_signature": "e121855bca8bf3bdffaf6b8ce8cbe0b55c4cb784ed89adc03f06b8be8b9029a4",
+      "domain": "https://whatever-bar.de/slate",
+      "package_id": "pkg_muanqcy6",
+      "package_slug": "business-ops",
+      "billing_cycle": "monthly",
+      "status": "revoked",
+      "starts_at": "2026-09-25T06:25:34.310Z",
+      "expires_at": "2026-10-25T06:25:34.309Z",
+      "activation_limit": 1,
+      "activation_count": 0,
+      "siteId": "site_1790306291864",
+      "orderId": "ord_mugcozuv",
+      "id": "lic_mugku2jq",
+      "createdAt": "2026-09-25T06:25:34.310Z",
+      "replaces_license_id": "lic_mugkzw1e",
+      "updatedAt": "2026-09-25T06:30:05.841Z"
+    },
+    {
+      "key_hash": "93a20658541b999d0f753fd96fb382885328af811fac63422bb08810b7475487",
+      "key_last4": "5RJE",
+      "key_signature": "a6c7ebf2112d536344cd1c5737b4dd7f5453429130e7ae037d8b3a89e220d049",
+      "domain": "https://whatever-bar.de/slate",
+      "package_id": "pkg_muanqcy6",
+      "package_slug": "business-ops",
+      "billing_cycle": "monthly",
+      "status": "revoked",
+      "starts_at": "2026-09-25T03:52:57.384Z",
+      "expires_at": "2026-11-24T03:18:12.062Z",
+      "activation_limit": 1,
+      "activation_count": 0,
+      "siteId": "site_1790306291864",
+      "orderId": "ord_mugcozuv",
+      "id": "lic_muge53z2",
+      "createdAt": "2026-09-25T03:18:12.062Z",
+      "key_encrypted": "355879a3a598615a9c57ac8c:3a914a9d9d905f28a6264a5dca355f0d:3b767d5c765d5d652b19494efe7abca5e10381b36a3f2d",
+      "updatedAt": "2026-09-25T06:25:34.319Z",
+      "last_seen_at": "2026-09-25T04:07:42.569Z",
+      "replaces_license_id": "lic_mugku2jq"
+    }
+  ]
+}
