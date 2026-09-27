@@ -1,0 +1,227 @@
+# ============================================================
+# Slate — Apache config
+# ============================================================
+# Slate uses direct file routing for admin/, customer/, install.php
+# etc. The mod_rewrite block at the bottom routes:
+#   1. /shop/*    → plugins/shop/storefront/router.php  (legacy)
+#   2. anything else that isn't a real file/dir → public.php
+#      which delegates to PublicRouter (includes/PublicRouter.php).
+# Plugins register their public prefixes via the `public_routes` filter.
+# ============================================================
+
+# Refuse to follow symlinks (defense vs symlink attacks on shared hosts)
+Options -Indexes -FollowSymLinks +SymLinksIfOwnerMatch
+
+# UTF-8 default
+AddDefaultCharset UTF-8
+
+# Branded error pages. Root-relative, so these carry the same install path
+# as RewriteBase below — change all four together.
+ErrorDocument 403 /solaya/403.php
+ErrorDocument 404 /solaya/404.php
+ErrorDocument 500 /solaya/500.php
+
+# ── Block sensitive files at the root ───────────────────────
+<FilesMatch "^\.env|composer\.json|composer\.lock|README\.md|INSTALL\.md|ARCHITECTURE\.md|CONTRIBUTING\.md|CHANGELOG\.md$">
+    Require all denied
+</FilesMatch>
+
+# Block any dotfile (.git, .htaccess, etc.) from being served
+# Developer scratch scripts live at the document root as _name.php. They were
+# reachable over HTTP with no authentication: one dumped form submissions with
+# submitter email addresses, others rewrote menus, changed settings, or wrote
+# to files on disk. Nothing outside the app should ever reach them.
+<FilesMatch "^_.*\.php$">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+# ── Logs and stray backups, at ANY depth ────────────────────
+# FilesMatch applies to every directory below this one, which is what is
+# wanted here: PHP drops an `error_log` beside whichever script wrote it, so
+# there were ten of them scattered through plugin folders — 694KB at the root
+# alone. Nothing above denied them, and the rewrite rules explicitly serve
+# real files direct, so they were readable over HTTP and leak absolute
+# filesystem paths, plugin structure and stack traces.
+#
+# The .bak/.orig/.sql patterns cover the other common accident: an editor or a
+# hand-rolled backup left in the doc root, where a .bak of a .php is served as
+# plain text rather than executed — i.e. source disclosure.
+<FilesMatch "(^error_log$|\.log$|\.bak$|\.orig$|\.save$|\.swp$|\.sql$|~$)">
+    Require all denied
+</FilesMatch>
+
+# Block direct access to includes/, db/, scripts/, docs/, data/
+RedirectMatch 403 ^/includes/
+RedirectMatch 403 ^/db/
+RedirectMatch 403 ^/scripts/
+RedirectMatch 403 ^/docs/
+RedirectMatch 403 ^/data/
+
+# ── Security headers ────────────────────────────────────────
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    # Frame-deny everywhere EXCEPT embed requests (?embed=1), so forms/shop can
+    # be iframed on customer sites. ap_expr reads the request query string.
+    Header always set X-Frame-Options "SAMEORIGIN" "expr=%{QUERY_STRING} !~ /(^|&)embed=1/"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    # HSTS (only enable once your TLS is confirmed working)
+    # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+</IfModule>
+
+# ── Compression ─────────────────────────────────────────────
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
+</IfModule>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # ── MUST match the URL path this install is served from ─────
+    # Deployment-specific. This app lives at https://<host>/solaya, so the
+    # base is /solaya/. Serving it from a different folder — or from a
+    # domain root — and leaving this alone breaks every rewrite below:
+    # the booking widget, the customer portal and all plugin public routes
+    # 404 while real files still load, which looks like a routing bug
+    # rather than a one-line mismatch. At a domain root, use "/".
+    RewriteBase /solaya/
+
+    # ── Maintenance-script directories, at ANY depth ────────────
+    # Deny before anything else, because the rules below serve real files
+    # direct and these are real files.
+    #
+    # Same class of bug as the _*.php block above, one directory deeper:
+    # plugins/studio/tools/ ships six CLI maintenance scripts that never
+    # boot config.php — they parse .env for DB credentials themselves, so
+    # they run with full database access and no session, no permission
+    # check and no audit trail. Three of them delete or mutate data
+    # (purge_studio_orphans, cleanup_companyb, raise_season_fees) and one
+    # sends mail to every family with a balance. Their only guard is a
+    # `--apply` flag read from $argv, which a web SAPI populates from the
+    # query string when register_argc_argv is On.
+    #
+    # A per-directory .htaccess (as in bin/, db/, includes/, src/, tests/,
+    # docs/, vendor/) fixes the directories that exist today; it does not
+    # cover the next plugin that adds one, which is exactly how studio's
+    # slipped through. This is deliberately class-wide.
+    #
+    # The pattern is matched relative to THIS directory, so it holds
+    # wherever the app is mounted — unlike the RedirectMatch rules above,
+    # which are anchored at the domain root and never fire under a subfolder install.
+    #
+    # `tools`, `bin` and `scripts` are RESERVED DIRECTORY NAMES: nothing
+    # under one is ever web-served, at any depth, in core or in a plugin.
+    # Do not name an asset, upload or public-route directory any of the
+    # three — it will 403 and the cause will not be obvious from the code.
+    # Use assets/, public/ or storefront/ for anything the browser fetches.
+    RewriteRule (^|/)(tools|bin|scripts)/ - [F,L]
+
+    # ── Agent worktrees, at ANY depth ───────────────────────────
+    # `.claude/worktrees/<name>/` holds a full git worktree per AI coding
+    # session — a complete second copy of Slate, checked out on an unreviewed
+    # branch. Four exist. They sit inside the document root, so Apache serves
+    # them and PHP executes them: adr-0008-amendment-status-b776ee answered 200
+    # on admin/login.php, customer/login.php and index.php. A working second
+    # application on the production domain, running whatever a branch happened
+    # to contain mid-session.
+    #
+    # Each worktree has its own .env with a different DB_NAME and APP_SECRET,
+    # so there is no live data behind it and no token crossover — but the
+    # DB_USER is the same, so any flaw reachable in that copy is reached with
+    # credentials that also open the production database.
+    #
+    # READ THIS BEFORE RELYING ON THE RULE. It does NOT protect the four
+    # worktrees that exist today, and it was committed once with a message
+    # claiming it did.
+    #
+    # Each worktree is a FULL checkout, so it carries its own copy of this
+    # file, with its own `RewriteEngine On`. mod_rewrite per-directory rules
+    # are not inherited: once Apache finds an .htaccess with its own rewrite
+    # context, the parent's rules are never consulted. There is no
+    # `RewriteOptions Inherit` here, and adding one would push every rule in
+    # this file into four unreviewed checkouts, which is not obviously safer.
+    # Verified after the fact: admin/login.php inside a worktree still returned
+    # 200 with this rule live at the parent. The .env 403 people point to comes
+    # from the worktree's OWN copy of the dotfile rule, not from here.
+    #
+    # What it is still good for: a worktree that has no .htaccess of its own —
+    # a partial checkout, a hand-made directory, a future tool that lays one
+    # down differently. That is worth having and costs nothing.
+    #
+    # What actually fixes this is not an Apache rule at all: the worktree root
+    # has to move outside the document root. A per-worktree
+    # `.claude/.htaccess` with `Require all denied` merges rather than being
+    # replaced and does contain the current four, but `.claude/` is
+    # rsync-excluded so it can never deploy — it is a hand-applied stopgap and
+    # is deliberately not committed.
+    RewriteRule (^|/)\.claude/ - [F,L]
+
+    # ── SEC-9 containment: deactivated plugins' public surface ──
+    # TEMPORARY. Insert after the `.claude/` rule (.htaccess:151) and before
+    # the "Don't rewrite real files or directories" conditions, so it is
+    # evaluated while the request still matches a real file.
+    #
+    # Deactivating a plugin does not turn its public pages off. Only 13 of 59
+    # entry points under plugins/*/public/ and plugins/*/storefront/ consult
+    # PluginLoader::isActive(), and both directory names are browser-fetchable
+    # by design (see the reserved-names note above). Measured on production,
+    # read-only GET, 2 Sep 2026, with each plugin INACTIVE in the database:
+    #
+    #   studio/public/router.php      200, 106,112 B  full Solaya class catalog
+    #   clientdesk/public/portal.php  200,  84,742 B  branded shell + sign-in
+    #   timeclock/public/clock.php    200,  28,032 B  names both real employees
+    #   timeclock/public/landing.php  200,  23,038 B
+    #
+    # timeclock/public/clock.php is the one that does more than render: it has
+    # no authentication check of any kind, its POST branch writes via
+    # TimeclockAPI::clockIn(), and the only gate is a CSRF token the page
+    # itself issues. Not exercised — establishing that would mean writing to
+    # production — but employee ids 1 and 2 and one site row all exist on
+    # tenant 1, so every precondition the handler checks is satisfied.
+    #
+    # THIS IS A DENY-LIST AND IT GOES STALE.
+    # Every slug below is inactive TODAY. Reactivating one without removing it
+    # from this line will 403 that plugin's public pages, and the cause will
+    # not be visible from the code. Removing the slug is part of reactivating.
+    #
+    # shop and stripe-payment already refuse correctly on their own (503 from
+    # PluginLoader::isActive). shop is listed anyway so the line means "every
+    # inactive plugin" rather than "the ones we found broken" — at the cost of
+    # turning its 503 into a 403.
+    #
+    # DELETE THIS WHOLE BLOCK once slate_public_entry() lands (SEC-9). An
+    # activation check belongs in the request path, where it can see the
+    # database, not in a slug list in the web server that no deployment step
+    # keeps honest.
+    RewriteRule ^plugins/(clientdesk|flat-rate-shipping|react-site-bridge|restaurant|seo|shipping-flat-rate|shop|shop-emails|sitehub|slate-mcp|studio|timeclock)/(public|storefront)/ - [F,L]
+
+    # Don't rewrite real files or directories — they're served direct.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # Legacy: Shop's storefront router has its own .htaccess style entry.
+    # Keep this for back-compat; new plugins use the public_routes filter.
+    RewriteRule ^shop/?$               plugins/shop/storefront/router.php?_path= [L,QSA]
+    RewriteRule ^shop/(.+)$            plugins/shop/storefront/router.php?_path=$1 [L,QSA]
+
+    # Core /api/v1 gateway (headless/mobile API, MCP gateway, etc.) — maps
+    # pretty URLs to the real api/v1.php, which reads _route_path itself.
+    # Two rules, both requiring "/" or end-of-string right after v1, so
+    # neither can also match a direct request for the real api/v1.php file.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^api/v1/?$              api/v1.php?_route_path= [L,QSA]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^api/v1/(.+)$           api/v1.php?_route_path=$1 [L,QSA]
+
+    # Generic public-router catch-all. Anything that isn't a file/dir
+    # and didn't match an earlier rule lands here. PublicRouter then
+    # checks the public_routes filter for a registered prefix.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.+)$                 public.php?_path=$1 [L,QSA]
+</IfModule>

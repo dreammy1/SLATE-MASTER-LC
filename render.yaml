@@ -1,0 +1,103 @@
+# =============================================================================
+#  SLATE DevOps OS — Master Dashboard
+#  Render Blueprint (Infrastructure as Code)
+# =============================================================================
+#  What this does
+#  --------------
+#  Deploys the whole control panel to Render's free tier in one click, wired to
+#  a free Upstash Redis for storage. No VPS, no Oracle account, no credit card.
+#
+#  How to use
+#  ----------
+#   1. Push this repository to GitHub.
+#   2. Create a free Upstash Redis database (https://upstash.com) and copy its
+#      REST URL and REST TOKEN.
+#   3. On Render: New + → Blueprint → pick this repo. Render reads this file.
+#   4. When prompted, paste KV_REST_API_URL and KV_REST_API_TOKEN.
+#   5. Generate the two secrets locally and paste them when prompted:
+#         node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+#      Use a DIFFERENT value for ENCRYPTION_SECRET and JWT_SECRET.
+#
+#  ⚠️  ENCRYPTION_SECRET must stay the same forever. It protects every stored
+#      database password, handshake token and webhook secret. If you rotate it,
+#      every existing site and licence becomes unreadable. If you are migrating
+#      from an existing install, paste the value from your current .env.local
+#      instead of generating a new one.
+# =============================================================================
+
+services:
+  - type: web
+    name: slate-master-dashboard
+    runtime: node
+    plan: free
+    region: oregon # pick the region closest to most of your clients
+    branch: main
+    # Render injects $PORT. Passing it explicitly keeps behaviour identical to
+    # the systemd/PM2 setups in deploy/.
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npx next start -p $PORT -H 0.0.0.0
+    healthCheckPath: /api/selftest
+    autoDeploy: true
+
+    # ── Instance count MUST stay 1 ─────────────────────────────────────────────
+    # The storage layer keeps the document in process memory and each instance
+    # would hold its own copy, so two instances could overwrite each other's
+    # writes. Render's free plan is single-instance; do not scale this up
+    # without first moving to a store with real transactions.
+    numInstances: 1
+
+    envVars:
+      # ── Storage: Upstash Redis over HTTPS ──────────────────────────────────
+      # Without these the app would write to Render's ephemeral disk and lose
+      # every order on the next deploy. sync: false means "prompt me for the
+      # value" rather than storing it in this file.
+      - key: STORAGE_DRIVER
+        value: kv
+      - key: KV_REST_API_URL
+        sync: false
+      - key: KV_REST_API_TOKEN
+        sync: false
+
+      # ── Secrets ────────────────────────────────────────────────────────────
+      - key: ENCRYPTION_SECRET
+        generateValue: true # replace with your EXISTING value when migrating
+      - key: JWT_SECRET
+        generateValue: true
+
+      # ── Admin login ────────────────────────────────────────────────────────
+      - key: ADMIN_USERNAME
+        value: masterops
+      - key: ADMIN_PASSWORD
+        sync: false # set a strong one; this is a public URL
+
+      # ── Public URL ─────────────────────────────────────────────────────────
+      # Set this to the onrender.com URL Render assigns (or your custom domain).
+      # It MUST NOT be localhost: clients' browsers and their servers call this
+      # address directly to reach /api/..., and localhost would mean their own
+      # machine. The dashboard refuses to hand a client a loopback URL.
+      - key: MASTER_PUBLIC_URL
+        sync: false
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+
+      # ── Optional integrations ──────────────────────────────────────────────
+      - key: NODE_ENV
+        value: production
+      - key: GITHUB_DEFAULT_PAT
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM_LICENSE
+        sync: false
+      - key: SMTP_ENCRYPTION
+        value: tls

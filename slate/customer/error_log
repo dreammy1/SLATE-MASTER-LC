@@ -1,0 +1,55 @@
+[07-Sep-2026 07:38:40 UTC] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'rakilluy_rakilluy_solaya.identities' doesn't exist in /home/rakilluy/public_html/solaya/src/Data/Database.php:44
+Stack trace:
+#0 /home/rakilluy/public_html/solaya/src/Data/Database.php(44): PDO->prepare()
+#1 /home/rakilluy/public_html/solaya/src/Data/Database.php(53): Slate\Data\Database::query()
+#2 /home/rakilluy/public_html/solaya/src/Data/QueryBuilder.php(204): Slate\Data\Database::row()
+#3 /home/rakilluy/public_html/solaya/src/Services/Identity/IdentityRepository.php(20): Slate\Data\QueryBuilder->first()
+#4 /home/rakilluy/public_html/solaya/src/Services/Identity/IdentityStore.php(79): Slate\Services\Identity\IdentityRepository->findByCredential()
+#5 /home/rakilluy/public_html/solaya/src/Services/Auth/Auth.php(569): Slate\Services\Identity\IdentityStore->authenticate()
+#6 /home/rakilluy/public_html/solaya/customer/login.php(23): Slate\Services\Auth\Auth::attemptCustomerLogin()
+#7 {main}
+  thrown in /home/rakilluy/public_html/solaya/src/Data/Database.php on line 44
+[07-Sep-2026 07:38:45 UTC] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'rakilluy_rakilluy_solaya.identities' doesn't exist in /home/rakilluy/public_html/solaya/src/Data/Database.php:44
+Stack trace:
+#0 /home/rakilluy/public_html/solaya/src/Data/Database.php(44): PDO->prepare()
+#1 /home/rakilluy/public_html/solaya/src/Data/Database.php(53): Slate\Data\Database::query()
+#2 /home/rakilluy/public_html/solaya/src/Data/QueryBuilder.php(204): Slate\Data\Database::row()
+#3 /home/rakilluy/public_html/solaya/src/Services/Identity/IdentityRepository.php(20): Slate\Data\QueryBuilder->first()
+#4 /home/rakilluy/public_html/solaya/src/Services/Identity/IdentityStore.php(79): Slate\Services\Identity\IdentityRepository->findByCredential()
+#5 /home/rakilluy/public_html/solaya/src/Services/Auth/Auth.php(569): Slate\Services\Identity\IdentityStore->authenticate()
+#6 /home/rakilluy/public_html/solaya/customer/login.php(23): Slate\Services\Auth\Auth::attemptCustomerLogin()
+#7 {main}
+  thrown in /home/rakilluy/public_html/solaya/src/Data/Database.php on line 44
+[07-Sep-2026 07:43:38 UTC] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'rakilluy_rakilluy_solaya.identities' doesn't exist in /home/rakilluy/public_html/solaya/src/Data/Database.php:44
+Stack trace:
+#0 /home/rakilluy/public_html/solaya/src/Data/Database.php(44): PDO->prepare()
+#1 /home/rakilluy/public_html/solaya/src/Data/Database.php(53): Slate\Data\Database::query()
+#2 /home/rakilluy/public_html/solaya/src/Data/QueryBuilder.php(204): Slate\Data\Database::row()
+#3 /home/rakilluy/public_html/solaya/src/Services/Identity/IdentityRepository.php(20): Slate\Data\QueryBuilder->first()
+#4 /home/rakilluy/public_html/solaya/src/Services/Identity/IdentityStore.php(79): Slate\Services\Identity\IdentityRepository->findByCredential()
+#5 /home/rakilluy/public_html/solaya/src/Services/Auth/Auth.php(569): Slate\Services\Identity\IdentityStore->authenticate()
+#6 /home/rakilluy/public_html/solaya/customer/login.php(23): Slate\Services\Auth\Auth::attemptCustomerLogin()
+#7 {main}
+  thrown in /home/rakilluy/public_html/solaya/src/Data/Database.php on line 44
+[07-Sep-2026 07:47:18 UTC] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'rakilluy_rakilluy_solaya.identities' doesn't exist in /home/rakilluy/public_html/solaya/src/Data/Database.php:44
+Stack trace:
+#0 /home/rakilluy/public_html/solaya/src/Data/Database.php(44): PDO->prepare()
+#1 /home/rakilluy/public_html/solaya/src/Data/Database.php(53): Slate\Data\Database::query()
+#2 /home/rakilluy/public_html/solaya/src/Data/QueryBuilder.php(204): Slate\Data\Database::row()
+#3 /home/rakilluy/public_html/solaya/src/Services/Identity/IdentityRepository.php(20): Slate\Data\QueryBuilder->first()
+#4 /home/rakilluy/public_html/solaya/src/Services/Identity/IdentityStore.php(79): Slate\Services\Identity\IdentityRepository->findByCredential()
+#5 /home/rakilluy/public_html/solaya/src/Services/Auth/Auth.php(569): Slate\Services\Identity\IdentityStore->authenticate()
+#6 /home/rakilluy/public_html/solaya/customer/login.php(23): Slate\Services\Auth\Auth::attemptCustomerLogin()
+#7 {main}
+  thrown in /home/rakilluy/public_html/solaya/src/Data/Database.php on line 44
+[11-Sep-2026 04:40:13 UTC] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'rakilluy_rakilluy_solaya.identities' doesn't exist in /home/rakilluy/public_html/solaya/src/Data/Database.php:46
+Stack trace:
+#0 /home/rakilluy/public_html/solaya/src/Data/Database.php(46): PDO->prepare()
+#1 /home/rakilluy/public_html/solaya/src/Data/Database.php(55): Slate\Data\Database::query()
+#2 /home/rakilluy/public_html/solaya/src/Data/QueryBuilder.php(204): Slate\Data\Database::row()
+#3 /home/rakilluy/public_html/solaya/src/Services/Identity/IdentityRepository.php(20): Slate\Data\QueryBuilder->first()
+#4 /home/rakilluy/public_html/solaya/src/Services/Identity/IdentityStore.php(79): Slate\Services\Identity\IdentityRepository->findByCredential()
+#5 /home/rakilluy/public_html/solaya/src/Services/Auth/Auth.php(569): Slate\Services\Identity\IdentityStore->authenticate()
+#6 /home/rakilluy/public_html/solaya/customer/login.php(23): Slate\Services\Auth\Auth::attemptCustomerLogin()
+#7 {main}
+  thrown in /home/rakilluy/public_html/solaya/src/Data/Database.php on line 46

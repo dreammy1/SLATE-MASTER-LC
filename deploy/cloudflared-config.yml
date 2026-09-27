@@ -1,0 +1,83 @@
+# =============================================================================
+#  SLATE DevOps OS — Master Dashboard
+#  Cloudflare Tunnel configuration (free "Option C: your own PC as the server")
+# =============================================================================
+#
+#  WHY THIS EXISTS
+#  ---------------
+#  Render's free web service sleeps after 15 minutes of no traffic and takes
+#  ~1 minute to wake. A cron pinger keeps it awake, but if you would rather not
+#  depend on that timing at all, run the dashboard on your own PC and expose it
+#  through a Cloudflare Tunnel:
+#
+#    • Cloudflare terminates TLS and serves your domain — no port forwarding,
+#      no static public IP, no router changes.
+#    • Your home IP is never exposed; Cloudflare is the only entry point.
+#    • No spin-down, because the app runs on hardware you control.
+#    • Free, with no bandwidth cap that matters at this scale.
+#
+#  TRADE-OFF: the dashboard is only reachable while your PC is on and the
+#  tunnel is running. Good for a 100-customer side business where you check the
+#  panel a few times a day; NOT good if clients need the panel at 3am.
+#  If that matters, use Render + Upstash (see render.yaml) instead.
+#
+#  ---------------------------------------------------------------
+#  SETUP
+#  ---------------------------------------------------------------
+#   1. Install cloudflared:  https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
+#   2. Log in and pick your domain:
+#        cloudflared tunnel login
+#   3. Create the tunnel (note the ID it prints):
+#        cloudflared tunnel create slate-master
+#   4. Point a DNS record at it:
+#        cloudflared tunnel route dns slate-master master.yourdomain.com
+#   5. Move this file to %USERPROFILE%\.cloudflared\config.yml (Windows) or
+#      ~/.cloudflared/config.yml (Linux/macOS) and replace TUNNEL_ID below with
+#      the ID from step 3.
+#   6. Make sure the dashboard is already running locally on port 3000
+#      (npm run build && npm start).
+#   7. Start the tunnel:
+#        cloudflared tunnel run slate-master
+#   8. Set these in .env.local and restart the app:
+#        MASTER_PUBLIC_URL=https://master.yourdomain.com
+#        NEXT_PUBLIC_APP_URL=https://master.yourdomain.com
+#
+#  Run it as a background service so it survives reboots:
+#        cloudflared service install
+# =============================================================================
+
+tunnel: TUNNEL_ID
+credentials-file: C:\Users\YOUR_USER\.cloudflared\TUNNEL_ID.json
+
+# ── Ingress rules (evaluated top to bottom; the last one must be a catch-all) ─
+ingress:
+  # Your public dashboard hostname → the Next.js server on this PC.
+  - hostname: master.yourdomain.com
+    service: http://127.0.0.1:3000
+
+    # Do NOT disable TLS verify — the local hop is plain HTTP but Cloudflare
+    # still needs to trust the origin for the public HTTPS leg.
+    originRequest:
+      connectTimeout: 30s
+      # The app streams NDJSON progress for large ZIP scaffolds, so keep the
+      # timeout generous enough for a big upload on a home connection.
+      noTLSVerify: false
+      httpHostHeader: master.yourdomain.com
+
+  # Anything else that hits the tunnel gets a 404 rather than being proxied.
+  - service: http_status:404
+
+# ── Logging ──────────────────────────────────────────────────────────────────
+loglevel: info
+# Uncomment to write a log file (handy when running as a service):
+# logfile: C:\Users\YOUR_USER\.cloudflared\tunnel.log
+
+# ── Reliability ──────────────────────────────────────────────────────────────
+# Retry the local connection; useful if the app restarts while the tunnel is up.
+retries: 5
+grace-period: 30s
+
+# ── Protocol ─────────────────────────────────────────────────────────────────
+# QUIC (UDP 7844) is usually fastest. If your network blocks UDP, switch to
+# "http2" and it will fall back to a TCP connection over 443.
+protocol: quic

@@ -1,0 +1,20 @@
+[07-Sep-2026 07:39:28 UTC] PHP Fatal error:  Uncaught Error: Class "ContentBuilderAPI" not found in /home/rakilluy/public_html/solaya/admin/editor.php:20
+Stack trace:
+#0 {main}
+  thrown in /home/rakilluy/public_html/solaya/admin/editor.php on line 20
+[07-Sep-2026 07:39:30 UTC] PHP Fatal error:  Uncaught Error: Class "ContentBuilderAPI" not found in /home/rakilluy/public_html/solaya/admin/editor.php:20
+Stack trace:
+#0 {main}
+  thrown in /home/rakilluy/public_html/solaya/admin/editor.php on line 20
+[14-Sep-2026 11:58:29 UTC] PHP Warning:  Undefined array key "type" in /home/rakilluy/public_html/solaya/admin/posts.php on line 23
+[14-Sep-2026 11:58:29 UTC] PHP Stack trace:
+[14-Sep-2026 11:58:29 UTC] PHP   1. {main}() /home/rakilluy/public_html/solaya/admin/posts.php:0
+[14-Sep-2026 11:58:42 UTC] PHP Warning:  Undefined array key "type" in /home/rakilluy/public_html/solaya/admin/posts.php on line 23
+[14-Sep-2026 11:58:42 UTC] PHP Stack trace:
+[14-Sep-2026 11:58:42 UTC] PHP   1. {main}() /home/rakilluy/public_html/solaya/admin/posts.php:0
+[14-Sep-2026 11:58:52 UTC] PHP Warning:  Undefined array key "type" in /home/rakilluy/public_html/solaya/admin/posts.php on line 23
+[14-Sep-2026 11:58:52 UTC] PHP Stack trace:
+[14-Sep-2026 11:58:52 UTC] PHP   1. {main}() /home/rakilluy/public_html/solaya/admin/posts.php:0
+[14-Sep-2026 12:03:05 UTC] PHP Warning:  Undefined array key "type" in /home/rakilluy/public_html/solaya/admin/posts.php on line 23
+[14-Sep-2026 12:03:05 UTC] PHP Stack trace:
+[14-Sep-2026 12:03:05 UTC] PHP   1. {main}() /home/rakilluy/public_html/solaya/admin/posts.php:0

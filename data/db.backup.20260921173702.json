@@ -1,0 +1,1301 @@
+{
+  "sites": [
+    {
+      "domain": "https://new-e2e-test.example.io",
+      "path": "/public_html",
+      "framework": "WordPress",
+      "status": "ONLINE",
+      "dbStatus": "CONNECTED",
+      "dbSize": "2.4 MB",
+      "latency": "24ms",
+      "lastCommit": "init",
+      "repo": "org/new-e2e-test-example-io",
+      "handshakeToken": "slate_live_2f9d421394825265c518b805b7a1c315a293878a",
+      "webhookSecret": "slate_sec_51b17c94378aef6c1679d88615574db5",
+      "id": "site_1789259409894",
+      "lastDeployedAt": "2026-09-13T00:30:09.894Z",
+      "createdAt": "2026-09-13T00:30:09.894Z"
+    },
+    {
+      "domain": "https://e2e-test-app.example.com",
+      "path": "/var/www/e2e",
+      "framework": "Laravel",
+      "status": "ONLINE",
+      "dbStatus": "CONNECTED",
+      "dbSize": "2.4 MB",
+      "latency": "24ms",
+      "lastCommit": "init",
+      "repo": "test/e2e-test-repo",
+      "handshakeToken": "slate_live_215c378b6640e9e3df7ef86f4d7953f2d55dba9d",
+      "webhookSecret": "slate_sec_951f0012e53f0d1e4d37caa9553ab62c",
+      "id": "site_1789259282056",
+      "lastDeployedAt": "2026-09-13T00:28:02.056Z",
+      "createdAt": "2026-09-13T00:28:02.056Z"
+    },
+    {
+      "domain": "https://e2e-test-app.example.com",
+      "path": "/var/www/e2e",
+      "framework": "Laravel",
+      "status": "ONLINE",
+      "dbStatus": "CONNECTED",
+      "dbSize": "2.4 MB",
+      "latency": "24ms",
+      "lastCommit": "init",
+      "repo": "test/e2e-test-repo",
+      "handshakeToken": "slate_live_e6a8d5e5fc517b7cc6c94a9e600c8e078a6b296b",
+      "webhookSecret": "slate_sec_b918618a3ab482009c5cd39b2616fcd3",
+      "id": "site_1789259270403",
+      "lastDeployedAt": "2026-09-13T00:27:50.403Z",
+      "createdAt": "2026-09-13T00:27:50.403Z"
+    },
+    {
+      "domain": "https://whatever-bar.de",
+      "path": "/public_html/slate",
+      "framework": "Vanilla PHP",
+      "status": "ONLINE",
+      "dbStatus": "CONNECTED",
+      "dbSize": "0 MB",
+      "latency": "1796ms",
+      "lastCommit": "3a11d2c",
+      "repo": "dreammy1/zen-1-1",
+      "handshakeToken": "slate_live_235bd169bfd73eff21dcc83d5f233bbfa8a1e53a",
+      "webhookSecret": "slate_sec_4db04c2b9144aaae385966a91fb15f01",
+      "id": "site_1789092005350",
+      "lastDeployedAt": "2026-09-13T09:38:31.986Z",
+      "createdAt": "2026-09-11T02:00:05.35Z",
+      "cpanelLinked": true
+    },
+    {
+      "id": "site_1",
+      "domain": "https://portal.clientalpha.com",
+      "path": "/public_html/app",
+      "framework": "WordPress",
+      "status": "ONLINE",
+      "dbStatus": "CONNECTED",
+      "dbSize": "48.2 MB",
+      "latency": "34ms",
+      "lastCommit": "b89a2f1",
+      "repo": "org/clientalpha-portal",
+      "handshakeToken": "94919fdf1289f0d9fd149942be2613c3",
+      "webhookSecret": "slate_sec_clientalpha_portal_1",
+      "lastDeployedAt": "2026-09-10T23:29:07.956Z",
+      "createdAt": "2026-09-04T00:14:07.957Z"
+    },
+    {
+      "id": "site_2",
+      "domain": "https://shop.apexgear.io",
+      "path": "/var/www/html/store",
+      "framework": "React / Node",
+      "status": "ONLINE",
+      "dbStatus": "CONNECTED",
+      "dbSize": "128.5 MB",
+      "latency": "52ms",
+      "lastCommit": "fa4c90e",
+      "repo": "org/apex-storefront",
+      "handshakeToken": "slate_live_4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b",
+      "webhookSecret": "slate_sec_apex_storefront_2",
+      "lastDeployedAt": "2026-09-10T22:14:07.957Z",
+      "createdAt": "2026-08-28T00:14:07.957Z"
+    },
+    {
+      "id": "site_3",
+      "domain": "https://demo.slate-saas.net",
+      "path": "/public_html",
+      "framework": "Laravel",
+      "status": "ONLINE",
+      "dbStatus": "CONNECTED",
+      "dbSize": "14.9 MB",
+      "latency": "29ms",
+      "lastCommit": "77cd10a",
+      "repo": "org/slate-demo-php",
+      "handshakeToken": "slate_live_1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c",
+      "webhookSecret": "slate_sec_slate_demo_php_3",
+      "lastDeployedAt": "2026-09-10T19:14:07.957Z",
+      "createdAt": "2026-09-08T00:14:07.957Z"
+    }
+  ],
+  "databases": [
+    {
+      "name": "whatever_dc322d",
+      "user": "whatever_udc32",
+      "host": "localhost",
+      "port": 3306,
+      "password": "s%$#8JNZuQVF#otpp7",
+      "mode": "cpanel",
+      "size": "0 MB",
+      "tablesCount": 0,
+      "status": "ERROR",
+      "linkedSiteId": "site_1789092005350",
+      "provisionedAt": "2026-09-13T19:08:20.018Z",
+      "lastTested": "2026-09-21T08:29:57.940Z",
+      "id": "db_1789326500018",
+      "createdAt": "2026-09-13T19:08:20.018Z"
+    },
+    {
+      "id": "db_1",
+      "name": "clientalpha_portal_db",
+      "user": "calpha_usr",
+      "host": "127.0.0.1",
+      "port": 3306,
+      "mode": "mysql",
+      "size": "48.2 MB",
+      "tablesCount": 38,
+      "status": "ACTIVE",
+      "linkedSiteId": "site_1",
+      "createdAt": "2026-09-04T00:14:07.957Z"
+    },
+    {
+      "id": "db_2",
+      "name": "apex_store_db",
+      "user": "apex_admin",
+      "host": "127.0.0.1",
+      "port": 3306,
+      "mode": "mysql",
+      "size": "128.5 MB",
+      "tablesCount": 64,
+      "status": "ACTIVE",
+      "linkedSiteId": "site_2",
+      "createdAt": "2026-08-28T00:14:07.957Z"
+    },
+    {
+      "id": "db_3",
+      "name": "cpanel_slatedemo",
+      "user": "slatedemo_user",
+      "host": "cpanel.slate-saas.net",
+      "port": 3306,
+      "mode": "cpanel",
+      "size": "14.9 MB",
+      "tablesCount": 22,
+      "status": "ACTIVE",
+      "linkedSiteId": "site_3",
+      "createdAt": "2026-09-08T00:14:07.957Z"
+    }
+  ],
+  "deployments": [
+    {
+      "siteId": "site_1789092005350",
+      "domain": "https://whatever-bar.de",
+      "repo": "dreammy1/zen-1-1",
+      "commitSha": "3a11d2c",
+      "actor": "admin-ops",
+      "status": "SUCCESS",
+      "duration": "18.8s",
+      "logs": [
+        "[3:38:13 PM] TRIGGERING REAL REDEPLOYMENT FOR https://whatever-bar.de (PID: 7196)",
+        "[3:38:13 PM] Target path: /public_html/slate | Framework: Vanilla PHP",
+        "[3:38:13 PM] Fetched latest commit from GitHub: 3a11d2c by @dreammy1",
+        "[3:38:13 PM] Downloading dreammy1/zen-1-1 archive (ref 3a11d2c) from GitHub...",
+        "[3:38:18 PM] Downloaded deployment archive from GitHub: 3.03 MB — SHA 3a11d2c [HEAD -> main]",
+        "[3:38:18 PM] Verifying target directory payload: /public_html/slate",
+        "[3:38:18 PM] Running framework pre-checks for Vanilla PHP... OK",
+        "[3:38:19 PM] Agent diagnostics OK: PHP 8.2.33. Dir writable: YES. Disk free: 429480.32 MB",
+        "[3:38:19 PM] Dispatching secure payload via auth.php handshake token...",
+        "[3:38:19 PM] Handshake COMPLETED: Remote agent synchronized with SLATE Master OS successfully.",
+        "[3:38:19 PM] Uploading deployment archive to remote auth.php action=deploy endpoint...",
+        "[3:38:31 PM] REMOTE DEPLOY SUCCESS: Target https://whatever-bar.de deployed: 954 files extracted to /public_html/slate. Deployment applied successfully.",
+        "[3:38:31 PM] Unpacked delta archive and linked runtime dependencies [954 files written].",
+        "[3:38:31 PM] Executing cache invalidation and opcache_reset()... DONE (auth.php triggers this automatically)",
+        "[3:38:31 PM] Health probe: HTTP/2 GET https://whatever-bar.de — 200 OK (Latency: 1789292310845ms)",
+        "[3:38:31 PM] REDEPLOYMENT FINISHED SUCCESSFULLY. Target folder /public_html/slate has 954 new/updated files. Target is ONLINE."
+      ],
+      "id": "dep_1789292311980",
+      "timestamp": "2026-09-13T09:38:31.980Z"
+    },
+    {
+      "siteId": "site_1789092005350",
+      "domain": "https://whatever-bar.de",
+      "repo": "dreammy1/zen-1-1",
+      "commitSha": "3a11d2c",
+      "actor": "admin-ops",
+      "status": "SUCCESS",
+      "duration": "17.4s",
+      "logs": [
+        "[6:25:12 AM] TRIGGERING REAL REDEPLOYMENT FOR https://whatever-bar.de (PID: 26632)",
+        "[6:25:12 AM] Target path: /public_html/slate | Framework: Vanilla PHP",
+        "[6:25:13 AM] Fetched latest commit from GitHub: 3a11d2c by @dreammy1",
+        "[6:25:13 AM] Downloading dreammy1/zen-1-1 archive (ref 3a11d2c) from GitHub...",
+        "[6:25:17 AM] Downloaded deployment archive from GitHub: 3.03 MB — SHA 3a11d2c [HEAD -> main]",
+        "[6:25:17 AM] Verifying target directory payload: /public_html/slate",
+        "[6:25:17 AM] Running framework pre-checks for Vanilla PHP... OK",
+        "[6:25:17 AM] Agent diagnostics OK: PHP 8.2.33. Dir writable: YES. Disk free: 429806.95 MB",
+        "[6:25:17 AM] Dispatching secure payload via auth.php handshake token...",
+        "[6:25:17 AM] Handshake COMPLETED: Remote agent synchronized with SLATE Master OS successfully.",
+        "[6:25:17 AM] Uploading deployment archive to remote auth.php action=deploy endpoint...",
+        "[6:25:29 AM] REMOTE DEPLOY SUCCESS: Target https://whatever-bar.de deployed: 954 files extracted to /public_html/slate. Deployment applied successfully.",
+        "[6:25:29 AM] Unpacked delta archive and linked runtime dependencies [954 files written].",
+        "[6:25:29 AM] Executing cache invalidation and opcache_reset()... DONE (auth.php triggers this automatically)",
+        "[6:25:30 AM] Health probe: HTTP/2 GET https://whatever-bar.de — 200 OK (Latency: 1789259129349ms)",
+        "[6:25:30 AM] REDEPLOYMENT FINISHED SUCCESSFULLY. Target folder /public_html/slate has 954 new/updated files. Target is ONLINE."
+      ],
+      "id": "dep_1789259130119",
+      "timestamp": "2026-09-13T00:25:30.119Z"
+    },
+    {
+      "siteId": "site_1789092005350",
+      "domain": "https://whatever-bar.de",
+      "repo": "dreammy1/zen-1-1",
+      "commitSha": "3a11d2c",
+      "actor": "admin-ops",
+      "status": "SUCCESS",
+      "duration": "3.2s",
+      "logs": [
+        "[09:10:46] TRIGGERING REDEPLOYMENT FOR https://whatever-bar.de (PID: 2618)",
+        "[09:10:46] Fetched latest commit from GitHub: 3a11d2c by @dreammy1",
+        "[09:10:46] Synced latest commit object: 3a11d2c [HEAD -> main]",
+        "[09:10:46] Verifying target directory payload: /public_html/slate",
+        "[09:10:46] Running framework pre-checks for Vanilla PHP... OK",
+        "[09:10:46] Pinging remote agent at https://whatever-bar.de/public_html/slate/auth.php?action=diagnostics...",
+        "[09:10:46] Remote agent returned HTTP 404 - deployment may need manual intervention",
+        "[09:10:46] Dispatching secure payload via auth.php handshake token...",
+        "[09:10:46] Handshake returned HTTP 404",
+        "[09:10:46] Unpacking delta archive and linking runtime dependencies...",
+        "[09:10:46] Executing cache invalidation and opcache_reset()... DONE",
+        "[09:10:46] Health probe HTTP/2 GET https://whatever-bar.de: 200 OK (Latency: 1111ms)",
+        "[09:10:46] REDEPLOYMENT FINISHED SUCCESSFULLY. Target is ONLINE."
+      ],
+      "id": "dep_1789182649149",
+      "timestamp": "2026-09-12T03:10:49.149Z"
+    },
+    {
+      "siteId": "site_1789092005350",
+      "domain": "https://whatever-bar.de",
+      "repo": "dreammy1/zen-1-1",
+      "commitSha": "3a11d2c",
+      "actor": "admin-ops",
+      "status": "SUCCESS",
+      "duration": "3.4s",
+      "logs": [
+        "[09:03:51] TRIGGERING REDEPLOYMENT FOR https://whatever-bar.de (PID: 7985)",
+        "[09:03:51] Fetched latest commit from GitHub: 3a11d2c by @dreammy1",
+        "[09:03:51] Synced latest commit object: 3a11d2c [HEAD -> main]",
+        "[09:03:51] Verifying target directory payload: /public_html/slate",
+        "[09:03:51] Running framework pre-checks for Vanilla PHP... OK",
+        "[09:03:51] Pinging remote agent at https://whatever-bar.de/public_html/slate/auth.php?action=diagnostics...",
+        "[09:03:51] Remote agent returned HTTP 404 - deployment may need manual intervention",
+        "[09:03:51] Dispatching secure payload via auth.php handshake token...",
+        "[09:03:51] Handshake returned HTTP 404",
+        "[09:03:51] Unpacking delta archive and linking runtime dependencies...",
+        "[09:03:51] Executing cache invalidation and opcache_reset()... DONE",
+        "[09:03:51] Health probe HTTP/2 GET https://whatever-bar.de: 200 OK (Latency: 1381ms)",
+        "[09:03:51] REDEPLOYMENT FINISHED SUCCESSFULLY. Target is ONLINE."
+      ],
+      "id": "dep_1789182234442",
+      "timestamp": "2026-09-12T03:03:54.442Z"
+    },
+    {
+      "siteId": "site_1789092005350",
+      "domain": "https://whatever-bar.de",
+      "repo": "dreammy1/zen-1-1",
+      "commitSha": "3a11d2c",
+      "actor": "admin-ops",
+      "status": "SUCCESS",
+      "duration": "3.1s",
+      "logs": [
+        "[09:33:50] TRIGGERING REDEPLOYMENT FOR https://whatever-bar.de (PID: 8374)",
+        "[09:33:50] Fetched latest commit from GitHub: 3a11d2c by @dreammy1",
+        "[09:33:50] Synced latest commit object: 3a11d2c [HEAD -> main]",
+        "[09:33:50] Verifying target directory payload: /public_html/slate",
+        "[09:33:50] Running framework pre-checks for Vanilla PHP... OK",
+        "[09:33:50] Pinging remote agent at https://whatever-bar.de/public_html/slate/auth.php?action=diagnostics...",
+        "[09:33:50] Remote agent returned HTTP 404 - deployment may need manual intervention",
+        "[09:33:50] Dispatching secure payload via auth.php handshake token...",
+        "[09:33:50] Handshake returned HTTP 404",
+        "[09:33:50] Unpacking delta archive and linking runtime dependencies...",
+        "[09:33:50] Executing cache invalidation and opcache_reset()... DONE",
+        "[09:33:50] Health probe HTTP/2 GET https://whatever-bar.de: 200 OK (Latency: 1305ms)",
+        "[09:33:50] REDEPLOYMENT FINISHED SUCCESSFULLY. Target is ONLINE."
+      ],
+      "id": "dep_1789097633929",
+      "timestamp": "2026-09-11T03:33:53.929Z"
+    },
+    {
+      "siteId": "site_1789086755888",
+      "domain": "https://whatever-bar.de",
+      "repo": "org/whatever-bar-de",
+      "commitSha": "d99b35b",
+      "actor": "admin-ops",
+      "status": "SUCCESS",
+      "duration": "3.5s",
+      "logs": [
+        "[07:34:24] TRIGGERING REDEPLOYMENT FOR https://whatever-bar.de (PID: 6107)",
+        "[07:34:24] GitHub API unavailable, using cached commit reference",
+        "[07:34:24] Synced latest commit object: d99b35b [HEAD -> main]",
+        "[07:34:24] Verifying target directory payload: /public_html/slate",
+        "[07:34:24] Running framework pre-checks for Vanilla PHP... OK",
+        "[07:34:24] Pinging remote agent at https://whatever-bar.de/public_html/slate/auth.php?action=diagnostics...",
+        "[07:34:24] Remote agent returned HTTP 404 - deployment may need manual intervention",
+        "[07:34:24] Dispatching secure payload via auth.php handshake token...",
+        "[07:34:24] Handshake returned HTTP 404",
+        "[07:34:24] Unpacking delta archive and linking runtime dependencies...",
+        "[07:34:24] Executing cache invalidation and opcache_reset()... DONE",
+        "[07:34:24] Health probe HTTP/2 GET https://whatever-bar.de: 200 OK (Latency: 1258ms)",
+        "[07:34:24] REDEPLOYMENT FINISHED SUCCESSFULLY. Target is ONLINE."
+      ],
+      "id": "dep_1789090467823",
+      "timestamp": "2026-09-11T01:34:27.824Z"
+    },
+    {
+      "siteId": "site_1789086755888",
+      "domain": "https://whatever-bar.de",
+      "repo": "org/whatever-bar-de",
+      "commitSha": "8afc327",
+      "actor": "terminal-cli",
+      "status": "SUCCESS",
+      "duration": "2.8s",
+      "logs": [
+        "[06:54:06] CLI DISPATCH TRIGGERED FOR https://whatever-bar.de",
+        "[06:54:06] Remote tree checkout: org/whatever-bar-de (8afc327)",
+        "[06:54:06] Pushed payload to /public_html/slate via auth.php",
+        "[06:54:06] DEPLOYMENT SUCCEEDED. Target ONLINE."
+      ],
+      "id": "dep_1789088046948",
+      "timestamp": "2026-09-11T00:54:06.948Z"
+    },
+    {
+      "siteId": "site_1789085864259",
+      "domain": "https://test-persist.io",
+      "repo": "org/test-persist-io",
+      "commitSha": "c24345b",
+      "actor": "admin-ops",
+      "status": "SUCCESS",
+      "duration": "1.9s",
+      "logs": [
+        "[06:17:44] TRIGGERING REDEPLOYMENT FOR https://test-persist.io (PID: 8438)",
+        "[06:17:44] Initializing Git tree fetch from remote: org/test-persist-io...",
+        "[06:17:44] Synced latest commit object: c24345b [HEAD -> main]",
+        "[06:17:44] Verifying target directory payload: /var/www",
+        "[06:17:44] Running framework pre-checks for Laravel... OK",
+        "[06:17:44] Dispatching secure payload via auth.php handshake token...",
+        "[06:17:44] Unpacking delta archive and linking runtime dependencies...",
+        "[06:17:44] Executing cache invalidation and opcache_reset()... DONE",
+        "[06:17:44] Health probe HTTP/2 GET https://test-persist.io: 200 OK (Latency: 32ms)",
+        "[06:17:44] REDEPLOYMENT FINISHED SUCCESSFULLY. Target is ONLINE."
+      ],
+      "id": "dep_1789085864964",
+      "timestamp": "2026-09-11T00:17:44.964Z"
+    },
+    {
+      "id": "dep_1",
+      "siteId": "site_1",
+      "domain": "https://portal.clientalpha.com",
+      "repo": "org/clientalpha-portal",
+      "commitSha": "b89a2f1",
+      "actor": "devops-lead",
+      "status": "SUCCESS",
+      "duration": "4.2s",
+      "timestamp": "2026-09-10T23:29:07.957Z",
+      "logs": [
+        "[05:25:01] INITIATING ZERO-TOUCH CI/CD PIPELINE FOR portal.clientalpha.com",
+        "[05:25:02] Authenticating via SLATE agent handshake token... SUCCESS [200 OK]",
+        "[05:25:02] Target runtime verified: PHP 8.2 / PDO MySQL / ZipArchive",
+        "[05:25:03] Pulling commit b89a2f1 from org/clientalpha-portal (branch: main)",
+        "[05:25:04] Synchronizing release payload to /public_html/app...",
+        "[05:25:04] Atomic file swap and cache invalidation completed.",
+        "[05:25:05] Target environment responded 200 OK. Health check latency: 34ms.",
+        "[05:25:05] DEPLOYMENT COMPLETE (Duration: 4.2s) - Status: ONLINE"
+      ]
+    },
+    {
+      "id": "dep_2",
+      "siteId": "site_2",
+      "domain": "https://shop.apexgear.io",
+      "repo": "org/apex-storefront",
+      "commitSha": "fa4c90e",
+      "actor": "frontend-team",
+      "status": "SUCCESS",
+      "duration": "6.8s",
+      "timestamp": "2026-09-10T22:14:07.957Z",
+      "logs": [
+        "[04:10:10] INITIATING CI/CD BUILD FOR shop.apexgear.io",
+        "[04:10:11] Target node: /var/www/html/store verified.",
+        "[04:10:13] Building React/Next.js standalone bundle (fa4c90e)...",
+        "[04:10:15] Deploying artifact archive to edge cluster...",
+        "[04:10:16] Zero-downtime container hot-reload executed.",
+        "[04:10:17] Health probe: Latency 52ms. Status: ONLINE"
+      ]
+    }
+  ],
+  "settings": {
+    "githubTokenEncrypted": "f9e778d6b846838f7d9e2ded:ac0b0025cae94d0d9887e7bb3f7ce48e:957bda9e4d7fde8f137e2e37ca27e60626b7b900a6287d511fc2038813ee207e36736424a0cda877",
+    "githubUsername": "dreammy1",
+    "githubAvatar": "https://avatars.githubusercontent.com/u/50229363?v=4",
+    "autoSyncInterval": 30,
+    "notifyOnDeploy": true
+  },
+  "migrations": [
+    {
+      "title": "Server-to-Server Live Clone",
+      "source": {
+        "serverName": "Source Server (Export) 1",
+        "cpanelHost": "https://premium106.web-hosting.com:2083",
+        "cpanelPort": 2083,
+        "cpanelUser": "rakilluy",
+        "cpanelApiToken": "LT7QVEB424VR17GT0YOOOZPHK63QQU9K",
+        "fileManagerPath": "/public_html/solaya",
+        "siteUrl": "https://rakibhasaan.com",
+        "dbHost": "localhost",
+        "dbName": "rakilluy_rakilluy_solaya",
+        "dbUser": "rakilluy_rakilluy_solaya",
+        "dbPass": "rakilluy_solaya"
+      },
+      "destination": {
+        "serverName": "Destination Server (Import) 2",
+        "cpanelHost": "https://uk701.cloudwebhosting.com:2083",
+        "cpanelPort": 2083,
+        "cpanelUser": "whatever",
+        "cpanelApiToken": "OZSDJTQP01QXZO3OSXF65UBSDN6INLAI",
+        "fileManagerPath": "/public_html/slate",
+        "siteUrl": "https://whatever-bar.de/slate",
+        "dbHost": "localhost",
+        "dbName": "whatever_dc322d",
+        "dbUser": "whatever_udc32",
+        "dbPass": "s%$#8JNZuQVF#otpp7"
+      },
+      "options": {
+        "syncFiles": true,
+        "syncDatabase": true,
+        "replaceDomainUrls": true,
+        "fixFilePermissions": true
+      },
+      "status": "COMPLETED",
+      "progress": 100,
+      "totalFiles": 740,
+      "transferredFiles": 740,
+      "totalDbTables": 103,
+      "transferredDbTables": 103,
+      "currentStep": "Auto-migration completed. 1 target(s) are verified live mirror copies with real file writes.",
+      "logs": [
+        {
+          "timestamp": "1:37:29 AM",
+          "message": "Migration plan updated and staged.",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:37:37 AM",
+          "message": "=== AUTO-MIGRATION STARTED: https://rakibhasaan.com -> https://uk701.cloudwebhosting.com:2083 ===",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:37:37 AM",
+          "message": "Options: files=ON, database=ON, url-replace=ON, perms-fix=ON.",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:37:39 AM",
+          "message": "--- Step 1/4: Handshake + Source staging ---",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:37:42 AM",
+          "message": "SO handshake: Remote agent synchronized with SLATE Master OS successfully.",
+          "type": "success"
+        },
+        {
+          "timestamp": "1:37:44 AM",
+          "message": "TG[1] handshake: Remote agent synchronized with SLATE Master OS successfully.",
+          "type": "success"
+        },
+        {
+          "timestamp": "1:37:46 AM",
+          "message": "--- Step 2/4: Source export (package files + dump DB) ---",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:37:46 AM",
+          "message": "Packaging SOURCE directory into transfer bundle...",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:37:57 AM",
+          "message": "SOURCE package OK: Source packaged 697 files into zip downloaded to master staging (2.45 MB).",
+          "type": "success"
+        },
+        {
+          "timestamp": "1:37:57 AM",
+          "message": "Dumping SOURCE database rakilluy_rakilluy_solaya...",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:38:01 AM",
+          "message": "SOURCE dump OK: Source DB rakilluy_rakilluy_solaya dumped (100 tables, 0.18 MB).",
+          "type": "success"
+        },
+        {
+          "timestamp": "1:38:01 AM",
+          "message": "Domain replacement mode: PER-TARGET (will rewrite source domain to each target's URL individually).",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:38:01 AM",
+          "message": " Per-target domain replacement QUEUED for 1 target(s) (applied in Step 3 before SQL import).",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:38:03 AM",
+          "message": "--- Step 3/4: Target deploy + DB import ---",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:38:03 AM",
+          "message": "TG[1] Provisioning target database...",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:38:04 AM",
+          "message": "TG[1] DB provision OK: Target DB whatever_dc322d validated (0 tables). Provisioning skipped: credentials pre-supplied.",
+          "type": "success"
+        },
+        {
+          "timestamp": "1:38:04 AM",
+          "message": "TG[1] Deploying file payload to /public_html/slate...",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:39:35 AM",
+          "message": "TG[1] DEPLOY OK: Target https://whatever-bar.de deployed: 697 files extracted to /public_html/slate. Deployment applied successfully.",
+          "type": "success"
+        },
+        {
+          "timestamp": "1:39:35 AM",
+          "message": "TG[1] Applying PER-TARGET domain rewrite: https://rakibhasaan.com -> https://whatever-bar.de...",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:39:35 AM",
+          "message": "TG[1] SQL rewrite OK: Applied domain/URL transformation to SQL dump (2 patterns). Output: C:\\Users\\TID2FB~1.S\\AppData\\Local\\Temp\\slate-migration\\src-sql-1789328279919-nfncgb.replaced.sql.",
+          "type": "success"
+        },
+        {
+          "timestamp": "1:39:35 AM",
+          "message": "TG[1] Importing SQL into whatever_dc322d...",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:39:47 AM",
+          "message": "TG[1] SQL IMPORT FAIL: SQL import failed: Query failed: SQLSTATE[42000]: Syntax error or access violation: 1064 You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '/usr/bin/mysqldump: Deprecated program name. It will be removed in a future r...' at line 1 || SQL snippet: /usr/bin/mysqldump: Deprecated program name. It will be removed in a future release, use '/usr/bin/mariadb-dump' instead\n/*M!999999\\- enable the sandbox mode */ \n\n/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CL",
+          "type": "error"
+        },
+        {
+          "timestamp": "1:39:47 AM",
+          "message": "TG[1] Updating wp-config.php/.env credentials and fixing permissions...",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:39:48 AM",
+          "message": "TG[1] config OK: Updated .env:DB_DATABASE(appended), .env:DB_USERNAME(appended), .env:DB_PASSWORD(appended), .env:DB_HOST, .env:APP_URL, permissions:dirs=290,files=1488.",
+          "type": "success"
+        },
+        {
+          "timestamp": "1:47:38 AM",
+          "message": "=== AUTO-MIGRATION STARTED: https://rakibhasaan.com -> https://uk701.cloudwebhosting.com:2083 ===",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:47:38 AM",
+          "message": "Options: files=ON, database=ON, url-replace=ON, perms-fix=ON.",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:47:40 AM",
+          "message": "--- Step 1/4: Handshake + Source staging ---",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:47:51 AM",
+          "message": "SO handshake: Remote agent synchronized with SLATE Master OS successfully.",
+          "type": "success"
+        },
+        {
+          "timestamp": "1:47:52 AM",
+          "message": "TG[1] handshake: Remote agent synchronized with SLATE Master OS successfully.",
+          "type": "success"
+        },
+        {
+          "timestamp": "1:47:54 AM",
+          "message": "--- Step 2/4: Source export (package files + dump DB) ---",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:47:54 AM",
+          "message": "Packaging SOURCE directory into transfer bundle...",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:48:05 AM",
+          "message": "SOURCE package OK: Source packaged 697 files into zip downloaded to master staging (2.45 MB).",
+          "type": "success"
+        },
+        {
+          "timestamp": "1:48:05 AM",
+          "message": "Dumping SOURCE database rakilluy_rakilluy_solaya...",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:48:09 AM",
+          "message": "SOURCE dump OK: Source DB rakilluy_rakilluy_solaya dumped (100 tables, 0.18 MB).",
+          "type": "success"
+        },
+        {
+          "timestamp": "1:48:09 AM",
+          "message": "Domain replacement mode: PER-TARGET (will rewrite source domain to each target's URL individually).",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:48:09 AM",
+          "message": " Per-target domain replacement QUEUED for 1 target(s) (applied in Step 3 before SQL import).",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:48:11 AM",
+          "message": "--- Step 3/4: Target deploy + DB import ---",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:48:11 AM",
+          "message": "TG[1] Provisioning target database...",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:48:12 AM",
+          "message": "TG[1] DB provision OK: Target DB whatever_dc322d validated (0 tables). Provisioning skipped: credentials pre-supplied.",
+          "type": "success"
+        },
+        {
+          "timestamp": "1:48:12 AM",
+          "message": "TG[1] Deploying file payload to /public_html/slate...",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:49:35 AM",
+          "message": "TG[1] DEPLOY OK: Target https://whatever-bar.de deployed: 697 files extracted to /public_html/slate. Deployment applied successfully.",
+          "type": "success"
+        },
+        {
+          "timestamp": "1:49:35 AM",
+          "message": "TG[1] Applying PER-TARGET domain rewrite: https://rakibhasaan.com -> https://whatever-bar.de...",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:49:35 AM",
+          "message": "TG[1] SQL rewrite OK: Applied domain/URL transformation to SQL dump (2 patterns). Output: C:\\Users\\TID2FB~1.S\\AppData\\Local\\Temp\\slate-migration\\src-sql-1789328887963-5hbg6c.replaced.sql.",
+          "type": "success"
+        },
+        {
+          "timestamp": "1:49:35 AM",
+          "message": "TG[1] Importing SQL into whatever_dc322d...",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:49:39 AM",
+          "message": "TG[1] SQL IMPORT FAIL: SQL import failed: Query failed: SQLSTATE[42000]: Syntax error or access violation: 1064 You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '/usr/bin/mysqldump: Deprecated program name. It will be removed in a future r...' at line 1 || SQL snippet: /usr/bin/mysqldump: Deprecated program name. It will be removed in a future release, use '/usr/bin/mariadb-dump' instead\n/*M!999999\\- enable the sandbox mode */ \n\n/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CL",
+          "type": "error"
+        },
+        {
+          "timestamp": "1:49:39 AM",
+          "message": "TG[1] Updating wp-config.php/.env credentials and fixing permissions...",
+          "type": "info"
+        },
+        {
+          "timestamp": "1:49:39 AM",
+          "message": "TG[1] config OK: Updated .env:DB_DATABASE(appended), .env:DB_USERNAME(appended), .env:DB_PASSWORD(appended), .env:DB_HOST, .env:APP_URL, permissions:dirs=290,files=1488.",
+          "type": "success"
+        },
+        {
+          "timestamp": "5:57:20 PM",
+          "message": "=== AUTO-MIGRATION STARTED: https://rakibhasaan.com -> https://uk701.cloudwebhosting.com:2083 ===",
+          "type": "info"
+        },
+        {
+          "timestamp": "5:57:20 PM",
+          "message": "Options: files=ON, database=ON, url-replace=ON, perms-fix=ON.",
+          "type": "info"
+        },
+        {
+          "timestamp": "5:57:22 PM",
+          "message": "--- Step 1/4: Handshake + Source staging ---",
+          "type": "info"
+        },
+        {
+          "timestamp": "5:57:24 PM",
+          "message": "SO handshake: Remote agent synchronized with SLATE Master OS successfully.",
+          "type": "success"
+        },
+        {
+          "timestamp": "5:57:26 PM",
+          "message": "TG[1] handshake: Remote agent synchronized with SLATE Master OS successfully.",
+          "type": "success"
+        },
+        {
+          "timestamp": "5:57:28 PM",
+          "message": "--- Step 2/4: Source export (package files + dump DB) ---",
+          "type": "info"
+        },
+        {
+          "timestamp": "5:57:28 PM",
+          "message": "Packaging SOURCE directory into transfer bundle...",
+          "type": "info"
+        },
+        {
+          "timestamp": "5:57:35 PM",
+          "message": "SOURCE package OK: Source packaged 739 files into zip downloaded to master staging (2.52 MB).",
+          "type": "success"
+        },
+        {
+          "timestamp": "5:57:35 PM",
+          "message": "Dumping SOURCE database rakilluy_rakilluy_solaya...",
+          "type": "info"
+        },
+        {
+          "timestamp": "5:57:37 PM",
+          "message": "SOURCE dump OK: Source DB rakilluy_rakilluy_solaya dumped (103 tables, 0.20 MB). SQL dump sanitized (162 bytes removed).",
+          "type": "success"
+        },
+        {
+          "timestamp": "5:57:37 PM",
+          "message": "Domain replacement mode: PER-TARGET (will rewrite source domain to each target's URL individually).",
+          "type": "info"
+        },
+        {
+          "timestamp": "5:57:37 PM",
+          "message": " Per-target domain replacement QUEUED for 1 target(s) (applied in Step 3 before SQL import).",
+          "type": "info"
+        },
+        {
+          "timestamp": "5:57:39 PM",
+          "message": "--- Step 3/4: Target deploy + DB import ---",
+          "type": "info"
+        },
+        {
+          "timestamp": "5:57:39 PM",
+          "message": "TG[1] Provisioning target database...",
+          "type": "info"
+        },
+        {
+          "timestamp": "5:57:40 PM",
+          "message": "TG[1] DB provision OK: Target DB whatever_dc322d validated (0 tables). Provisioning skipped: credentials pre-supplied.",
+          "type": "success"
+        },
+        {
+          "timestamp": "5:57:40 PM",
+          "message": "TG[1] Deploying file payload to /public_html/slate...",
+          "type": "info"
+        },
+        {
+          "timestamp": "5:57:49 PM",
+          "message": "TG[1] DEPLOY OK: Target https://whatever-bar.de deployed: 739 files extracted to /public_html/slate. Deployment applied successfully.",
+          "type": "success"
+        },
+        {
+          "timestamp": "5:57:49 PM",
+          "message": "TG[1] Applying PER-TARGET domain rewrite: https://rakibhasaan.com -> https://whatever-bar.de...",
+          "type": "info"
+        },
+        {
+          "timestamp": "5:57:49 PM",
+          "message": "TG[1] SQL rewrite OK: Applied domain/URL transformation to SQL dump (2 patterns). SQL dump sanitized (0 bytes removed). Output: C:\\Users\\TID2FB~1.S\\AppData\\Local\\Temp\\slate-migration\\src-sql-1789387056303-dsd4fg.replaced.sql.",
+          "type": "success"
+        },
+        {
+          "timestamp": "5:57:49 PM",
+          "message": "TG[1] Importing SQL into whatever_dc322d...",
+          "type": "info"
+        },
+        {
+          "timestamp": "5:57:50 PM",
+          "message": "TG[1] SQL IMPORT OK: Target SQL imported into whatever_dc322d: 1 queries executed, 103 tables present.",
+          "type": "success"
+        },
+        {
+          "timestamp": "5:57:50 PM",
+          "message": "TG[1] Updating wp-config.php/.env credentials and fixing permissions...",
+          "type": "info"
+        },
+        {
+          "timestamp": "5:57:50 PM",
+          "message": "TG[1] config OK: Updated .env:DB_DATABASE(appended), .env:DB_USERNAME(appended), .env:DB_PASSWORD(appended), .env:DB_HOST, .env:APP_URL, permissions:dirs=291,files=1530.",
+          "type": "success"
+        },
+        {
+          "timestamp": "5:57:52 PM",
+          "message": "--- Step 4/4: Target verification ---",
+          "type": "info"
+        },
+        {
+          "timestamp": "5:57:53 PM",
+          "message": "TG[1] VERIFIED: Target probe: auth.php agent reachable=YES, site HTTP 2xx/3xx. Disk free: 428346.35 MB.",
+          "type": "success"
+        },
+        {
+          "timestamp": "5:57:53 PM",
+          "message": "Cleaned up 3 master staging files (zip + SQL variants).",
+          "type": "info"
+        },
+        {
+          "timestamp": "5:57:53 PM",
+          "message": "=== MIGRATION COMPLETED: 1 target(s) online, directory write audit PASSED. ===",
+          "type": "success"
+        },
+        {
+          "timestamp": "6:25:02 PM",
+          "message": "=== AUTO-MIGRATION STARTED: https://rakibhasaan.com -> https://uk701.cloudwebhosting.com:2083 ===",
+          "type": "info"
+        },
+        {
+          "timestamp": "6:25:02 PM",
+          "message": "Options: files=ON, database=ON, url-replace=ON, perms-fix=ON.",
+          "type": "info"
+        },
+        {
+          "timestamp": "6:25:04 PM",
+          "message": "--- Step 1/4: Handshake + Source staging ---",
+          "type": "info"
+        },
+        {
+          "timestamp": "6:25:06 PM",
+          "message": "SO handshake: Remote agent synchronized with SLATE Master OS successfully.",
+          "type": "success"
+        },
+        {
+          "timestamp": "6:25:07 PM",
+          "message": "TG[1] handshake: Remote agent synchronized with SLATE Master OS successfully.",
+          "type": "success"
+        },
+        {
+          "timestamp": "6:25:09 PM",
+          "message": "--- Step 2/4: Source export (package files + dump DB) ---",
+          "type": "info"
+        },
+        {
+          "timestamp": "6:25:09 PM",
+          "message": "Packaging SOURCE directory into transfer bundle...",
+          "type": "info"
+        },
+        {
+          "timestamp": "6:25:20 PM",
+          "message": "SOURCE package OK: Source packaged 740 files into zip downloaded to master staging (2.52 MB).",
+          "type": "success"
+        },
+        {
+          "timestamp": "6:25:20 PM",
+          "message": "Dumping SOURCE database rakilluy_rakilluy_solaya...",
+          "type": "info"
+        },
+        {
+          "timestamp": "6:25:23 PM",
+          "message": "SOURCE dump OK: Source DB rakilluy_rakilluy_solaya dumped (103 tables, 0.20 MB). SQL dump sanitized (162 bytes removed).",
+          "type": "success"
+        },
+        {
+          "timestamp": "6:25:23 PM",
+          "message": "Domain replacement mode: PER-TARGET (will rewrite source domain to each target's URL individually).",
+          "type": "info"
+        },
+        {
+          "timestamp": "6:25:23 PM",
+          "message": " Per-target domain replacement QUEUED for 1 target(s) (applied in Step 3 before SQL import).",
+          "type": "info"
+        },
+        {
+          "timestamp": "6:25:25 PM",
+          "message": "--- Step 3/4: Target deploy + DB import ---",
+          "type": "info"
+        },
+        {
+          "timestamp": "6:25:25 PM",
+          "message": "TG[1] Provisioning target database...",
+          "type": "info"
+        },
+        {
+          "timestamp": "6:25:26 PM",
+          "message": "TG[1] DB provision OK: Target DB whatever_dc322d validated (103 tables). Provisioning skipped: credentials pre-supplied.",
+          "type": "success"
+        },
+        {
+          "timestamp": "6:25:26 PM",
+          "message": "TG[1] Deploying file payload to /public_html/slate...",
+          "type": "info"
+        },
+        {
+          "timestamp": "6:25:28 PM",
+          "message": "TG[1] DEPLOY OK: Target https://whatever-bar.de/slate deployed: 740 files extracted to /public_html/slate. Deployment applied successfully.",
+          "type": "success"
+        },
+        {
+          "timestamp": "6:25:28 PM",
+          "message": "TG[1] Applying PER-TARGET domain rewrite: https://rakibhasaan.com -> https://whatever-bar.de/slate...",
+          "type": "info"
+        },
+        {
+          "timestamp": "6:25:28 PM",
+          "message": "TG[1] SQL rewrite OK: Applied domain/URL transformation to SQL dump (2 patterns). SQL dump sanitized (0 bytes removed). Output: C:\\Users\\TID2FB~1.S\\AppData\\Local\\Temp\\slate-migration\\src-sql-1789388721483-0ixwxu.replaced.sql.",
+          "type": "success"
+        },
+        {
+          "timestamp": "6:25:28 PM",
+          "message": "TG[1] Importing SQL into whatever_dc322d...",
+          "type": "info"
+        },
+        {
+          "timestamp": "6:25:30 PM",
+          "message": "TG[1] SQL IMPORT OK: Target SQL imported into whatever_dc322d: 1 queries executed, 103 tables present.",
+          "type": "success"
+        },
+        {
+          "timestamp": "6:25:30 PM",
+          "message": "TG[1] Updating wp-config.php/.env credentials and fixing permissions...",
+          "type": "info"
+        },
+        {
+          "timestamp": "6:25:30 PM",
+          "message": "TG[1] config OK: Updated .env:DB_DATABASE(appended), .env:DB_USERNAME(appended), .env:DB_PASSWORD(appended), .env:DB_HOST, .env:APP_URL, permissions:dirs=291,files=1531.",
+          "type": "success"
+        },
+        {
+          "timestamp": "6:25:32 PM",
+          "message": "--- Step 4/4: Target verification ---",
+          "type": "info"
+        },
+        {
+          "timestamp": "6:25:33 PM",
+          "message": "TG[1] VERIFIED: Target probe: auth.php agent reachable=YES, site HTTP ERROR. Disk free: 428939.85 MB.",
+          "type": "success"
+        },
+        {
+          "timestamp": "6:25:33 PM",
+          "message": "Cleaned up 3 master staging files (zip + SQL variants).",
+          "type": "info"
+        },
+        {
+          "timestamp": "6:25:33 PM",
+          "message": "=== MIGRATION COMPLETED: 1 target(s) online, directory write audit PASSED. ===",
+          "type": "success"
+        }
+      ],
+      "id": "mig_mtxrn5uk",
+      "createdAt": "2026-09-12T02:28:31.964Z",
+      "completedAt": "2026-09-14T12:25:33.889Z",
+      "targets": [
+        {
+          "serverName": "Destination Server (Import) 2",
+          "cpanelHost": "https://uk701.cloudwebhosting.com:2083",
+          "cpanelPort": 2083,
+          "cpanelUser": "whatever",
+          "cpanelApiToken": "OZSDJTQP01QXZO3OSXF65UBSDN6INLAI",
+          "fileManagerPath": "/public_html/slate",
+          "siteUrl": "https://whatever-bar.de/slate",
+          "dbHost": "localhost",
+          "dbName": "whatever_dc322d",
+          "dbUser": "whatever_udc32",
+          "dbPass": "s%$#8JNZuQVF#otpp7"
+        }
+      ],
+      "_meta": {
+        "srcZipPaths": {
+          "__default": "C:\\Users\\TID2FB~1.S\\AppData\\Local\\Temp\\slate-migration\\src-files-1789388710693-drl1cq.zip"
+        },
+        "srcSqlPaths": {
+          "__base": "C:\\Users\\TID2FB~1.S\\AppData\\Local\\Temp\\slate-migration\\src-sql-1789388721483-0ixwxu.sql",
+          "__default": "C:\\Users\\TID2FB~1.S\\AppData\\Local\\Temp\\slate-migration\\src-sql-1789388721483-0ixwxu.sql"
+        },
+        "tgtSqlPaths": {
+          "tgt_0": "C:\\Users\\TID2FB~1.S\\AppData\\Local\\Temp\\slate-migration\\src-sql-1789388721483-0ixwxu.replaced.sql"
+        },
+        "tgtCredentials": [
+          {
+            "index": 0,
+            "db_name": "whatever_dc322d",
+            "db_user": "whatever_udc32",
+            "db_password": "s%$#8JNZuQVF#otpp7",
+            "db_host": "localhost"
+          }
+        ]
+      },
+      "error": "One or more targets failed to deploy/import. Review logs and retry."
+    },
+    {
+      "id": "mig_sample_1",
+      "title": "Live Production Cluster Sync (cPanel US -> EU)",
+      "source": {
+        "serverName": "cPanel Node US-East (Old Host)",
+        "cpanelHost": "cpanel.useast-legacy.net",
+        "cpanelPort": 2083,
+        "cpanelUser": "legacyalpha",
+        "cpanelApiToken": "CPANEL_TOKEN_ALPHA_US_SEC_99",
+        "fileManagerPath": "/home/legacyalpha/public_html",
+        "siteUrl": "https://legacy-portal.clientalpha.com",
+        "dbHost": "localhost",
+        "dbName": "legacyalpha_wp",
+        "dbUser": "legacyalpha_usr",
+        "dbPass": "masked"
+      },
+      "destination": {
+        "serverName": "cPanel Node EU-Central (Target Cloud)",
+        "cpanelHost": "cpanel.eucloud-speed.net",
+        "cpanelPort": 2083,
+        "cpanelUser": "apexcloud",
+        "cpanelApiToken": "CPANEL_TOKEN_EU_SPEED_88",
+        "fileManagerPath": "/home/apexcloud/public_html",
+        "siteUrl": "https://portal.clientalpha.com",
+        "dbHost": "localhost",
+        "dbName": "apexcloud_wp_mirror",
+        "dbUser": "apexcloud_usr",
+        "dbPass": "masked"
+      },
+      "options": {
+        "syncFiles": true,
+        "syncDatabase": true,
+        "replaceDomainUrls": true,
+        "fixFilePermissions": true
+      },
+      "status": "COMPLETED",
+      "progress": 100,
+      "totalFiles": 4218,
+      "transferredFiles": 4218,
+      "totalDbTables": 38,
+      "transferredDbTables": 38,
+      "currentStep": "Migration finished successfully. Target site is verified mirror copy.",
+      "logs": [
+        {
+          "timestamp": "10:14:02",
+          "message": "Handshake verified with Source cPanel Node US-East.",
+          "type": "success"
+        },
+        {
+          "timestamp": "10:14:05",
+          "message": "Handshake verified with Destination cPanel Node EU-Central.",
+          "type": "success"
+        },
+        {
+          "timestamp": "10:14:15",
+          "message": "Database exported (legacyalpha_wp: 38 tables, 64.2 MB).",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:14:35",
+          "message": "SQL search-and-replace applied: legacy-portal.clientalpha.com -> portal.clientalpha.com",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:14:55",
+          "message": "Database imported into Destination (apexcloud_wp_mirror).",
+          "type": "success"
+        },
+        {
+          "timestamp": "10:15:20",
+          "message": "File tree compressed into stream bundle (4,218 files).",
+          "type": "info"
+        },
+        {
+          "timestamp": "10:16:40",
+          "message": "All files extracted to destination /home/apexcloud/public_html.",
+          "type": "success"
+        },
+        {
+          "timestamp": "10:16:48",
+          "message": "Configured wp-config.php / .env credentials and file permissions (0644/0755).",
+          "type": "success"
+        }
+      ],
+      "createdAt": "2026-09-11T10:14:00Z",
+      "completedAt": "2026-09-11T10:16:50Z"
+    }
+  ],
+  "packages": [
+    {
+      "id": "pkg_muanqcy6",
+      "slug": "business-ops",
+      "name": "Business Ops",
+      "description": "Slate core + booking + membership + stripe-payment",
+      "is_active": true,
+      "sort_order": 0,
+      "pluginSet": [
+        "booking",
+        "membership",
+        "stripe-payment"
+      ],
+      "restrictions": [
+        {
+          "match": "admin/settings.php",
+          "mode": "block"
+        },
+        {
+          "match": "admin/plugins.php",
+          "mode": "block"
+        },
+        {
+          "match": "admin/users.php",
+          "mode": "block"
+        },
+        {
+          "match": "admin/roles.php",
+          "mode": "block"
+        },
+        {
+          "match": "plugins/booking/admin/new.php",
+          "mode": "block"
+        },
+        {
+          "match": "plugins/booking/admin/settings.php",
+          "mode": "block"
+        },
+        {
+          "match": "plugins/stripe-payment/admin/*",
+          "mode": "block"
+        },
+        {
+          "match": "plugins/booking/admin/appointments.php",
+          "mode": "readonly"
+        },
+        {
+          "match": "plugins/booking/admin/customers.php",
+          "mode": "readonly"
+        },
+        {
+          "match": "plugins/membership/admin/members.php",
+          "mode": "readonly"
+        },
+        {
+          "match": "admin/contact_forms.php",
+          "mode": "readonly"
+        }
+      ],
+      "pricing": {
+        "monthly_cents": 2900,
+        "yearly_cents": 29000,
+        "lifetime_cents": 99000,
+        "currency": "USD"
+      },
+      "githubRef": "v1.4.0",
+      "createdAt": "2026-09-21T03:00:02.958Z"
+    },
+    {
+      "id": "pkg_muaocpsv",
+      "slug": "business-ops-2",
+      "name": "Business Ops 2",
+      "description": "Slate core + form + stripe-payment",
+      "is_active": true,
+      "sort_order": 0,
+      "pluginSet": [
+        "form",
+        "stripe-payment"
+      ],
+      "restrictions": [
+        {
+          "match": "admin/settings.php",
+          "mode": "block"
+        },
+        {
+          "match": "admin/plugins.php",
+          "mode": "block"
+        },
+        {
+          "match": "admin/users.php",
+          "mode": "block"
+        },
+        {
+          "match": "admin/roles.php",
+          "mode": "block"
+        },
+        {
+          "match": "plugins/booking/admin/new.php",
+          "mode": "block"
+        },
+        {
+          "match": "plugins/booking/admin/settings.php",
+          "mode": "block"
+        },
+        {
+          "match": "plugins/stripe-payment/admin/*",
+          "mode": "block"
+        },
+        {
+          "match": "plugins/booking/admin/appointments.php",
+          "mode": "readonly"
+        },
+        {
+          "match": "plugins/booking/admin/customers.php",
+          "mode": "readonly"
+        },
+        {
+          "match": "plugins/membership/admin/members.php",
+          "mode": "readonly"
+        },
+        {
+          "match": "admin/contact_forms.php",
+          "mode": "readonly"
+        }
+      ],
+      "pricing": {
+        "monthly_cents": 900,
+        "yearly_cents": 2000,
+        "lifetime_cents": 9000,
+        "currency": "USD"
+      },
+      "githubRef": "v1.4.0",
+      "createdAt": "2026-09-21T03:17:26.047Z"
+    }
+  ],
+  "orders": [
+    {
+      "package_id": "pkg_muanqcy6",
+      "billing_cycle": "monthly",
+      "siteUrl": "https://whatever-bar.de/slate",
+      "base_path": "/slate",
+      "fileManagerPath": "/public_html/slate",
+      "cpanelHost": "https://uk701.cloudwebhosting.com",
+      "cpanelUser": "whatever",
+      "cpanelApiTokenEncrypted": "f2c75875ad1427480c893836:65b8533982eb812f7b6df9378f8d257e:5ad73a4f629c4d24426a539aae05b11997f6f5b274ce8c16b4bb7c0db7e6ba75",
+      "contactName": "Whatever",
+      "contactPhone": "01816641312",
+      "contactEmail": "rahmmed750@gmail.com",
+      "payMethod": "manual_custom",
+      "status": "bootstrap_running",
+      "id": "ord_mub26zwl",
+      "progressPercent": 2,
+      "progressStage": "VALIDATING",
+      "createdAt": "2026-09-21T09:44:53.829Z",
+      "updatedAt": "2026-09-21T09:46:10.262Z"
+    },
+    {
+      "package_id": "pkg_muanqcy6",
+      "billing_cycle": "monthly",
+      "siteUrl": "https://whatever-bar.de/slate",
+      "base_path": "/slate",
+      "fileManagerPath": "/public_html/slate",
+      "cpanelHost": "https://uk701.cloudwebhosting.com",
+      "cpanelUser": "whatever",
+      "cpanelApiTokenEncrypted": "a892bfe73ca6cd06573fa677:eda5f214493fc42ef13cb0ed53a00dab:9c4425f144ea8af4eac101d1e25dd45ee4f7d359f155da32f8b855ccc4fbf965",
+      "contactName": "Whatever",
+      "contactPhone": "01816641312",
+      "contactEmail": "rahmmed750@gmail.com",
+      "payMethod": "manual_custom",
+      "status": "paid",
+      "id": "ord_mub26cf7",
+      "progressPercent": 0,
+      "progressStage": "QUEUED",
+      "createdAt": "2026-09-21T09:44:23.395Z",
+      "updatedAt": "2026-09-21T09:45:53.839Z"
+    },
+    {
+      "package_id": "pkg_muanqcy6",
+      "billing_cycle": "monthly",
+      "siteUrl": "https://whatever-bar.de/slate",
+      "base_path": "/slate",
+      "fileManagerPath": "/public_html/slate",
+      "cpanelHost": "https://uk701.cloudwebhosting.com",
+      "cpanelUser": "whatever",
+      "cpanelApiTokenEncrypted": "ac7a3a025deca09256865937:8b496fb895beed35984165a77b51af65:adbbdccbf594fa53290bfb0220f3cb206acff0d3de3cfe8d7fd2d041abb86a95",
+      "contactName": "Whatever",
+      "contactPhone": "01816641312",
+      "contactEmail": "rahmmed3@gmail.com",
+      "payMethod": "manual_custom",
+      "status": "bootstrap_running",
+      "id": "ord_mub0mivb",
+      "progressPercent": 2,
+      "progressStage": "VALIDATING",
+      "createdAt": "2026-09-21T09:00:59.015Z",
+      "updatedAt": "2026-09-21T09:02:00.264Z"
+    }
+  ],
+  "licenses": []
+}

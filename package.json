@@ -1,0 +1,47 @@
+{
+  "name": "slate-devops-os-master-dashboard",
+  "version": "2.4.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test:persistence": "node scripts/verify-persistence.js",
+    "test:e2e": "node --test tests/e2e/*.test.mjs",
+    "selftest": "node -e \"fetch((process.env.E2E_BASE_URL||'http://localhost:3000')+'/api/selftest').then(r=>r.json()).then(d=>{console.log(d.summary);d.checks.filter(c=>!c.ok).forEach(c=>console.log('FAIL',c.name,c.detail));process.exit(d.failed?1:0)})\"",
+    "keepalive": "node scripts/keepalive.js",
+    "keepalive:loop": "node scripts/keepalive.js --loop",
+    "preflight:render": "node scripts/preflight-render.js",
+    "verify:deploy": "node scripts/preflight-render.js && node scripts/diagnose-login.js"
+  },
+  "dependencies": {
+    "@genkit-ai/googleai": "^1.28.0",
+    "@octokit/rest": "^20.1.1",
+    "@refinedev/core": "^4.53.0",
+    "adm-zip": "^0.5.16",
+    "clsx": "^2.1.1",
+    "genkit": "^1.42.0",
+    "lucide-react": "^0.460.0",
+    "mysql2": "^3.11.5",
+    "next": "^14.2.18",
+    "nodemailer": "^10.0.10",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.13.3",
+    "tailwind-merge": "^2.5.4"
+  },
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.5",
+    "@types/node": "^20.17.6",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^14.2.35",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.15",
+    "typescript": "^5.6.3"
+  }
+}

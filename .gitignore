@@ -1,0 +1,58 @@
+# ── Dependencies ────────────────────────────────────────
+node_modules
+.pnp
+.pnp.js
+
+# ── Build output ────────────────────────────────────────
+.next
+out
+build
+dist
+*.tsbuildinfo
+next-env.d.ts
+
+# ── Secrets: NEVER commit these ──────────────────────────
+.env
+.env.local
+.env.*.local
+.env.production
+!.env.example
+!.env.production.example
+deploy/.env.production
+slate/.env
+
+# ── Live database: the only copy of sites, licenses, orders,
+#    database credentials and handshake tokens. Keep it private.
+#    Backed up daily on the VPS by deploy/backup.sh
+data/db.json
+data/db.json.*
+!data/db.example.json
+
+# ── Backups (contain the same secrets as db.json) ────────
+backups/
+*.backup
+*.bak
+*.tmp
+
+# ── Logs ────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ── OS / editor noise ───────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.swp
+*~
+
+# ── Local uploads / temp ───────────────────────────────
+.tmp/
+tmp/
+coverage/
+.nyc_output/

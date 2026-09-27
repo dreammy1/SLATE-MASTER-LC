@@ -1,0 +1,35 @@
+# ─────────────────────────────────────────────────────
+# Systemd service for SLATE DevOps OS Master Dashboard
+# (Alternative to PM2 — choose ONE process manager)
+#
+# Install:  sudo cp deploy/slate-master.service /etc/systemd/system/
+# Enable:   sudo systemctl daemon-reload && sudo systemctl enable slate-master && sudo systemctl start slate-master
+# Status:   sudo systemctl status slate-master
+# Logs:     sudo journalctl -u slate-master -f
+# ─────────────────────────────────────────────────────
+[Unit]
+Description=SLATE DevOps OS Master Dashboard
+Documentation=https://github.com/YOUR_USERNAME/slate-devops-os-master-dashboard
+After=network-online.target nginx.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/slate-master-dashboard
+EnvironmentFile=-/opt/slate-master-dashboard/.env.local
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOSTNAME=127.0.0.1
+# Next.js 14 App Router: start via next CLI, not a server.js entrypoint
+ExecStart=/usr/bin/node /opt/slate-master-dashboard/node_modules/next/dist/bin/next start -p 3000 -H 127.0.0.1
+Restart=always
+RestartSec=10
+TimeoutStopSec=30
+KillSignal=SIGTERM
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=slate-master-dashboard
+
+[Install]
+WantedBy=multi-user.target
