@@ -33,8 +33,10 @@ async function callAgent(
 // ══════════════════════════════════════════════════════════════════════════════
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params: p }: { params: Promise<{ id: string }> }
 ) {
+const params = await p;
+
   try {
     const site = await getSite(params.id);
     if (!site) {
@@ -83,8 +85,10 @@ export async function GET(
 // ══════════════════════════════════════════════════════════════════════════════
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params: p }: { params: Promise<{ id: string }> }
 ) {
+const params = await p;
+
   try {
     const site = await getSite(params.id);
     if (!site) {

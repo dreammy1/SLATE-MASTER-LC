@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deleteDatabase } from "@/lib/storage";
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params: p }: { params: Promise<{ id: string }> }) {
+const params = await p;
+
   try {
     const success = await deleteDatabase(params.id);
     if (!success) {

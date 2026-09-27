@@ -7,8 +7,10 @@ import crypto from "crypto";
 // Generates a new secure 32-character handshake token, saves it, and attempts handshake sync
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params: p }: { params: Promise<{ id: string }> }
 ) {
+const params = await p;
+
   try {
     const site = await getSite(params.id);
     if (!site) {

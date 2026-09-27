@@ -7,8 +7,10 @@ import path from "path";
 // Returns the auth.php file with pre-configured header comments for the target site
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params: p }: { params: Promise<{ id: string }> }
 ) {
+const params = await p;
+
   try {
     const site = await getSite(params.id);
     if (!site) {

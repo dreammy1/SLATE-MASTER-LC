@@ -68,7 +68,9 @@ async function downloadGithubTarball(params: {
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params: p }: { params: Promise<{ id: string }> }) {
+const params = await p;
+
   const startedAt = Date.now();
   const now = new Date();
   const timeStr = now.toTimeString().split(" ")[0];

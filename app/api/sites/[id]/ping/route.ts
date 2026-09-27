@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSite, updateSite, Site } from "@/lib/storage";
 import { verifyEndpoint, getAgentUrl } from "@/lib/migrationExecutor";
 
-export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(_req: NextRequest, { params: p }: { params: Promise<{ id: string }> }) {
+const params = await p;
+
   try {
     const site = await getSite(params.id);
     if (!site) {

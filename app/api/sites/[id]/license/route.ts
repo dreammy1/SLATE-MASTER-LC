@@ -16,7 +16,9 @@ async function agentCall(agentUrl: string, action: string, token: string, extra:
   return data;
 }
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params: p }: { params: Promise<{ id: string }> }) {
+const params = await p;
+
   try {
     const site = await getSite(params.id);
     if (!site) return NextResponse.json({ success: false, error: "Site not found." }, { status: 404 });
@@ -33,7 +35,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params: p }: { params: Promise<{ id: string }> }) {
+const params = await p;
+
   // {op: suspend|revoke|activate|extend, reason?, expires_at?} → agent license_enforce + registry sync
   try {
     const body = await req.json();

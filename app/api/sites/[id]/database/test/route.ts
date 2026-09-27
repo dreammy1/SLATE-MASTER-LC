@@ -6,8 +6,10 @@ import { getAuthPhpUrl } from "@/lib/githubWorkflow";
 // Tests a MySQL connection via auth.php?action=database_probe
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params: p }: { params: Promise<{ id: string }> }
 ) {
+const params = await p;
+
   try {
     const site = await getSite(params.id);
     if (!site) {

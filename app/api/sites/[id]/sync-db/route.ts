@@ -27,7 +27,9 @@ async function jsonPost<T = any>(url: string, body: any, headers: Record<string,
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params: p }: { params: Promise<{ id: string }> }) {
+const params = await p;
+
   try {
     const site = await getSite(params.id);
     if (!site) {

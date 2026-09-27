@@ -23,9 +23,11 @@ function maskEmail(e: string): string {
   return s[0] + "***" + s.slice(at - 1);
 }
 
-export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
+export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+const id = (await ctx.params).id;
+
   try {
-    const order = await getOrder(ctx.params.id);
+    const order = await getOrder(id);
     if (!order) return NextResponse.json({ success: false, error: "Order not found." }, { status: 404 });
 
     const pkg = await getPackage(order.package_id);
@@ -120,10 +122,12 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
   }
 }
 
-export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
+export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+const id = (await ctx.params).id;
+
   // Re-test the stored cPanel credentials without ever returning the token.
   try {
-    const order = await getOrder(ctx.params.id);
+    const order = await getOrder(id);
     if (!order) return NextResponse.json({ success: false, error: "Order not found." }, { status: 404 });
     const token = decryptCpanelToken(order.cpanelApiTokenEncrypted);
     if (!token) return NextResponse.json({ success: false, error: "No cPanel token stored on this order." }, { status: 400 });
@@ -144,9 +148,11 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
  * Never editable here (Master console only): price, package, billing cycle,
  * payment status and progress. Those are the money path — support handles them.
  */
-export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+const id = (await ctx.params).id;
+
   try {
-    const order = await getOrder(ctx.params.id);
+    const order = await getOrder(id);
     if (!order) return NextResponse.json({ success: false, error: "Order not found." }, { status: 404 });
 
     const body = await req.json().catch(() => ({} as any));

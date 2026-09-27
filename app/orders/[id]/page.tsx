@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { use, useCallback, useEffect, useState } from "react";
 import { BootstrapRunner } from "@/app/pricing/order-form";
 
 /**
@@ -24,7 +24,13 @@ const STATUS_STYLE: Record<string, string> = {
   cancelled: "border-slate-600 text-slate-400",
 };
 
-export default function OrderTrackingPage({ params }: { params: { id: string } }) {
+/**
+ * Next 15 hands a page its `params` as a Promise. In a client component you
+ * unwrap it with React.use() during render, which is why `id` below is a plain
+ * string and can stay a useCallback dependency.
+ */
+export default function OrderTrackingPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -34,7 +40,7 @@ export default function OrderTrackingPage({ params }: { params: { id: string } }
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch(`/api/orders/${params.id}`, { cache: "no-store" });
+      const res = await fetch(`/api/orders/${id}`, { cache: "no-store" });
       const d = await res.json();
       if (!d.success) {
         setError(d.error || "Order not found.");
@@ -47,7 +53,7 @@ export default function OrderTrackingPage({ params }: { params: { id: string } }
     } finally {
       setLoading(false);
     }
-  }, [params.id]);
+  }, [id]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -71,7 +77,7 @@ export default function OrderTrackingPage({ params }: { params: { id: string } }
           <div className="font-bold text-rose-300">We could not load this order</div>
           <div className="text-xs mt-2 text-rose-200">{error}</div>
           <div className="text-xs mt-3 text-slate-300">
-            Check the link in your email, or contact support with your order ID: <b>{params.id}</b>
+            Check the link in your email, or contact support with your order ID: <b>{id}</b>
           </div>
         </div>
       </div>

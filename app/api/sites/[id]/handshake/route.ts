@@ -6,8 +6,10 @@ import { getAuthPhpUrl } from "@/lib/githubWorkflow";
 // Triggers remote handshake verification against the live server
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params: p }: { params: Promise<{ id: string }> }
 ) {
+const params = await p;
+
   try {
     const site = await getSite(params.id);
     if (!site) {

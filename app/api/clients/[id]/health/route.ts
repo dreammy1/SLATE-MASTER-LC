@@ -10,7 +10,9 @@ import { getClientDetail, readClientHealth } from "@/lib/clientRegistry";
  * license key present?). The answer is stored on the site so the client list
  * shows the last known health without re-probing every site.
  */
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, { params: p }: { params: Promise<{ id: string }> }) {
+const params = await p;
+
   try {
     const detail = await getClientDetail(params.id, {});
     if (!detail) return NextResponse.json({ success: false, error: "Client not found." }, { status: 404 });

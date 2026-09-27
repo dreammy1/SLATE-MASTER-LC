@@ -66,7 +66,9 @@ async function audit(site: Site | null, line: string) {
   }).catch(() => null);
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params: p }: { params: Promise<{ id: string }> }) {
+const params = await p;
+
   try {
     const body = await req.json().catch(() => ({} as any));
     const action = String(body.action || "");

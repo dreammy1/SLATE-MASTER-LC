@@ -42,7 +42,9 @@ function cleanUrl(u: string): string {
   return s.replace(/\/+$/, "");
 }
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params: p }: { params: Promise<{ id: string }> }) {
+const params = await p;
+
   try {
     const { searchParams } = new URL(req.url);
     const live = searchParams.get("live") === "1";
@@ -62,7 +64,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ success: false, error: err?.message || "Could not load the client." }, { status: 500 });
   }
 }
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params: p }: { params: Promise<{ id: string }> }) {
+const params = await p;
+
   try {
     const id = params.id;
     const body = await req.json().catch(() => ({} as any));
@@ -219,7 +223,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params: p }: { params: Promise<{ id: string }> }) {
+const params = await p;
+
   try {
     const sp = new URL(req.url).searchParams;
     const removeSite = sp.get("site") === "1";

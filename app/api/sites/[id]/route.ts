@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSite, updateSite, deleteSite, getDeployments, getDatabases } from "@/lib/storage";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params: p }: { params: Promise<{ id: string }> }) {
+const params = await p;
+
   try {
     const site = await getSite(params.id);
     if (!site) {
@@ -18,7 +20,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params: p }: { params: Promise<{ id: string }> }) {
+const params = await p;
+
   try {
     const body = await req.json();
     const updated = await updateSite(params.id, body);
@@ -31,7 +35,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params: p }: { params: Promise<{ id: string }> }) {
+const params = await p;
+
   try {
     const success = await deleteSite(params.id);
     if (!success) {
