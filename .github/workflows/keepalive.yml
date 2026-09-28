@@ -6,19 +6,31 @@
 #  a public schedule, so your dashboard stays awake even with every computer in
 #  the house switched off — no cron-job.org account, no always-on PC.
 #
-#  FIRST-TIME SETUP (once, ~2 minutes)
-#  ------------------------------------
-#   1. Repo -> Settings -> Secrets and variables -> Actions -> New repository
-#      secret.  Add SLATE_APP_URL = https://slate-master.onrender.com
-#   2. That is all. GitHub enables scheduled workflows on public repos by
-#      default. If the workflow is never running, make the repo public, or go to
-#      Actions -> Keep Alive -> Enable workflow.
+#  FIRST-TIME SETUP
+#  ----------------
+#   Nothing. The URL is hardcoded in DEFAULT_APP_URL below, so there is no
+#   repository secret to create and no Settings -> Secrets step to remember.
+#   GitHub enables scheduled workflows on public repos by default. If the
+#   workflow never runs, make the repo public, or go to Actions -> Keep Alive ->
+#   Enable workflow.
+#
+#   To point the pinger at a different deployment, edit DEFAULT_APP_URL here and
+#   commit — a repository secret (SLATE_APP_URL) still overrides it when set,
+#   which is useful for a preview or staging service.
 #
 #  GitHub may delay scheduled jobs by a few minutes during busy periods. That is
 #  fine: the margin between 10 minutes of pinging and Render's 15 minute idle
 #  threshold is wide enough to absorb it.
 # =============================================================================
 name: Keep Alive
+
+# The dashboard this pinger keeps awake. Hardcoded on purpose: a single master
+# dashboard does not need a secret just to be remembered, and a missing secret
+# silently disables the whole workflow (it used to fail with
+# "SLATE_APP_URL secret is not set" and the service slept through every run).
+# A SLATE_APP_URL repository secret, if one exists, wins over this value.
+env:
+  DEFAULT_APP_URL: https://slate-master-dashboard.onrender.com
 
 on:
   schedule:
@@ -51,12 +63,15 @@ jobs:
         id: url
         env:
           SLATE_APP_URL: ${{ secrets.SLATE_APP_URL }}
+          # Repeated literally instead of ${{ env.* }}: the `env` context is not
+          # available in every step position, and a blank here would restore the
+          # very failure this file exists to prevent.
+          DEFAULT_APP_URL: https://slate-master-dashboard.onrender.com
         run: |
-          URL="${SLATE_APP_URL%/}"
-          if [ -z "$URL" ]; then
-            echo "::error::SLATE_APP_URL secret is not set (Settings -> Secrets and variables -> Actions)."
-            exit 1
-          fi
+          # Secret first (override), then the hardcoded default. Never empty, so
+          # this step can no longer fail the way it did before.
+          URL="${SLATE_APP_URL:-$DEFAULT_APP_URL}"
+          URL="${URL%/}"
           echo "target=$URL" >> "$GITHUB_OUTPUT"
           echo "Pinging $URL/api/health"
 
