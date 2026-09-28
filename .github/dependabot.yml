@@ -23,6 +23,10 @@ updates:
       time: "09:00"
       timezone: "Etc/UTC"
     open-pull-requests-limit: 5
+    # Keep majors on a manual schedule. Dependabot's default is to open them
+    # automatically, which is how react-dom jumped to v19 while react stayed
+    # on v18 and broke the install.
+    versioning-strategy: increase-if-necessary
     commit-message:
       prefix: "chore(deps)"
     groups:
@@ -31,12 +35,17 @@ updates:
         patterns:
           - "*"
         exclude-patterns:
-          # Next.js majors pull breaking config changes and are reviewed on their own.
+          # Majors pull breaking config/type changes and are reviewed by hand.
+          # react and react-dom MUST move together or React breaks at runtime,
+          # so both are excluded here to keep them under manual control.
           - "next"
           - "react"
           - "react-dom"
+          - "recharts"
           - "eslint"
           - "eslint-config-next"
+          - "typescript"
+          - "@types/*"
         update-types:
           - "minor"
           - "patch"
