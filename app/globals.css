@@ -20,18 +20,29 @@ body {
 }
 
 /* Prevent long unbroken strings (domains, tokens, log lines) from
-   blowing out the viewport on small screens. */
+   blowing out the viewport on small screens.
+
+   `break-word` is deliberate, NOT `anywhere`: `anywhere` also shrinks the
+   element's intrinsic min-content width, which made narrow table headers
+   break mid-word ("STA TUS" from "STATUS"). `break-word` only kicks in when a
+   word genuinely cannot fit, so normal labels stay intact. */
 p,
 span,
 div,
 td,
 th,
 a,
-code,
 label,
 li {
+  overflow-wrap: break-word;
+}
+
+/* These carry real unbroken tokens — paths, keys, SHAs, URLs — so they may
+   break anywhere rather than overflowing their container. */
+code,
+pre,
+.font-mono code {
   overflow-wrap: anywhere;
-  word-break: break-word;
 }
 
 /* Inputs / selects / textareas must never exceed their container. */
@@ -52,12 +63,22 @@ button {
 }
 
 .table-scroll > table {
-  min-width: 720px;
+  min-width: 680px;
 }
 
 @media (max-width: 767px) {
   .table-scroll > table {
-    min-width: 560px;
+    min-width: 520px;
+  }
+}
+
+/* Icon-only buttons are 36-44px on touch devices so they are actually
+   tappable with a thumb. Scoped to mobile so desktop density is unchanged. */
+@media (pointer: coarse), (max-width: 768px) {
+  button[title],
+  button[aria-label] {
+    min-width: 36px;
+    min-height: 36px;
   }
 }
 

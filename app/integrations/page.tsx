@@ -1,6 +1,7 @@
 ﻿"use client";
 import { useState, useEffect } from "react";
 import { CreditCard, Mail, TestTube, Save, RefreshCw, AlertCircle } from "lucide-react";
+import FuturisticLayout from "@/components/FuturisticLayout";
 
 export default function IntegrationsPage() {
   const [activeTab, setActiveTab] = useState<"stripe" | "smtp">("stripe");
@@ -84,20 +85,21 @@ export default function IntegrationsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+    <FuturisticLayout activeTab="integrations">
+    <div className="space-y-6 font-mono text-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-xl font-bold font-mono text-white">INTEGRATIONS</h1>
           <p className="text-slate-400 text-sm font-mono mt-1">THIRD-PARTY SERVICE CONNECTOR</p>
         </div>
       </div>
 
-      <div className="flex gap-2 border-b border-[#1e293b]">
-        <button onClick={() => setActiveTab("stripe")} className={`px-4 py-2 font-mono text-sm transition-all flex items-center gap-2 ${activeTab === "stripe" ? "text-[#00f0ff] border-b-2 border-[#00f0ff]" : "text-slate-400 hover:text-slate-300"}`}>
-          <CreditCard className="w-4 h-4" /> Stripe
+      <div className="flex gap-2 border-b border-[#1e293b] overflow-x-auto -mx-1 px-1">
+        <button onClick={() => setActiveTab("stripe")} className={`px-4 py-2 font-mono text-sm transition-all flex items-center gap-2 shrink-0 whitespace-nowrap ${activeTab === "stripe" ? "text-[#00f0ff] border-b-2 border-[#00f0ff]" : "text-slate-400 hover:text-slate-300"}`}>
+          <CreditCard className="w-4 h-4 shrink-0" /> Stripe
         </button>
-        <button onClick={() => setActiveTab("smtp")} className={`px-4 py-2 font-mono text-sm transition-all flex items-center gap-2 ${activeTab === "smtp" ? "text-[#00f0ff] border-b-2 border-[#00f0ff]" : "text-slate-400 hover:text-slate-300"}`}>
-          <Mail className="w-4 h-4" /> SMTP / Email
+        <button onClick={() => setActiveTab("smtp")} className={`px-4 py-2 font-mono text-sm transition-all flex items-center gap-2 shrink-0 whitespace-nowrap ${activeTab === "smtp" ? "text-[#00f0ff] border-b-2 border-[#00f0ff]" : "text-slate-400 hover:text-slate-300"}`}>
+          <Mail className="w-4 h-4 shrink-0" /> SMTP / Email
         </button>
       </div>
 
@@ -222,5 +224,6 @@ export default function IntegrationsPage() {
         </div>
       )}
     </div>
+    </FuturisticLayout>
   );
 }

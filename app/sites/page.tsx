@@ -330,39 +330,46 @@ function SitesDashboardContent() {
         {activeTab === "targets" && (
           <div className="space-y-6">
             {/* Quick Metrics Bar */}
-            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 font-mono text-xs">
-              <div className="glass-panel p-4 rounded-xl border border-[#1e293b] min-w-0">
-                <div className="text-slate-400 text-[11px]">ACTIVE TARGETS</div>
-                <div className="text-lg sm:text-xl font-extrabold text-emerald-400 mt-1 flex items-center gap-2">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 font-mono text-xs">
+              <div className="glass-panel p-3 sm:p-4 rounded-xl border border-[#1e293b] min-w-0">
+                <div className="text-slate-400 text-[10px] sm:text-[11px] leading-tight">ACTIVE TARGETS</div>
+                <div className="text-sm sm:text-xl font-extrabold text-emerald-400 mt-1 flex items-center gap-1.5">
                   <span className="w-2 h-2 shrink-0 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="min-w-0">{onlineCount} / {sites.length} ONLINE</span>
+                  <span className="min-w-0">{onlineCount}/{sites.length}</span>
+                  <span className="sm:hidden text-[10px] font-normal text-slate-400">online</span>
                 </div>
               </div>
-              <div className="glass-panel p-4 rounded-xl border border-[#1e293b] min-w-0">
-                <div className="text-slate-400 text-[11px]">MANAGED DATABASES</div>
-                <div className="text-lg sm:text-xl font-extrabold text-[#7000ff] mt-1">{databases.length} PROVISIONED</div>
+              <div className="glass-panel p-3 sm:p-4 rounded-xl border border-[#1e293b] min-w-0">
+                <div className="text-slate-400 text-[10px] sm:text-[11px] leading-tight">DATABASES</div>
+                <div className="text-sm sm:text-xl font-extrabold text-[#7000ff] mt-1">
+                  {databases.length}
+                  <span className="sm:hidden text-[10px] font-normal text-slate-400"> prov.</span>
+                </div>
               </div>
-              <div className="glass-panel p-4 rounded-xl border border-[#1e293b] min-w-0">
-                <div className="text-slate-400 text-[11px]">TOTAL DEPLOYMENTS</div>
-                <div className="text-lg sm:text-xl font-extrabold text-[#00f0ff] mt-1">{deployments.length} EXECUTED</div>
+              <div className="glass-panel p-3 sm:p-4 rounded-xl border border-[#1e293b] min-w-0">
+                <div className="text-slate-400 text-[10px] sm:text-[11px] leading-tight">DEPLOYMENTS</div>
+                <div className="text-sm sm:text-xl font-extrabold text-[#00f0ff] mt-1">
+                  {deployments.length}
+                  <span className="sm:hidden text-[10px] font-normal text-slate-400"> run</span>
+                </div>
               </div>
-              <div className="glass-panel p-4 rounded-xl border border-[#1e293b] min-w-0">
-                <div className="text-slate-400 text-[11px]">DATA PERSISTENCE</div>
-                <div className="text-lg sm:text-xl font-extrabold text-amber-400 mt-1 flex items-center gap-1.5">
-                  <Shield className="w-4 h-4 shrink-0" /> <span className="min-w-0">ACTIVE (data/db.json)</span>
+              <div className="glass-panel p-3 sm:p-4 rounded-xl border border-[#1e293b] min-w-0">
+                <div className="text-slate-400 text-[10px] sm:text-[11px] leading-tight">PERSISTENCE</div>
+                <div className="text-sm sm:text-xl font-extrabold text-amber-400 mt-1 flex items-center gap-1.5">
+                  <Shield className="w-3.5 h-3.5 shrink-0" /> <span className="min-w-0">ACTIVE</span>
                 </div>
               </div>
             </div>
 
             {/* Filter & Search Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-mono text-xs">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-slate-400 shrink-0">Filter Status:</span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-slate-400 text-[10px] sm:text-[11px] shrink-0 mr-0.5">FILTER:</span>
                 {["ALL", "ONLINE", "DEPLOYING", "OFFLINE"].map((st) => (
                   <button
                     key={st}
                     onClick={() => setStatusFilter(st)}
-                    className={`px-2.5 py-1 rounded text-[11px] font-bold transition-colors shrink-0 ${
+                    className={`px-2.5 py-2 sm:py-1 rounded text-[11px] font-bold transition-colors shrink-0 ${
                       statusFilter === st
                         ? "bg-[#00f0ff]/20 text-[#00f0ff] border border-[#00f0ff]/40"
                         : "bg-[#111625] text-slate-400 border border-[#1e293b] hover:text-white"
@@ -472,49 +479,49 @@ function SitesDashboardContent() {
                             <div className="flex flex-wrap justify-end gap-1.5">
                             <button
                               onClick={() => handlePing(site.id)}
-                              className="p-2 rounded bg-slate-800 hover:bg-[#00f0ff] hover:text-black border border-slate-700 transition-colors text-slate-300"
+                              className="p-2 min-w-[36px] min-h-[36px] rounded bg-slate-800 hover:bg-[#00f0ff] hover:text-black border border-slate-700 transition-colors text-slate-300 inline-flex items-center justify-center"
                               title="Ping & Check Latency"
                             >
-                              <Wifi className="w-3.5 h-3.5" />
+                              <Wifi className="w-3.5 h-3.5 shrink-0" />
                             </button>
                             <button
                               onClick={() => handleRedeploy(site.id)}
-                              className="p-2 rounded bg-slate-800 hover:bg-[#00f0ff] hover:text-black border border-slate-700 transition-colors text-slate-300"
+                              className="p-2 min-w-[36px] min-h-[36px] rounded bg-slate-800 hover:bg-[#00f0ff] hover:text-black border border-slate-700 transition-colors text-slate-300 inline-flex items-center justify-center"
                               title="Trigger Redeployment"
                             >
-                              <RefreshCw className="w-3.5 h-3.5" />
+                              <RefreshCw className="w-3.5 h-3.5 shrink-0" />
                             </button>
                             <button
                               onClick={() => setExpandedDbSiteId(isExpanded ? null : site.id)}
-                              className={`p-2 rounded border transition-colors ${
+                              className={`p-2 min-w-[36px] min-h-[36px] rounded border transition-colors inline-flex items-center justify-center ${
                                 isExpanded
                                   ? "bg-[#7000ff] text-white border-[#7000ff] shadow-[0_0_12px_rgba(112,0,255,0.4)]"
                                   : "bg-slate-800 hover:bg-[#7000ff] hover:text-white border-slate-700 text-slate-300"
                               }`}
                               title="cPanel & MySQL Database Automation Console"
                             >
-                              <Database className="w-3.5 h-3.5" />
+                              <Database className="w-3.5 h-3.5 shrink-0" />
                             </button>
                             <button
                               onClick={() => setTerminalTarget({ id: site.id, domain: site.domain })}
-                              className="p-2 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors text-slate-300 hover:text-white"
+                              className="p-2 min-w-[36px] min-h-[36px] rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors text-slate-300 hover:text-white inline-flex items-center justify-center"
                               title="Inspect Live Deployment Logs"
                             >
-                              <Terminal className="w-3.5 h-3.5" />
+                              <Terminal className="w-3.5 h-3.5 shrink-0" />
                             </button>
                             <button
                               onClick={() => setEditingSite(site)}
-                              className="p-2 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors text-slate-400 hover:text-white"
+                              className="p-2 min-w-[36px] min-h-[36px] rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors text-slate-400 hover:text-white inline-flex items-center justify-center"
                               title="Edit Target Settings"
                             >
-                              <Edit2 className="w-3.5 h-3.5" />
+                              <Edit2 className="w-3.5 h-3.5 shrink-0" />
                             </button>
                             <button
                               onClick={() => handleDeleteSite(site)}
-                              className="p-2 rounded bg-slate-800 hover:bg-rose-600 hover:text-white border border-slate-700 transition-colors text-slate-400"
+                              className="p-2 min-w-[36px] min-h-[36px] rounded bg-slate-800 hover:bg-rose-600 hover:text-white border border-slate-700 transition-colors text-slate-400 inline-flex items-center justify-center"
                               title="Delete Target"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Trash2 className="w-3.5 h-3.5 shrink-0" />
                             </button>
                             </div>
                           </td>
@@ -673,7 +680,7 @@ function SitesDashboardContent() {
                 {databases.map((db) => {
                   const linkedSite = sites.find((s) => s.id === db.linkedSiteId);
                   return (
-                    <div key={db.id} className="glass-panel p-5 rounded-xl border border-[#1e293b] space-y-3 font-mono text-xs">
+                    <div key={db.id} className="glass-panel p-4 rounded-xl border border-[#1e293b] space-y-3 font-mono text-xs min-w-0">
                       <div className="flex items-center justify-between border-b border-[#1e293b] pb-2">
                         <span className="font-bold text-white text-sm flex items-center gap-1.5">
                           <Database className="w-4 h-4 text-[#7000ff]" /> {db.name}
@@ -708,19 +715,19 @@ function SitesDashboardContent() {
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between pt-2 border-t border-[#1e293b]">
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#1e293b]">
                         <button
                           onClick={() => handleTestDbDirect(db)}
-                          className="text-[11px] text-[#00f0ff] hover:underline flex items-center gap-1"
+                          className="text-[11px] text-[#00f0ff] hover:underline flex items-center gap-1 min-h-[36px] px-1 -ml-1"
                         >
-                          <Radio className="w-3 h-3" /> Test Connection
+                          <Radio className="w-3 h-3 shrink-0" /> Test Connection
                         </button>
                         <button
                           onClick={() => handleDeleteDb(db)}
-                          className="text-slate-400 hover:text-rose-400 transition-colors p-1"
+                          className="text-slate-400 hover:text-rose-400 transition-colors p-2 min-w-[36px] min-h-[36px] flex items-center justify-center"
                           title="Remove Database Record"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3.5 h-3.5 shrink-0" />
                         </button>
                       </div>
                     </div>

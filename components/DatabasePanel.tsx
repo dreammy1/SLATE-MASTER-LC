@@ -235,17 +235,17 @@ export default function DatabasePanel({
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between px-5 py-4"
+          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 sm:px-5 py-4"
           style={{
             background: "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1))",
             borderBottom: "1px solid rgba(99,102,241,0.15)",
           }}
         >
-          <div className="flex items-center gap-3">
-            <span className="text-xl">🗄️</span>
-            <div>
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="text-xl shrink-0">🗄️</span>
+            <div className="min-w-0">
               <p className="text-white font-semibold text-sm">Database</p>
-              <p className="text-slate-400 text-xs">
+              <p className="text-slate-400 text-xs truncate">
                 {cpanelLinked
                   ? `cPanel linked${cpanelUser ? ` · ${cpanelUser}` : ""}`
                   : "cPanel not linked"}
@@ -253,10 +253,10 @@ export default function DatabasePanel({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
             {/* cPanel link status badge */}
             <span
-              className="text-xs px-2 py-1 rounded-full font-medium"
+              className="text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap"
               style={
                 cpanelLinked
                   ? { background: "rgba(34,197,94,0.15)", color: "#4ade80", border: "1px solid rgba(34,197,94,0.3)" }
@@ -269,7 +269,7 @@ export default function DatabasePanel({
             {!cpanelLinked && (
               <button
                 onClick={() => setShowCpanelModal(true)}
-                className="text-xs px-3 py-1.5 rounded-lg font-medium text-white transition-all hover:opacity-90"
+                className="text-xs px-3 py-2 sm:py-1.5 rounded-lg font-medium text-white transition-all hover:opacity-90 min-h-[36px] whitespace-nowrap"
                 style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}
               >
                 Link cPanel
@@ -278,14 +278,14 @@ export default function DatabasePanel({
           </div>
         </div>
 
-        <div className="p-5 space-y-4">
+        <div className="p-4 sm:p-5 space-y-4">
           {/* DB credentials display */}
           {db ? (
             <div
               className="rounded-xl p-4 space-y-3"
               style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
             >
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-1">
                 <span className="text-slate-300 text-sm font-semibold">Database Credentials</span>
                 <span
                   className="text-xs px-2 py-0.5 rounded-full"
@@ -493,7 +493,7 @@ export default function DatabasePanel({
             <button
               onClick={handleProvision}
               disabled={isProvisioning}
-              className="flex-1 min-w-[140px] py-2.5 rounded-xl text-white text-sm font-bold transition-all disabled:opacity-50 hover:opacity-90"
+              className="flex-1 basis-[150px] min-h-[44px] py-2.5 rounded-xl text-white text-sm font-bold transition-all disabled:opacity-50 hover:opacity-90"
               style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}
             >
               {isProvisioning ? (
@@ -529,7 +529,7 @@ export default function DatabasePanel({
             <button
               onClick={handleScan}
               disabled={scanLoading}
-              className="px-4 py-2.5 rounded-xl text-slate-200 text-sm font-medium transition-all hover:text-white disabled:opacity-50"
+              className="flex-1 basis-[150px] min-h-[44px] px-4 py-2.5 rounded-xl text-slate-200 text-sm font-medium transition-all hover:text-white disabled:opacity-50"
               style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
             >
               {scanLoading ? (

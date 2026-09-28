@@ -258,13 +258,13 @@ export default function ClientConsolePage() {
           <div className="flex flex-wrap gap-1.5">
             {groups.map((g) => (
               <button key={g} onClick={() => setGroup(g)}
-                className={`px-3 py-1 rounded-full border ${group === g ? "border-[#00f0ff] text-[#00f0ff]" : "border-[#1e293b] text-slate-400"}`}>{g}</button>
+                className={`px-3 py-2 sm:py-1 rounded-full border min-h-[36px] ${group === g ? "border-[#00f0ff] text-[#00f0ff]" : "border-[#1e293b] text-slate-400"}`}>{g}</button>
             ))}
           </div>
 
           {/* ── client table ──────────── */}
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px]">
+            <table className="w-full min-w-[640px]">
               <thead>
                 <tr className="text-slate-500 text-left border-b border-[#1e293b]">
                   <th className="py-2 pr-3">Client</th><th className="py-2 pr-3">Site</th><th className="py-2 pr-3">Package</th>
@@ -311,9 +311,9 @@ export default function ClientConsolePage() {
                     <td className="py-2 pr-3">
                       <div className="flex justify-end gap-1">
                         <button title="Open client (full data, health, remote ops)" onClick={() => openDetail(c.id)}
-                          className="p-1.5 border-[#00f0ff] text-[#00f0ff] rounded"><Pencil className="w-3.5 h-3.5" /></button>
+                          className="p-2 min-w-[36px] min-h-[36px] border-[#00f0ff] text-[#00f0ff] rounded flex items-center justify-center"><Pencil className="w-3.5 h-3.5 shrink-0" /></button>
                         <button title="Delete client" onClick={() => removeClient(c.id)}
-                          className="p-1.5 border-rose-500 text-rose-400 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
+                          className="p-2 min-w-[36px] min-h-[36px] border-rose-500 text-rose-400 rounded flex items-center justify-center"><Trash2 className="w-3.5 h-3.5 shrink-0" /></button>
                       </div>
                     </td>
                   </tr>
@@ -345,11 +345,11 @@ export default function ClientConsolePage() {
           {licenses.map((l) => (
             <div key={l.id} className="flex flex-wrap items-center gap-2 py-1.5 border-b border-[#1e293b]">
               <span className="text-slate-300">{l.domain} · {l.package_slug} · ****{l.key_last4} · <b>{l.status}</b> · exp {l.expires_at ?? "lifetime"} · act {l.activation_count}/{l.activation_limit}</span>
-              <span className="flex gap-1 ml-auto">
-                <button title="Suspend" onClick={() => licAct(l.id, "suspend")} className="p-1.5 border-amber-500 text-amber-400 rounded"><Ban className="w-3.5 h-3.5" /></button>
-                <button title="Reactivate" onClick={() => licAct(l.id, "activate")} className="p-1.5 border-emerald-500 text-emerald-400 rounded"><Play className="w-3.5 h-3.5" /></button>
-                <button title="Renew (new key)" onClick={() => licAct(l.id, "renew")} className="p-1.5 border-[#00f0ff] text-[#00f0ff] rounded"><RefreshCw className="w-3.5 h-3.5" /></button>
-                <button title="Revoke" onClick={() => { if (confirm("Revoke this license?")) licAct(l.id, "revoke"); }} className="p-1.5 border-rose-500 text-rose-400 rounded">Revoke</button>
+              <span className="flex gap-1 ml-auto shrink-0">
+                <button title="Suspend" onClick={() => licAct(l.id, "suspend")} className="p-2 min-w-[36px] min-h-[36px] border-amber-500 text-amber-400 rounded flex items-center justify-center"><Ban className="w-3.5 h-3.5 shrink-0" /></button>
+                <button title="Reactivate" onClick={() => licAct(l.id, "activate")} className="p-2 min-w-[36px] min-h-[36px] border-emerald-500 text-emerald-400 rounded flex items-center justify-center"><Play className="w-3.5 h-3.5 shrink-0" /></button>
+                <button title="Renew (new key)" onClick={() => licAct(l.id, "renew")} className="p-2 min-w-[36px] min-h-[36px] border-[#00f0ff] text-[#00f0ff] rounded flex items-center justify-center"><RefreshCw className="w-3.5 h-3.5 shrink-0" /></button>
+                <button title="Revoke" onClick={() => { if (confirm("Revoke this license?")) licAct(l.id, "revoke"); }} className="p-2 min-h-[36px] border-rose-500 text-rose-400 rounded flex items-center justify-center">Revoke</button>
               </span>
             </div>
           ))}

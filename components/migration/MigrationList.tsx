@@ -19,6 +19,7 @@ export default function MigrationList({ jobs, onSelect, onEdit, onDelete }: Prop
         <span className="text-xs text-slate-500 font-normal">{jobs.length} Plan(s)</span>
       </div>
 
+      <div className="table-scroll">
       <table className="w-full text-left font-mono text-xs">
         <thead className="bg-[#0a0d14]/80 border-b border-[#1e293b] text-slate-400 uppercase text-[10px]">
           <tr>
@@ -67,51 +68,54 @@ export default function MigrationList({ jobs, onSelect, onEdit, onDelete }: Prop
               </td>
               <td className="py-3.5 px-4">
                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
-                  job.status === "COMPLETED" 
-                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" 
+                  job.status === "COMPLETED"
+                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
                     : "bg-amber-500/10 text-amber-400 border border-amber-500/30"
                 }`}>
                   {job.status === "COMPLETED" ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
                   {job.status}
                 </span>
               </td>
-              <td className="py-3.5 px-4 text-right space-x-2">
+              <td className="py-3.5 px-4 text-right">
+                <div className="flex justify-end gap-1.5">
                 <button
                   onClick={() => onSelect(job)}
-                  className="px-3 py-1.5 rounded bg-slate-800 hover:bg-[#00f0ff] hover:text-black border border-slate-700 font-bold transition-colors"
+                  className="px-3 py-2 sm:py-1.5 rounded bg-slate-800 hover:bg-[#00f0ff] hover:text-black border border-slate-700 font-bold transition-colors min-h-[36px] whitespace-nowrap"
                 >
-                  Select & Manage
+                  Select &amp; Manage
                 </button>
                 <button
                   onClick={() => onEdit(job)}
-                  className="p-1.5 rounded bg-slate-800 hover:bg-[#00f0ff] hover:text-black border border-slate-700 text-[#00f0ff] inline-block align-middle transition-colors"
+                  className="p-2 sm:p-1.5 rounded bg-slate-800 hover:bg-[#00f0ff] hover:text-black border border-slate-700 text-[#00f0ff] inline-flex items-center justify-center transition-colors min-w-[36px] min-h-[36px]"
                   title="Edit migration plan"
                 >
-                  <Edit3 className="w-3.5 h-3.5" />
+                  <Edit3 className="w-3.5 h-3.5 shrink-0" />
                 </button>
                 <button
                   onClick={() => onDelete(job.id)}
-                  className="p-1.5 rounded bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500 hover:text-black inline-block align-middle transition-colors"
+                  className="p-2 sm:p-1.5 rounded bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500 hover:text-black inline-flex items-center justify-center transition-colors min-w-[36px] min-h-[36px]"
                   title="Delete migration plan"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Trash2 className="w-3.5 h-3.5 shrink-0" />
                 </button>
                 {job.status === "COMPLETED" && (
                   <a
                     href={job.destination.siteUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="p-1.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-black inline-block align-middle transition-colors"
+                    className="p-2 sm:p-1.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-black inline-flex items-center justify-center transition-colors min-w-[36px] min-h-[36px]"
                     title="Visit Mirror Site"
                   >
-                    <ExternalLink className="w-3.5 h-3.5" />
+                    <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                   </a>
                 )}
+                </div>
               </td>
             </tr>
           )})}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
