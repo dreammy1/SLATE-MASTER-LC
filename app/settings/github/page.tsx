@@ -105,7 +105,7 @@ function GitHubSettingsContent() {
 
   return (
     <FuturisticLayout>
-      <div className="max-w-4xl space-y-6 font-mono text-xs">
+      <div className="max-w-4xl space-y-6 font-mono text-xs w-full min-w-0">
         {notice && (
           <div className="p-3 bg-[#00f0ff]/15 border border-[#00f0ff] text-[#00f0ff] rounded-lg font-mono text-xs flex items-center gap-2 shadow-[0_0_15px_rgba(0,240,255,0.25)] animate-in fade-in">
             <CheckCircle2 className="w-4 h-4 shrink-0" />

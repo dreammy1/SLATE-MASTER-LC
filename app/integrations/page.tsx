@@ -128,12 +128,12 @@ export default function IntegrationsPage() {
                 <input type="password" value={stripe.webhook_secret} onChange={(e) => setStripe({ ...stripe, webhook_secret: e.target.value })} className="w-full bg-[#0a0d14]/80 border border-[#1e293b] text-slate-200 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#00f0ff]" placeholder="whsec_..." />
                 <p className="text-[10px] text-slate-600 mt-1 font-mono">From Stripe Dashboard - Developers - Webhooks</p>
               </div>
-              <div className="flex justify-between items-center pt-3 border-t border-[#1e293b]">
-                <button onClick={handleStripeTest} disabled={loading.stripeTest} className="px-4 py-2 bg-[#0a0d14]/60 border border-[#1e293b] text-slate-300 rounded-md hover:border-[#00f0ff] hover:text-[#00f0ff] font-mono text-sm transition-all flex items-center gap-2 disabled:opacity-50">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 pt-3 border-t border-[#1e293b]">
+                <button onClick={handleStripeTest} disabled={loading.stripeTest} className="px-3 sm:px-4 py-2 bg-[#0a0d14]/60 border border-[#1e293b] text-slate-300 rounded-md hover:border-[#00f0ff] hover:text-[#00f0ff] font-mono text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50">
                   {loading.stripeTest ? <RefreshCw className="w-4 h-4 animate-spin" /> : <TestTube className="w-4 h-4" />}
                   {loading.stripeTest ? "Testing..." : "Test Stripe Connection"}
                 </button>
-                <button onClick={handleStripeSave} disabled={loading.stripeSave} className="px-4 py-2 bg-gradient-to-r from-[#00f0ff] to-[#7000ff] text-black rounded-md font-bold font-mono text-sm hover:opacity-90 flex items-center gap-2 disabled:opacity-50">
+                <button onClick={handleStripeSave} disabled={loading.stripeSave} className="px-3 sm:px-4 py-2 bg-gradient-to-r from-[#00f0ff] to-[#7000ff] text-black rounded-md font-bold font-mono text-sm hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50">
                   {loading.stripeSave ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {loading.stripeSave ? "Saving..." : "Save Stripe Config"}
                 </button>
               </div>
@@ -155,12 +155,12 @@ export default function IntegrationsPage() {
 
       {activeTab === "smtp" && (
         <div className="grid gap-6">
-          <div className="glass-panel p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-md bg-[#0a0d14]/60 border border-[#1e293b]">
+          <div className="glass-panel p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="p-2 rounded-md bg-[#0a0d14]/60 border border-[#1e293b] shrink-0">
                 <Mail className="w-5 h-5 text-[#00f0ff]" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="font-mono text-sm text-slate-400">SMTP / Email Service</p>
                 <p className="font-mono font-bold text-white">{smtpStatus.configured ? "Configured" : "Not Configured"} {smtpStatus.tested && "(Verified)"}</p>
               </div>
@@ -169,7 +169,7 @@ export default function IntegrationsPage() {
           </div>
 
           <div className="glass-panel p-5 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div><label className="block text-xs font-mono text-slate-500 mb-1">SMTP Host</label><input type="text" value={smtp.host} onChange={(e) => setSmtp({ ...smtp, host: e.target.value })} className="w-full bg-[#0a0d14]/80 border border-[#1e293b] text-slate-200 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#00f0ff]" placeholder="smtp.mailgun.org" /></div>
               <div><label className="block text-xs font-mono text-slate-500 mb-1">Port</label><input type="number" value={smtp.port} onChange={(e) => setSmtp({ ...smtp, port: e.target.value })} className="w-full bg-[#0a0d14]/80 border border-[#1e293b] text-slate-200 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#00f0ff]" placeholder="587" /></div>
               <div><label className="block text-xs font-mono text-slate-500 mb-1">Username</label><input type="text" value={smtp.user} onChange={(e) => setSmtp({ ...smtp, user: e.target.value })} className="w-full bg-[#0a0d14]/80 border border-[#1e293b] text-slate-200 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#00f0ff]" placeholder="postmaster@smtp.example.com" /></div>
@@ -186,23 +186,23 @@ export default function IntegrationsPage() {
             </div>
 
             <div className="border-t border-[#1e293b] pt-4">
-              <div className="flex gap-2 mb-2">
-                <input type="email" value={smtp.test_email_to} onChange={(e) => setSmtp({ ...smtp, test_email_to: e.target.value })} className="flex-1 bg-[#0a0d14]/80 border border-[#1e293b] text-slate-200 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#00f0ff]" placeholder="you@example.com (for test email)" />
-                <button onClick={handleSmtpSendTest} disabled={loading.smtpSend || !smtp.test_email_to} className="px-3 py-2 bg-[#0a0d14]/60 border border-[#1e293b] text-slate-300 rounded-md hover:border-[#00f0ff] hover:text-[#00f0ff] font-mono text-sm flex items-center gap-2 disabled:opacity-50">
+              <div className="flex flex-col gap-2 mb-2">
+                <input type="email" value={smtp.test_email_to} onChange={(e) => setSmtp({ ...smtp, test_email_to: e.target.value })} className="w-full sm:flex-1 bg-[#0a0d14]/80 border border-[#1e293b] text-slate-200 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#00f0ff]" placeholder="you@example.com (for test email)" />
+                <button onClick={handleSmtpSendTest} disabled={loading.smtpSend || !smtp.test_email_to} className="px-3 py-2 bg-[#0a0d14]/60 border border-[#1e293b] text-slate-300 rounded-md hover:border-[#00f0ff] hover:text-[#00f0ff] font-mono text-sm flex items-center justify-center gap-2 disabled:opacity-50 shrink-0">
                   {loading.smtpSend ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
                   {loading.smtpSend ? "Sending..." : "Send Test"}
                 </button>
               </div>
               <ResultBanner keyName="smtpSend" />
-              <div className="flex justify-between items-center pt-3 border-t border-[#1e293b]">
-                <div className="flex items-center gap-2">
-                  <button onClick={handleSmtpTest} disabled={loading.smtpTest} className="px-4 py-2 bg-[#0a0d14]/60 border border-[#1e293b] text-slate-300 rounded-md hover:border-[#00f0ff] hover:text-[#00f0ff] font-mono text-sm flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 pt-3 border-t border-[#1e293b]">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button onClick={handleSmtpTest} disabled={loading.smtpTest} className="px-3 sm:px-4 py-2 bg-[#0a0d14]/60 border border-[#1e293b] text-slate-300 rounded-md hover:border-[#00f0ff] hover:text-[#00f0ff] font-mono text-sm flex items-center justify-center gap-2">
                     {loading.smtpTest ? <RefreshCw className="w-4 h-4 animate-spin" /> : <TestTube className="w-4 h-4" />}
                     {loading.smtpTest ? "Testing..." : "Test SMTP Connection"}
                   </button>
                   {results.smtpSave && <span className={`font-mono text-xs ${results.smtpSave.success ? "text-emerald-400" : "text-rose-400"}`}>{results.smtpSave.success ? "Saved" : results.smtpSave.error}</span>}
                 </div>
-                <button onClick={handleSmtpSave} disabled={loading.smtpSave} className="px-4 py-2 bg-gradient-to-r from-[#00f0ff] to-[#7000ff] text-black rounded-md font-bold font-mono text-sm hover:opacity-90 flex items-center gap-2 disabled:opacity-50">
+                <button onClick={handleSmtpSave} disabled={loading.smtpSave} className="px-3 sm:px-4 py-2 bg-gradient-to-r from-[#00f0ff] to-[#7000ff] text-black rounded-md font-bold font-mono text-sm hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50">
                   {loading.smtpSave ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {loading.smtpSave ? "Saving..." : "Save SMTP Config"}
                 </button>
               </div>

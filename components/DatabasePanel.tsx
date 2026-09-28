@@ -444,7 +444,7 @@ export default function DatabasePanel({
                 <div className="space-y-1">
                   <p className="text-green-400 font-semibold text-xs">✅ Connection Successful</p>
                   {testResult.details && (
-                    <div className="grid grid-cols-3 gap-2 mt-2">
+                    <div className="grid grid-cols-1 xs:grid-cols-3 gap-2 mt-2">
                       <div>
                         <p className="text-slate-400 text-xs">Tables</p>
                         <p className="text-white text-xs font-bold">{testResult.details.table_count ?? "—"}</p>

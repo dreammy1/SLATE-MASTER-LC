@@ -59,9 +59,9 @@ export default function CpanelSetupModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)" }}>
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-3 sm:p-4 overflow-y-auto overscroll-contain" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)" }}>
       <div
-        className="relative w-full max-w-md rounded-2xl p-6 shadow-2xl"
+        className="relative w-full max-w-md my-auto rounded-2xl p-4 sm:p-6 shadow-2xl max-h-[92vh] overflow-y-auto"
         style={{
           background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
           border: "1px solid rgba(139,92,246,0.3)",

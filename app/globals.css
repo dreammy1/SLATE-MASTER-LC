@@ -6,10 +6,69 @@
   --bg-primary: #0a0d14;
 }
 
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 body {
   background-color: var(--bg-primary);
   color: #f1f5f9;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Prevent long unbroken strings (domains, tokens, log lines) from
+   blowing out the viewport on small screens. */
+p,
+span,
+div,
+td,
+th,
+a,
+code,
+label,
+li {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Inputs / selects / textareas must never exceed their container. */
+input,
+select,
+textarea,
+button {
+  max-width: 100%;
+}
+
+/* Tabular data (site matrix, license table) scrolls inside its card
+   instead of pushing the whole page sideways. */
+.table-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-scroll > table {
+  min-width: 720px;
+}
+
+@media (max-width: 767px) {
+  .table-scroll > table {
+    min-width: 560px;
+  }
+}
+
+/* Hide scrollbars visually while keeping horizontal scroll usable. */
+.table-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.table-scroll::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 9999px;
 }
 
 .glass-panel {

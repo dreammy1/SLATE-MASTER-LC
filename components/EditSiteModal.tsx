@@ -157,8 +157,8 @@ export default function EditSiteModal({ isOpen, site, onClose, onUpdated }: Edit
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="glass-panel w-full max-w-xl rounded-xl p-6 border border-[#00f0ff]/40 space-y-5 font-mono text-xs shadow-2xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-start sm:items-center justify-center p-3 sm:p-4 overflow-y-auto overscroll-contain">
+      <div className="glass-panel w-full max-w-xl rounded-xl p-4 sm:p-6 border border-[#00f0ff]/40 space-y-5 font-mono text-xs shadow-2xl max-h-[92vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-[#1e293b] pb-3">
           <div className="flex items-center gap-2 text-[#00f0ff]">
             <Server className="w-5 h-5" />
@@ -207,7 +207,7 @@ export default function EditSiteModal({ isOpen, site, onClose, onUpdated }: Edit
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-slate-300 mb-1">FRAMEWORK / TYPE</label>
               <select

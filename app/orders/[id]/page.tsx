@@ -67,12 +67,12 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
   }, [data, load]);
 
   if (loading) {
-    return <div className="min-h-screen bg-[#0a0d14] text-slate-300 font-mono p-8">Loading your order…</div>;
+    return <div className="min-h-screen bg-[#0a0d14] text-slate-300 font-mono p-4 sm:p-8">Loading your order…</div>;
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#0a0d14] text-slate-100 font-mono p-8">
+      <div className="min-h-screen bg-[#0a0d14] text-slate-100 font-mono p-4 sm:p-8 w-full overflow-x-hidden">
         <div className="max-w-2xl mx-auto rounded-xl border border-rose-500/50 bg-rose-500/10 p-5">
           <div className="font-bold text-rose-300">We could not load this order</div>
           <div className="text-xs mt-2 text-rose-200">{error}</div>
@@ -90,7 +90,7 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
 
 
   return (
-    <div className="min-h-screen bg-[#0a0d14] text-slate-100 font-mono text-sm p-6">
+    <div className="min-h-screen bg-[#0a0d14] text-slate-100 font-mono text-sm p-4 sm:p-6 w-full overflow-x-hidden">
       <div className="max-w-3xl mx-auto space-y-4">
         <div className="rounded-xl border border-[#1e293b] bg-[#111625] p-5">
           <div className="flex items-center justify-between flex-wrap gap-2">
@@ -99,7 +99,7 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
               {String(o.status).replace(/_/g, " ").toUpperCase()}
             </span>
           </div>
-          <div className="grid md:grid-cols-2 gap-2 mt-4 text-xs">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4 text-xs">
             <Row label="Order" value={o.id} />
             <Row label="Package" value={data.package?.name || "-"} />
             <Row label="Billing" value={o.billing_cycle} />

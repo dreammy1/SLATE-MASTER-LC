@@ -241,21 +241,21 @@ function SitesDashboardContent() {
     <FuturisticLayout searchQuery={searchQuery} onSearchChange={setSearchQuery}>
       <div className="space-y-6">
         {bannerNotice && (
-          <div className="p-3 bg-[#00f0ff]/15 border border-[#00f0ff] text-[#00f0ff] rounded-lg font-mono text-xs flex items-center gap-2 shadow-[0_0_15px_rgba(0,240,255,0.25)] animate-in fade-in">
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
-            <span>{bannerNotice}</span>
+          <div className="p-3 bg-[#00f0ff]/15 border border-[#00f0ff] text-[#00f0ff] rounded-lg font-mono text-xs flex items-start gap-2 shadow-[0_0_15px_rgba(0,240,255,0.25)] animate-in fade-in">
+            <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+            <span className="min-w-0">{bannerNotice}</span>
           </div>
         )}
 
         {/* Action Header & View Switcher */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-mono font-extrabold text-white tracking-wider flex items-center gap-2">
-              <Server className="w-5 h-5 text-[#00f0ff]" />
-              SLATE DEVOPS OS & CI/CD ORCHESTRATION
+          <div className="min-w-0">
+            <h2 className="text-base sm:text-xl font-mono font-extrabold text-white tracking-wider flex items-center gap-2">
+              <Server className="w-5 h-5 shrink-0 text-[#00f0ff]" />
+              <span className="min-w-0">SLATE DEVOPS OS &amp; CI/CD ORCHESTRATION</span>
             </h2>
             <p className="text-xs text-slate-400 font-mono">
-              Persistent high-density deployment matrix & multi-cluster management
+              Persistent high-density deployment matrix &amp; multi-cluster management
             </p>
           </div>
 
@@ -263,30 +263,30 @@ function SitesDashboardContent() {
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             <button
               onClick={() => setIsProvisionDbOpen(true)}
-              className="px-3.5 py-2 rounded-lg bg-[#7000ff]/20 border border-[#7000ff] text-[#7000ff] hover:bg-[#7000ff] hover:text-white transition-all text-xs font-mono font-bold shadow-[0_0_15px_rgba(112,0,255,0.25)] flex items-center gap-1.5"
+              className="px-3 py-2 sm:px-3.5 rounded-lg bg-[#7000ff]/20 border border-[#7000ff] text-[#7000ff] hover:bg-[#7000ff] hover:text-white transition-all text-xs font-mono font-bold shadow-[0_0_15px_rgba(112,0,255,0.25)] flex items-center gap-1.5"
             >
-              <Database className="w-3.5 h-3.5" /> Provision DB
+              <Database className="w-3.5 h-3.5 shrink-0" /> Provision DB
             </button>
             <button
               onClick={() => setIsCreateRepoOpen(true)}
-              className="px-3.5 py-2 rounded-lg bg-[#7000ff]/20 border border-[#7000ff] text-[#7000ff] hover:bg-[#7000ff] hover:text-white transition-all text-xs font-mono font-bold shadow-[0_0_15px_rgba(112,0,255,0.3)] flex items-center gap-1.5"
+              className="px-3 py-2 sm:px-3.5 rounded-lg bg-[#7000ff]/20 border border-[#7000ff] text-[#7000ff] hover:bg-[#7000ff] hover:text-white transition-all text-xs font-mono font-bold shadow-[0_0_15px_rgba(112,0,255,0.3)] flex items-center gap-1.5"
             >
-              <FolderPlus className="w-3.5 h-3.5" /> Scaffold ZIP
+              <FolderPlus className="w-3.5 h-3.5 shrink-0" /> Scaffold ZIP
             </button>
             <button
               onClick={() => setIsAddSiteOpen(true)}
-              className="px-3.5 py-2 rounded-lg bg-[#00f0ff]/20 border border-[#00f0ff] text-[#00f0ff] hover:bg-[#00f0ff] hover:text-black transition-all text-xs font-mono font-bold shadow-[0_0_15px_rgba(0,240,255,0.25)] flex items-center gap-1.5"
+              className="px-3 py-2 sm:px-3.5 rounded-lg bg-[#00f0ff]/20 border border-[#00f0ff] text-[#00f0ff] hover:bg-[#00f0ff] hover:text-black transition-all text-xs font-mono font-bold shadow-[0_0_15px_rgba(0,240,255,0.25)] flex items-center gap-1.5"
             >
-              <Plus className="w-3.5 h-3.5" /> Add Target Domain
+              <Plus className="w-3.5 h-3.5 shrink-0" /> Add Target Domain
             </button>
           </div>
         </div>
 
         {/* View Navigation Tabs */}
-        <div className="flex items-center gap-2 border-b border-[#1e293b] pb-2 font-mono text-xs overflow-x-auto">
+        <div className="flex items-center gap-2 border-b border-[#1e293b] pb-2 font-mono text-xs overflow-x-auto -mx-1 px-1">
           <button
             onClick={() => handleTabChange("targets")}
-            className={`px-4 py-2 rounded-md font-bold transition-all flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 rounded-md font-bold transition-all flex items-center gap-2 shrink-0 whitespace-nowrap ${
               activeTab === "targets"
                 ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/40 shadow-[0_0_10px_rgba(0,240,255,0.2)]"
                 : "text-slate-400 hover:text-slate-200 hover:bg-[#111625]"
@@ -296,7 +296,7 @@ function SitesDashboardContent() {
           </button>
           <button
             onClick={() => handleTabChange("databases")}
-            className={`px-4 py-2 rounded-md font-bold transition-all flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 rounded-md font-bold transition-all flex items-center gap-2 shrink-0 whitespace-nowrap ${
               activeTab === "databases"
                 ? "bg-[#7000ff]/20 text-[#7000ff] border border-[#7000ff]/40 shadow-[0_0_10px_rgba(112,0,255,0.2)]"
                 : "text-slate-400 hover:text-slate-200 hover:bg-[#111625]"
@@ -306,7 +306,7 @@ function SitesDashboardContent() {
           </button>
           <button
             onClick={() => handleTabChange("logs")}
-            className={`px-4 py-2 rounded-md font-bold transition-all flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 rounded-md font-bold transition-all flex items-center gap-2 shrink-0 whitespace-nowrap ${
               activeTab === "logs"
                 ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/40 shadow-[0_0_10px_rgba(0,240,255,0.2)]"
                 : "text-slate-400 hover:text-slate-200 hover:bg-[#111625]"
@@ -316,7 +316,7 @@ function SitesDashboardContent() {
           </button>
           <button
             onClick={() => handleTabChange("telemetry")}
-            className={`px-4 py-2 rounded-md font-bold transition-all flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 rounded-md font-bold transition-all flex items-center gap-2 shrink-0 whitespace-nowrap ${
               activeTab === "telemetry"
                 ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/40 shadow-[0_0_10px_rgba(0,240,255,0.2)]"
                 : "text-slate-400 hover:text-slate-200 hover:bg-[#111625]"
@@ -330,39 +330,39 @@ function SitesDashboardContent() {
         {activeTab === "targets" && (
           <div className="space-y-6">
             {/* Quick Metrics Bar */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 font-mono text-xs">
-              <div className="glass-panel p-4 rounded-xl border border-[#1e293b]">
+            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 font-mono text-xs">
+              <div className="glass-panel p-4 rounded-xl border border-[#1e293b] min-w-0">
                 <div className="text-slate-400 text-[11px]">ACTIVE TARGETS</div>
-                <div className="text-xl font-extrabold text-emerald-400 mt-1 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  {onlineCount} / {sites.length} ONLINE
+                <div className="text-lg sm:text-xl font-extrabold text-emerald-400 mt-1 flex items-center gap-2">
+                  <span className="w-2 h-2 shrink-0 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="min-w-0">{onlineCount} / {sites.length} ONLINE</span>
                 </div>
               </div>
-              <div className="glass-panel p-4 rounded-xl border border-[#1e293b]">
+              <div className="glass-panel p-4 rounded-xl border border-[#1e293b] min-w-0">
                 <div className="text-slate-400 text-[11px]">MANAGED DATABASES</div>
-                <div className="text-xl font-extrabold text-[#7000ff] mt-1">{databases.length} PROVISIONED</div>
+                <div className="text-lg sm:text-xl font-extrabold text-[#7000ff] mt-1">{databases.length} PROVISIONED</div>
               </div>
-              <div className="glass-panel p-4 rounded-xl border border-[#1e293b]">
+              <div className="glass-panel p-4 rounded-xl border border-[#1e293b] min-w-0">
                 <div className="text-slate-400 text-[11px]">TOTAL DEPLOYMENTS</div>
-                <div className="text-xl font-extrabold text-[#00f0ff] mt-1">{deployments.length} EXECUTED</div>
+                <div className="text-lg sm:text-xl font-extrabold text-[#00f0ff] mt-1">{deployments.length} EXECUTED</div>
               </div>
-              <div className="glass-panel p-4 rounded-xl border border-[#1e293b]">
+              <div className="glass-panel p-4 rounded-xl border border-[#1e293b] min-w-0">
                 <div className="text-slate-400 text-[11px]">DATA PERSISTENCE</div>
-                <div className="text-xl font-extrabold text-amber-400 mt-1 flex items-center gap-1.5">
-                  <Shield className="w-4 h-4" /> ACTIVE (data/db.json)
+                <div className="text-lg sm:text-xl font-extrabold text-amber-400 mt-1 flex items-center gap-1.5">
+                  <Shield className="w-4 h-4 shrink-0" /> <span className="min-w-0">ACTIVE (data/db.json)</span>
                 </div>
               </div>
             </div>
 
             {/* Filter & Search Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-mono text-xs">
-              <div className="flex items-center gap-2">
-                <span className="text-slate-400">Filter Status:</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-slate-400 shrink-0">Filter Status:</span>
                 {["ALL", "ONLINE", "DEPLOYING", "OFFLINE"].map((st) => (
                   <button
                     key={st}
                     onClick={() => setStatusFilter(st)}
-                    className={`px-2.5 py-1 rounded text-[11px] font-bold transition-colors ${
+                    className={`px-2.5 py-1 rounded text-[11px] font-bold transition-colors shrink-0 ${
                       statusFilter === st
                         ? "bg-[#00f0ff]/20 text-[#00f0ff] border border-[#00f0ff]/40"
                         : "bg-[#111625] text-slate-400 border border-[#1e293b] hover:text-white"
@@ -380,7 +380,8 @@ function SitesDashboardContent() {
 
             {/* High-Density Sites Matrix Table */}
             <div className="glass-panel rounded-xl border border-[#1e293b] overflow-hidden shadow-2xl">
-              <table className="w-full text-left font-mono text-xs">
+              <div className="table-scroll">
+                <table className="w-full text-left font-mono text-xs">
                 <thead className="bg-[#0a0d14]/90 border-b border-[#1e293b] text-slate-400 uppercase text-[10px] tracking-wider">
                   <tr>
                     <th className="py-3.5 px-4">Status</th>
@@ -423,7 +424,7 @@ function SitesDashboardContent() {
                               rel="noreferrer"
                               className="text-white font-semibold hover:text-[#00f0ff] flex items-center gap-1"
                             >
-                              {site.domain} <ExternalLink className="w-3 h-3 text-slate-500" />
+                              {site.domain} <ExternalLink className="w-3 h-3 shrink-0 text-slate-500" />
                             </a>
                             <div className="text-[11px] text-slate-500">{site.path}</div>
                           </td>
@@ -467,7 +468,8 @@ function SitesDashboardContent() {
                           <td className="py-4 px-4 font-bold text-[#00f0ff]">
                             {site.latency}
                           </td>
-                          <td className="py-4 px-4 text-right space-x-1.5">
+                          <td className="py-4 px-4 text-right">
+                            <div className="flex flex-wrap justify-end gap-1.5">
                             <button
                               onClick={() => handlePing(site.id)}
                               className="p-2 rounded bg-slate-800 hover:bg-[#00f0ff] hover:text-black border border-slate-700 transition-colors text-slate-300"
@@ -514,16 +516,17 @@ function SitesDashboardContent() {
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
+                            </div>
                           </td>
                         </tr>
                         {isExpanded && (
                           <tr className="bg-[#090d16] border-b border-[#7000ff]/30">
                             <td colSpan={7} className="p-4 md:p-6">
                               <div className="max-w-4xl mx-auto space-y-3">
-                                <div className="flex items-center justify-between font-mono text-xs pb-2 border-b border-white/5">
-                                  <span className="text-[#00f0ff] font-bold flex items-center gap-2">
-                                    <Database className="w-4 h-4 text-[#7000ff]" />
-                                    AUTOMATED DATABASE & CPANEL CONSOLE — {site.domain}
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between font-mono text-xs pb-2 border-b border-white/5 gap-2">
+                                  <span className="text-[#00f0ff] font-bold flex items-center gap-2 min-w-0">
+                                    <Database className="w-4 h-4 shrink-0 text-[#7000ff]" />
+                                    <span className="min-w-0">AUTOMATED DATABASE &amp; CPANEL CONSOLE — {site.domain}</span>
                                   </span>
                                   <button
                                     onClick={() => setExpandedDbSiteId(null)}
@@ -573,6 +576,7 @@ function SitesDashboardContent() {
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
         )}
@@ -580,20 +584,20 @@ function SitesDashboardContent() {
         {/* TAB 2: DATABASES ENGINE */}
         {activeTab === "databases" && (
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="min-w-0">
                 <h3 className="text-base font-mono font-bold text-white flex items-center gap-2">
-                  <Database className="w-4 h-4 text-[#7000ff]" /> MANAGED DATABASE INSTANCES & AUTOMATION
+                  <Database className="w-4 h-4 shrink-0 text-[#7000ff]" /> <span className="min-w-0">MANAGED DATABASE INSTANCES &amp; AUTOMATION</span>
                 </h3>
                 <p className="text-xs text-slate-400 font-mono">
-                  cPanel UAPI automated provisioning, credential synchronization, schema probes & user permissions
+                  cPanel UAPI automated provisioning, credential synchronization, schema probes &amp; user permissions
                 </p>
               </div>
               <button
                 onClick={() => setIsProvisionDbOpen(true)}
-                className="px-4 py-2 rounded bg-[#7000ff]/20 border border-[#7000ff] text-[#7000ff] hover:bg-[#7000ff] hover:text-white font-mono text-xs font-bold transition-all shadow-[0_0_15px_rgba(112,0,255,0.25)] flex items-center gap-2"
+                className="px-3 sm:px-4 py-2 rounded bg-[#7000ff]/20 border border-[#7000ff] text-[#7000ff] hover:bg-[#7000ff] hover:text-white font-mono text-xs font-bold transition-all shadow-[0_0_15px_rgba(112,0,255,0.25)] flex items-center gap-2 self-start sm:self-auto shrink-0"
               >
-                <Plus className="w-4 h-4" /> Manual / MySQL Provision
+                <Plus className="w-4 h-4 shrink-0" /> Manual / MySQL Provision
               </button>
             </div>
 
@@ -601,21 +605,21 @@ function SitesDashboardContent() {
             {sites.length > 0 && (
               <div className="glass-panel p-5 rounded-2xl border border-[#7000ff]/30 shadow-2xl space-y-4 font-mono text-xs">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
-                  <div>
+                  <div className="min-w-0">
                     <h4 className="text-xs font-bold text-[#00f0ff] uppercase tracking-wider flex items-center gap-2">
-                      <Database className="w-3.5 h-3.5 text-[#7000ff]" />
-                      Live Site Database & cPanel UAPI Controller
+                      <Database className="w-3.5 h-3.5 shrink-0 text-[#7000ff]" />
+                      <span className="min-w-0">Live Site Database &amp; cPanel UAPI Controller</span>
                     </h4>
                     <p className="text-[11px] text-slate-400 mt-0.5">
                       Select a live target site below to auto-provision, retrieve credentials, scan existing DBs, or probe PDO connection.
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-slate-400 text-xs font-mono">Active Target:</span>
+                  <div className="flex items-center gap-2 max-w-full">
+                    <span className="text-slate-400 text-xs font-mono shrink-0">Active Target:</span>
                     <select
                       value={selectedDbSiteId || (sites[0]?.id ?? "")}
                       onChange={(e) => setSelectedDbSiteId(e.target.value)}
-                      className="bg-[#0b101e] border border-[#7000ff]/40 text-white text-xs rounded-lg px-3 py-1.5 font-mono focus:border-[#00f0ff] focus:outline-none"
+                      className="flex-1 sm:flex-none min-w-0 bg-[#0b101e] border border-[#7000ff]/40 text-white text-xs rounded-lg px-3 py-1.5 font-mono focus:border-[#00f0ff] focus:outline-none"
                     >
                       {sites.map((s) => (
                         <option key={s.id} value={s.id}>
@@ -665,7 +669,7 @@ function SitesDashboardContent() {
               <div className="text-xs font-mono text-slate-400 uppercase tracking-wider font-bold">
                 Stored Database Records ({databases.length})
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
                 {databases.map((db) => {
                   const linkedSite = sites.find((s) => s.id === db.linkedSiteId);
                   return (
@@ -680,25 +684,25 @@ function SitesDashboardContent() {
                       </div>
 
                       <div className="space-y-1.5 text-slate-300">
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Mode:</span>
-                          <span className="font-bold uppercase text-[#7000ff]">{db.mode}</span>
+                        <div className="flex justify-between gap-2">
+                          <span className="text-slate-500 shrink-0">Mode:</span>
+                          <span className="font-bold uppercase text-[#7000ff] min-w-0">{db.mode}</span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">User:</span>
-                          <span>{db.user}</span>
+                        <div className="flex justify-between gap-2">
+                          <span className="text-slate-500 shrink-0">User:</span>
+                          <span className="min-w-0">{db.user}</span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Host:</span>
-                          <span>{db.host}:{db.port}</span>
+                        <div className="flex justify-between gap-2">
+                          <span className="text-slate-500 shrink-0">Host:</span>
+                          <span className="min-w-0">{db.host}:{db.port}</span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Allocated Size:</span>
-                          <span className="text-[#00f0ff] font-bold">{db.size}</span>
+                        <div className="flex justify-between gap-2">
+                          <span className="text-slate-500 shrink-0">Allocated Size:</span>
+                          <span className="text-[#00f0ff] font-bold shrink-0">{db.size}</span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Linked Site:</span>
-                          <span className="text-white truncate max-w-[150px]">
+                        <div className="flex justify-between gap-2">
+                          <span className="text-slate-500 shrink-0">Linked Site:</span>
+                          <span className="text-white truncate min-w-0">
                             {linkedSite ? linkedSite.domain : "None"}
                           </span>
                         </div>
@@ -730,10 +734,10 @@ function SitesDashboardContent() {
         {/* TAB 3: CI/CD DEPLOYMENT LOGS STREAM */}
         {activeTab === "logs" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="min-w-0">
                 <h3 className="text-base font-mono font-bold text-white flex items-center gap-2">
-                  <Terminal className="w-4 h-4 text-[#00f0ff]" /> CONTINUOUS DEPLOYMENT PIPELINE RUNS
+                  <Terminal className="w-4 h-4 shrink-0 text-[#00f0ff]" /> <span className="min-w-0">CONTINUOUS DEPLOYMENT PIPELINE RUNS</span>
                 </h3>
                 <p className="text-xs text-slate-400 font-mono">
                   Audit trail and console outputs from GitHub Actions, webhooks, and manual CLI triggers
@@ -741,9 +745,9 @@ function SitesDashboardContent() {
               </div>
               <button
                 onClick={() => setTerminalTarget({ id: null, domain: "ALL TARGETS" })}
-                className="px-4 py-2 rounded bg-[#00f0ff]/20 border border-[#00f0ff] text-[#00f0ff] hover:bg-[#00f0ff] hover:text-black font-mono text-xs font-bold transition-all shadow-[0_0_15px_rgba(0,240,255,0.25)] flex items-center gap-2"
+                className="px-3 sm:px-4 py-2 rounded bg-[#00f0ff]/20 border border-[#00f0ff] text-[#00f0ff] hover:bg-[#00f0ff] hover:text-black font-mono text-xs font-bold transition-all shadow-[0_0_15px_rgba(0,240,255,0.25)] flex items-center gap-2 self-start sm:self-auto shrink-0"
               >
-                <Terminal className="w-4 h-4" /> Open Interactive CLI
+                <Terminal className="w-4 h-4 shrink-0" /> Open Interactive CLI
               </button>
             </div>
 
@@ -752,19 +756,19 @@ function SitesDashboardContent() {
                 {deployments.map((dep) => (
                   <div key={dep.id} className="p-4 hover:bg-[#111625]/80 transition-colors space-y-2">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap min-w-0">
                         <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold">
                           {dep.status}
                         </span>
-                        <span className="font-bold text-white">{dep.domain}</span>
-                        <span className="text-slate-500 text-[11px]">({dep.repo})</span>
+                        <span className="font-bold text-white break-all">{dep.domain}</span>
+                        <span className="text-slate-500 text-[11px] break-all">({dep.repo})</span>
                       </div>
-                      <div className="flex items-center gap-3 text-slate-400 text-[11px]">
+                      <div className="flex items-center gap-3 text-slate-400 text-[11px] flex-wrap">
                         <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-slate-500" /> {new Date(dep.timestamp).toLocaleTimeString()}
+                          <Clock className="w-3 h-3 shrink-0 text-slate-500" /> {new Date(dep.timestamp).toLocaleTimeString()}
                         </span>
                         <span className="text-[#00f0ff] font-semibold">Duration: {dep.duration}</span>
-                        <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+                        <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 break-all">
                           SHA: {dep.commitSha}
                         </span>
                       </div>
@@ -793,11 +797,11 @@ function SitesDashboardContent() {
         {activeTab === "telemetry" && (
           <div className="space-y-6">
             <div className="glass-panel rounded-xl p-5 border border-[#1e293b]">
-              <div className="flex items-center justify-between mb-4 font-mono">
-                <div className="text-xs text-slate-300 flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-[#00f0ff]" /> CLUSTER LATENCY STREAM (LIVE FEED)
+              <div className="flex items-center justify-between mb-4 font-mono gap-2 flex-wrap">
+                <div className="text-xs text-slate-300 flex items-center gap-2 min-w-0">
+                  <Activity className="w-4 h-4 shrink-0 text-[#00f0ff]" /> <span className="min-w-0">CLUSTER LATENCY STREAM (LIVE FEED)</span>
                 </div>
-                <div className="text-xs font-mono text-[#00f0ff] font-bold">AVG: 36.4 ms</div>
+                <div className="text-xs font-mono text-[#00f0ff] font-bold shrink-0">AVG: 36.4 ms</div>
               </div>
               <div className="h-44 w-full">
                 <ResponsiveContainer width="100%" height="100%">
@@ -819,7 +823,7 @@ function SitesDashboardContent() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono text-xs">
               <div className="glass-panel p-4 rounded-xl border border-[#1e293b] space-y-2">
                 <div className="text-slate-400">NODE CPU UTILIZATION</div>
                 <div className="text-2xl font-bold text-[#00f0ff]">14.2%</div>

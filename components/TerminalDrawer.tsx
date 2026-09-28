@@ -89,7 +89,7 @@ export default function TerminalDrawer({ isOpen, onClose, siteId, siteDomain }: 
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-2 sm:p-4">
-      <div className="glass-panel w-full max-w-4xl h-[85vh] rounded-xl flex flex-col border border-[#00f0ff]/40 shadow-2xl overflow-hidden font-mono text-xs">
+      <div className="glass-panel w-full max-w-4xl h-[75vh] sm:h-[85vh] rounded-xl flex flex-col border border-[#00f0ff]/40 shadow-2xl overflow-hidden font-mono text-xs">
         {/* Terminal Header */}
         <div className="h-12 bg-[#0a0d14] border-b border-[#1e293b] px-4 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">

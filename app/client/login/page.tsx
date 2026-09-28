@@ -39,7 +39,7 @@ export default function ClientLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0d14] text-slate-100 flex items-center justify-center font-mono relative overflow-hidden">
+    <div className="min-h-screen bg-[#0a0d14] text-slate-100 flex items-center justify-center font-mono p-4 sm:p-6 relative overflow-hidden">
       {/* Animated background */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-0 -left-1/2 w-96 h-96 bg-[#00f0ff]/5 rounded-full blur-3xl mix-blend-screen animate-pulse"></div>
@@ -51,7 +51,7 @@ export default function ClientLoginPage() {
       </div>
 
       <div className="relative z-10 w-full max-w-md">
-        <div className="bg-[#111625]/60 backdrop-blur border border-[#1e293b] rounded-xl p-8">
+        <div className="bg-[#111625]/60 backdrop-blur border border-[#1e293b] rounded-xl p-5 sm:p-8">
           {/* Header */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#00f0ff]/10 border border-[#00f0ff]/30 mb-4">

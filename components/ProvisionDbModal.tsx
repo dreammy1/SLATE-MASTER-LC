@@ -80,8 +80,8 @@ export default function ProvisionDbModal({ isOpen, onClose, onProvisioned, sites
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="glass-panel w-full max-w-lg rounded-xl p-6 border border-[#7000ff]/50 space-y-5 font-mono text-xs shadow-2xl">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-start sm:items-center justify-center p-3 sm:p-4 overflow-y-auto overscroll-contain">
+      <div className="glass-panel w-full max-w-lg my-auto rounded-xl p-4 sm:p-6 border border-[#7000ff]/50 space-y-5 font-mono text-xs shadow-2xl">
         <div className="flex items-center justify-between border-b border-[#1e293b] pb-3">
           <div className="flex items-center gap-2 text-[#7000ff]">
             <Database className="w-5 h-5" />
@@ -119,7 +119,7 @@ export default function ProvisionDbModal({ isOpen, onClose, onProvisioned, sites
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-slate-300 mb-1">TARGET DB NAME</label>
               <input
@@ -175,7 +175,7 @@ export default function ProvisionDbModal({ isOpen, onClose, onProvisioned, sites
               <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                 Direct Host Credentials
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-400 mb-1">HOST / IP</label>
                   <input
@@ -230,7 +230,7 @@ export default function ProvisionDbModal({ isOpen, onClose, onProvisioned, sites
                   className="w-full bg-[#111625] border border-[#1e293b] rounded px-2.5 py-1.5 text-white"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-400 mb-1">CPANEL USER</label>
                   <input

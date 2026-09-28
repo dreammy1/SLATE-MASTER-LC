@@ -264,7 +264,7 @@ export default function ClientConsolePage() {
 
           {/* ── client table ──────────── */}
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[720px]">
               <thead>
                 <tr className="text-slate-500 text-left border-b border-[#1e293b]">
                   <th className="py-2 pr-3">Client</th><th className="py-2 pr-3">Site</th><th className="py-2 pr-3">Package</th>
@@ -328,9 +328,9 @@ export default function ClientConsolePage() {
         <div className="glass-panel rounded-xl p-4 border-[#1e293b]">
           <div className="text-slate-300 font-bold mb-2 flex items-center gap-2"><Plus className="w-4 h-4" /> ORDER QUEUE (manual approve → paid)</div>
           {orders.map((o) => (
-            <div key={o.id} className="flex items-center justify-between py-1.5 border-b border-[#1e293b]">
-              <span className="text-slate-300">{o.id} · {o.siteUrl} · {o.billing_cycle} · <b className={statusTone(o.status)}>{o.status}</b> · {o.contactEmail}</span>
-              <span className="flex gap-1">
+            <div key={o.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-1.5 border-b border-[#1e293b]">
+              <span className="text-slate-300 min-w-0">{o.id} · {o.siteUrl} · {o.billing_cycle} · <b className={statusTone(o.status)}>{o.status}</b> · {o.contactEmail}</span>
+              <span className="flex gap-1 shrink-0">
                 <button onClick={() => openDetail(o.id)} className="px-3 py-1 rounded border-[#00f0ff] text-[#00f0ff]">Manage</button>
                 {o.status === "pending_review" && <button onClick={() => approveOrder(o.id)} className="px-3 py-1 rounded border-emerald-500 text-emerald-400">Approve payment</button>}
               </span>
@@ -360,7 +360,7 @@ export default function ClientConsolePage() {
       {/* ════ DETAIL / EDIT DRAWER ════ */}
       {detail && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/70" onClick={() => setDetail(null)}>
-          <div className="w-full max-w-3xl h-full overflow-y-auto bg-[#0d1220] border-l border-[#1e293b] p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-3xl h-full overflow-y-auto bg-[#0d1220] border-l border-[#1e293b] p-4 sm:p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="text-lg font-extrabold text-white flex items-center gap-2">
@@ -411,7 +411,7 @@ export default function ClientConsolePage() {
               {live?.error && <div className="text-rose-400">{live.error}</div>}
               {live?.health && (
                 <div className="space-y-2">
-                  <div className="grid md:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                     <Stat label="HTTP" value={`${live.health.http.ok ? "OK" : "FAIL"} ${live.health.http.statusCode ?? ""} · ${live.health.http.latencyMs ?? "?"}ms`} tone={live.health.http.ok ? "text-emerald-400" : "text-rose-400"} />
                     <Stat label="Agent" value={live.health.agent.message || (live.health.agent.reachable ? "online" : "unreachable")} tone={live.health.agent.reachable ? "text-emerald-400" : "text-rose-400"} />
                     <Stat label="Installer" value={`${live.health.installer.reachable ? (live.health.installer.installed ? "installed" : "not installed") : "unreachable"}${live.health.installer.db_ok === false ? " · DB FAIL" : ""}`} tone={live.health.installer.reachable && live.health.installer.installed ? "text-emerald-400" : "text-amber-400"} />

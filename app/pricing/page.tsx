@@ -12,14 +12,14 @@ export default function PricingPage() {
   useEffect(() => { fetch("/api/packages").then((r) => r.json()).then((d) => { if (d.success) setPkgs(d.packages); }).catch(() => {}); }, []);
   const price = (p: PubPkg) => { const c = cycle === "monthly" ? p.pricing.monthly_cents : cycle === "yearly" ? p.pricing.yearly_cents : p.pricing.lifetime_cents; return `${(c/100).toFixed(2)} ${p.pricing.currency}`; };
   return (
-    <div className="min-h-screen bg-[#0a0d14] text-slate-100 p-6 font-mono text-sm">
+    <div className="min-h-screen bg-[#0a0d14] text-slate-100 p-4 sm:p-6 font-mono text-sm w-full overflow-x-hidden">
       <h1 className="text-2xl font-extrabold text-center">Slate Packages</h1>
       <div className="flex justify-center gap-2 my-4">
         {(["monthly","yearly","lifetime"] as const).map((c) => (
           <button key={c} onClick={() => setCycle(c)} className={`px-4 py-1.5 rounded border ${cycle===c?"border-[#00f0ff] text-[#00f0ff]":"border-[#1e293b] text-slate-400"}`}>{c}</button>
         ))}
       </div>
-      <div className="grid md:grid-cols-2 gap-4 max-w-4xl mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
         {pkgs.map((p) => (
           <div key={p.id} className={`rounded-xl p-5 border ${selected?.id===p.id?"border-[#00f0ff]":"border-[#1e293b]"} bg-[#111625]`}>
             <div className="text-lg font-bold text-white">{p.name}</div>

@@ -154,13 +154,13 @@ export default function ClientDashboardPage() {
                 : "text-amber-400";
 
   return (
-    <div className="min-h-screen bg-[#0a0d14] text-slate-100 font-mono p-6 overflow-hidden relative">
+    <div className="min-h-screen bg-[#0a0d14] text-slate-100 font-mono p-4 sm:p-6 overflow-hidden relative w-full">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 -left-1/2 w-96 h-96 bg-[#00f0ff]/3 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute bottom-0 -right-1/2 w-96 h-96 bg-cyan-500/3 rounded-full blur-3xl animate-pulse delay-1000"></div>
       </div>
 
-      <div className="relative z-10 max-w-5xl mx-auto">
+      <div className="relative z-10 max-w-5xl mx-auto w-full">
         {/* Header */}
         <div className="flex justify-between items-center mb-8 pb-4 border-b border-[#1e293b]">
           <div>
@@ -189,7 +189,7 @@ export default function ClientDashboardPage() {
               <KeyRound className="w-4 h-4 text-slate-500" />
             </div>
             <div className="flex items-center gap-2 mb-3">
-              <code className="text-lg font-mono text-white tracking-widest">
+              <code className="text-base sm:text-lg font-mono text-white tracking-widest truncate">
                 {lic.maskedKey || "—"}
               </code>
               <button onClick={() => setShowKey(!showKey)} className="p-1 rounded hover:bg-[#1e293b] transition-colors">
@@ -258,9 +258,9 @@ export default function ClientDashboardPage() {
               <CreditCard className="w-4 h-4" /> Payment Details
             </h3>
             <div className="space-y-2.5 text-sm">
-              <div className="flex justify-between"><span className="text-slate-400">Billing Cycle</span><span className="text-white capitalize">{c.billingCycle}</span></div>
-              <div className="flex justify-between"><span className="text-slate-400">Payment Method</span><span className="text-white capitalize">{c.payMethod.replace(/_/g, " ")}</span></div>
-              <div className="flex justify-between"><span className="text-slate-400">Payment Status</span>
+              <div className="flex justify-between gap-3"><span className="text-slate-400 shrink-0">Billing Cycle</span><span className="text-white capitalize text-right">{c.billingCycle}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-slate-400 shrink-0">Payment Method</span><span className="text-white capitalize text-right">{c.payMethod.replace(/_/g, " ")}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-slate-400 shrink-0">Payment Status</span>
                 <span className={`font-bold ${c.paymentStatus === "paid" || c.paymentStatus === "completed" ? "text-emerald-400" : c.paymentStatus === "pending_payment" ? "text-amber-400" : "text-rose-400"}`}>
                   {c.paymentStatus.replace(/_/g, " ")}
                 </span>
@@ -273,15 +273,15 @@ export default function ClientDashboardPage() {
               <Server className="w-4 h-4" /> Live Site Status
             </h3>
             <div className="space-y-2.5 text-sm">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Site URL</span>
-                <a href={c.siteUrl} target="_blank" rel="noopener noreferrer" className="text-[#00f0ff] hover:underline flex items-center gap-1">
-                  {c.siteUrl} <ExternalLink className="w-3 h-3" />
+              <div className="flex justify-between items-center gap-3">
+                <span className="text-slate-400 shrink-0">Site URL</span>
+                <a href={c.siteUrl} target="_blank" rel="noopener noreferrer" className="text-[#00f0ff] hover:underline flex items-center gap-1 min-w-0 text-right">
+                  <span className="truncate">{c.siteUrl}</span> <ExternalLink className="w-3 h-3 shrink-0" />
                 </a>
               </div>
-              <div className="flex justify-between"><span className="text-slate-400">Status</span><span className={`font-bold ${siteStatusClass}`}>{c.siteStatus}</span></div>
-              {c.latency && (<div className="flex justify-between"><span className="text-slate-400">Latency</span><span className="text-white">{c.latency}</span></div>)}
-              {c.lastHealthAt && (<div className="flex justify-between"><span className="text-slate-400">Last Health Check</span><span className="text-slate-300 text-xs">{new Date(c.lastHealthAt).toLocaleString()}</span></div>)}
+              <div className="flex justify-between gap-3"><span className="text-slate-400 shrink-0">Status</span><span className={`font-bold ${siteStatusClass}`}>{c.siteStatus}</span></div>
+              {c.latency && (<div className="flex justify-between gap-3"><span className="text-slate-400 shrink-0">Latency</span><span className="text-white">{c.latency}</span></div>)}
+              {c.lastHealthAt && (<div className="flex justify-between gap-3"><span className="text-slate-400 shrink-0">Last Health Check</span><span className="text-slate-300 text-xs text-right">{new Date(c.lastHealthAt).toLocaleString()}</span></div>)}
             </div>
           </div>
         </div>
@@ -290,10 +290,10 @@ export default function ClientDashboardPage() {
         <div className="bg-[#111625]/60 border border-[#1e293b] rounded-xl p-5 mb-8">
           <h3 className="text-xs text-slate-400 uppercase mb-3">Environment Details</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-            {c.coreVersion && (<div className="flex justify-between"><span className="text-slate-400">Slate Core Version</span><span className="text-white">{c.coreVersion}</span></div>)}
-            {c.agentVersion && (<div className="flex justify-between"><span className="text-slate-400">Agent Version</span><span className="text-white">{c.agentVersion}</span></div>)}
-            <div className="flex justify-between"><span className="text-slate-400">File Path</span><span className="text-slate-300 text-xs">{c.fileManagerPath || "—"}</span></div>
-            <div className="flex justify-between"><span className="text-slate-400">Registered</span><span className="text-slate-300 text-xs">{new Date(c.createdAt).toLocaleDateString()}</span></div>
+            {c.coreVersion && (<div className="flex justify-between gap-3"><span className="text-slate-400 shrink-0">Slate Core Version</span><span className="text-white text-right min-w-0">{c.coreVersion}</span></div>)}
+            {c.agentVersion && (<div className="flex justify-between gap-3"><span className="text-slate-400 shrink-0">Agent Version</span><span className="text-white text-right min-w-0">{c.agentVersion}</span></div>)}
+            <div className="flex justify-between gap-3"><span className="text-slate-400 shrink-0">File Path</span><span className="text-slate-300 text-xs text-right min-w-0">{c.fileManagerPath || "—"}</span></div>
+            <div className="flex justify-between gap-3"><span className="text-slate-400 shrink-0">Registered</span><span className="text-slate-300 text-xs">{new Date(c.createdAt).toLocaleDateString()}</span></div>
           </div>
           {c.activePlugins?.length > 0 && (
             <div className="mt-3">

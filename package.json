@@ -17,12 +17,10 @@
     "verify:deploy": "node scripts/preflight-render.js && node scripts/diagnose-login.js"
   },
   "dependencies": {
-    "@genkit-ai/googleai": "^1.28.0",
     "@octokit/rest": "^20.1.1",
     "@refinedev/core": "^4.53.0",
     "adm-zip": "^0.6.1",
     "clsx": "^2.1.1",
-    "genkit": "^1.42.0",
     "lucide-react": "^0.460.0",
     "mysql2": "^3.11.5",
     "next": "^15.5.24",
@@ -32,6 +30,10 @@
     "recharts": "^2.13.3",
     "tailwind-merge": "^2.5.4"
   },
+  "overrides": {
+    "postcss": "^8.5.28",
+    "uuid": "^14.0.0"
+  },
   "devDependencies": {
     "@types/adm-zip": "^0.5.5",
     "@types/node": "^20.17.6",
@@ -40,7 +42,7 @@
     "autoprefixer": "^10.4.20",
     "eslint": "^8.57.1",
     "eslint-config-next": "^15.5.24",
-    "postcss": "^8.4.49",
+    "postcss": "^8.5.28",
     "tailwindcss": "^3.4.15",
     "typescript": "^5.6.3"
   }

@@ -1,0 +1,57 @@
+# =============================================================================
+#  Dependabot configuration
+# =============================================================================
+#  Why this file exists: without it Dependabot opens one noisy PR per package.
+#  With it, the dashboard's runtime dependencies move as a single reviewed group,
+#  which is what the "npm_and_yarn" group in a failed run was trying to do.
+#
+#  NOTE ON SECURITY UPDATES
+#  -----------------------
+#  Security updates are intentionally NOT grouped. They are kept separate and
+#  applied as fast as possible, because a grouped PR waits on review of unrelated
+#  upgrades. Grouping only applies to routine version bumps.
+# =============================================================================
+version: 2
+
+updates:
+  # ── Production dependencies ────────────────────────────────────────────────
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      # One PR for the whole runtime tree instead of ~15 separate ones.
+      npm_and_yarn:
+        patterns:
+          - "*"
+        exclude-patterns:
+          # Next.js majors pull breaking config changes and are reviewed on their own.
+          - "next"
+          - "react"
+          - "react-dom"
+          - "eslint"
+          - "eslint-config-next"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ── CI / build toolchain ───────────────────────────────────────────────────
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Etc/UTC"
+    commit-message:
+      prefix: "ci"
+    groups:
+      github-actions:
+        patterns:
+          - "*"

@@ -19,6 +19,8 @@ import {
   Package,
   Eye,
   LogOut,
+  Menu,
+  X,
 } from "lucide-react";
 
 interface FuturisticLayoutProps {
@@ -133,6 +135,23 @@ function SidebarNav({ activeTab }: { activeTab?: string }) {
 export default function FuturisticLayout({ children, searchQuery, onSearchChange, activeTab }: FuturisticLayoutProps) {
   const [activeTargets, setActiveTargets] = useState(3);
   const [localSearch, setLocalSearch] = useState(searchQuery || "");
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
+  // Close the mobile drawer whenever the route changes.
+  const pathname = usePathname();
+  useEffect(() => {
+    setIsMobileNavOpen(false);
+  }, [pathname]);
+
+  // Lock body scroll while the mobile drawer is open.
+  useEffect(() => {
+    if (!isMobileNavOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isMobileNavOpen]);
 
   useEffect(() => {
     fetch("/api/sites")
@@ -154,27 +173,35 @@ export default function FuturisticLayout({ children, searchQuery, onSearchChange
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0d14] text-slate-100 flex flex-col scanline-bg selection:bg-[#00f0ff] selection:text-black">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#0a0d14] text-slate-100 flex flex-col scanline-bg selection:bg-[#00f0ff] selection:text-black">
       {/* Top Futuristic Operations Header */}
-      <header className="h-16 border-b border-[#1e293b] bg-[#111625]/90 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center gap-4">
-          <Link href="/sites" className="relative flex items-center justify-center">
+      <header className="h-16 shrink-0 border-b border-[#1e293b] bg-[#111625]/90 backdrop-blur-md px-3 sm:px-4 lg:px-6 flex items-center justify-between gap-2 sticky top-0 z-50">
+        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+          <button
+            onClick={() => setIsMobileNavOpen(true)}
+            className="md:hidden shrink-0 p-2 rounded-md bg-[#111625] border border-[#1e293b] text-slate-300 hover:border-[#00f0ff] hover:text-[#00f0ff] transition-colors"
+            title="Open navigation menu"
+            aria-label="Open navigation menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <Link href="/sites" className="relative shrink-0 flex items-center justify-center">
             <div className="w-10 h-10 rounded-lg bg-[#00f0ff]/10 border border-[#00f0ff] flex items-center justify-center shadow-[0_0_15px_rgba(0,240,255,0.35)]">
               <Zap className="w-5 h-5 text-[#00f0ff] animate-pulse" />
             </div>
             <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping" />
             <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full" />
           </Link>
-          <div>
-            <div className="flex items-center gap-2">
-              <Link href="/sites" className="font-extrabold tracking-widest text-lg bg-gradient-to-r from-[#00f0ff] via-white to-[#7000ff] bg-clip-text text-transparent hover:opacity-90">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <Link href="/sites" className="font-extrabold tracking-widest text-sm sm:text-lg bg-gradient-to-r from-[#00f0ff] via-white to-[#7000ff] bg-clip-text text-transparent hover:opacity-90 truncate">
                 SLATE DEVOPS OS
               </Link>
-              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-[#00f0ff]/20 text-[#00f0ff] border border-[#00f0ff]/30">
+              <span className="hidden sm:inline-flex shrink-0 text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-[#00f0ff]/20 text-[#00f0ff] border border-[#00f0ff]/30">
                 v2.4-PROD
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 font-mono flex items-center gap-1.5">
+            <p className="hidden sm:flex text-[11px] text-slate-400 font-mono items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> LIVE TELEMETRY ENGINE
             </p>
           </div>
@@ -200,19 +227,19 @@ export default function FuturisticLayout({ children, searchQuery, onSearchChange
         </div>
 
         {/* Right Action Icons */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <div className="relative hidden md:block">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-            <input 
-              type="text" 
-              placeholder="Query domains, repos, SHAs..." 
+            <input
+              type="text"
+              placeholder="Query domains, repos, SHAs..."
               value={localSearch}
               onChange={handleSearch}
-              className="bg-[#0a0d14]/80 border border-[#1e293b] text-xs rounded-md pl-9 pr-4 py-2 w-64 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-[#00f0ff]"
+              className="bg-[#0a0d14]/80 border border-[#1e293b] text-xs rounded-md pl-9 pr-4 py-2 w-56 lg:w-64 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-[#00f0ff]"
             />
           </div>
-          <button 
-            onClick={() => alert("All cluster nodes and CI/CD triggers are healthy.")} 
+          <button
+            onClick={() => alert("All cluster nodes and CI/CD triggers are healthy.")}
             className="p-2 rounded-md bg-[#111625] border border-[#1e293b] hover:border-[#00f0ff] transition-colors relative"
             title="Cluster Alerts"
           >
@@ -232,10 +259,52 @@ export default function FuturisticLayout({ children, searchQuery, onSearchChange
         </div>
       </header>
 
+      {/* Mobile navigation drawer */}
+      {isMobileNavOpen && (
+        <div className="md:hidden fixed inset-0 z-[60] flex">
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setIsMobileNavOpen(false)}
+            aria-hidden="true"
+          />
+          <aside className="relative z-10 w-[17rem] max-w-[85vw] h-full border-r border-[#1e293b] bg-[#111625] flex flex-col justify-between p-4 overflow-y-auto">
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-[10px] uppercase font-mono tracking-wider text-slate-500">Navigation</span>
+                <button
+                  onClick={() => setIsMobileNavOpen(false)}
+                  className="p-1.5 rounded-md border border-[#1e293b] text-slate-400 hover:text-white"
+                  title="Close menu"
+                  aria-label="Close menu"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <Suspense fallback={<div className="text-slate-600 text-xs p-3">Loading menu...</div>}>
+                <SidebarNav activeTab={activeTab} />
+              </Suspense>
+            </div>
+
+            <div className="p-3 mt-4 rounded-lg bg-[#0a0d14]/80 border border-[#1e293b] space-y-2">
+              <div className="flex items-center justify-between text-[11px] font-mono">
+                <span className="text-slate-400">AGENT HEALTH</span>
+                <span className="text-emerald-400 flex items-center gap-1 font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> 100% OK
+                </span>
+              </div>
+              <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                <div className="bg-gradient-to-r from-[#00f0ff] to-[#7000ff] h-full w-[94%]" />
+              </div>
+              <p className="text-[10px] text-slate-500 font-mono truncate">SSL & Token Handshakes Valid</p>
+            </div>
+          </aside>
+        </div>
+      )}
+
       {/* Main Container */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* Sidebar */}
-        <aside className="w-64 border-r border-[#1e293b] bg-[#111625]/50 flex flex-col justify-between p-4 hidden md:flex">
+        <aside className="w-64 shrink-0 border-r border-[#1e293b] bg-[#111625]/50 flex-col justify-between p-4 hidden md:flex overflow-y-auto">
           <Suspense fallback={<div className="text-slate-600 text-xs p-3">Loading menu...</div>}>
             <SidebarNav activeTab={activeTab} />
           </Suspense>
@@ -256,7 +325,20 @@ export default function FuturisticLayout({ children, searchQuery, onSearchChange
         </aside>
 
         {/* Content Body */}
-        <main className="flex-1 overflow-y-auto p-6 space-y-6">
+        <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6">
+          {/* Mobile-only search (hidden in the header below md) */}
+          {onSearchChange && (
+            <div className="md:hidden relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              <input
+                type="text"
+                placeholder="Query domains, repos, SHAs..."
+                value={localSearch}
+                onChange={handleSearch}
+                className="w-full bg-[#0a0d14]/80 border border-[#1e293b] text-xs rounded-md pl-9 pr-3 py-2.5 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-[#00f0ff]"
+              />
+            </div>
+          )}
           {children}
         </main>
       </div>

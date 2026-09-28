@@ -65,8 +65,8 @@ export default function AddSiteModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="glass-panel w-full max-w-lg rounded-xl p-6 border border-[#00f0ff]/40 space-y-5 font-mono text-xs shadow-2xl">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-start sm:items-center justify-center p-3 sm:p-4 overflow-y-auto overscroll-contain">
+      <div className="glass-panel w-full max-w-lg my-auto rounded-xl p-4 sm:p-6 border border-[#00f0ff]/40 space-y-5 font-mono text-xs shadow-2xl">
         <div className="flex items-center justify-between border-b border-[#1e293b] pb-3">
           <div className="flex items-center gap-2 text-[#00f0ff]">
             <Server className="w-5 h-5" />
