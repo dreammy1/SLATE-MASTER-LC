@@ -58,7 +58,7 @@ jobs:
             exit 1
           fi
           echo "target=$URL" >> "$GITHUB_OUTPUT"
-          echo "Pinging $URL/api/selftest"
+          echo "Pinging $URL/api/health"
 
       - name: Ping the health endpoint
         env:

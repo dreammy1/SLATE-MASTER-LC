@@ -73,11 +73,16 @@ if (fs.existsSync(blueprint)) {
   if (!/STORAGE_DRIVER/.test(y) || !/value:\s*kv/.test(y)) {
     issues.push("render.yaml: STORAGE_DRIVER is not set to kv. On Render the disk is wiped on every deploy, so all orders would be lost.");
   }
-  if (!/healthCheckPath:\s*\/api\/selftest/.test(y)) {
-    issues.push("render.yaml: healthCheckPath is not /api/selftest. The keep-alive pings that path.");
+  if (!/healthCheckPath:\s*\/api\/health/.test(y)) {
+    issues.push("render.yaml: healthCheckPath is not /api/health. The heavy /api/selftest is too slow to gate a deploy on a cold container.");
   }
 } else {
   issues.push("render.yaml is missing — Render's Blueprint button needs it to build the service without questions.");
+}
+
+// The health endpoint must exist, or Render polls a path that 404s.
+if (!fs.existsSync(path.join(ROOT, "app/api/health/route.ts"))) {
+  issues.push("app/api/health/route.ts is missing — render.yaml healthCheckPath points at it.");
 }
 
 // ── 2. Storage credentials ───────────────────────────────────────────────────

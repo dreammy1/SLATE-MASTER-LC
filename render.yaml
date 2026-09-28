@@ -36,7 +36,10 @@ services:
     # the systemd/PM2 setups in deploy/.
     buildCommand: npm ci --include=dev && npm run build
     startCommand: npx next start -p $PORT -H 0.0.0.0
-    healthCheckPath: /api/selftest
+    # /api/health answers in milliseconds. /api/selftest is the thorough
+    # diagnostic (2000 keys + a zip build + an Upstash round-trip) and is far
+    # too slow to gate a deploy on a cold container — it caused "Timed Out".
+    healthCheckPath: /api/health
     autoDeploy: true
 
     # ── Instance count MUST stay 1 ─────────────────────────────────────────────
