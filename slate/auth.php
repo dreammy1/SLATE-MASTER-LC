@@ -261,7 +261,7 @@ function cpanelUapi($module, $func, array $params = [], $config = null) {
 
             // HTML response means auth was rejected for this header format; try next auth header
             $trimmed = trim((string)$body);
-            if (/^<(!doctype\s+html|html[\s>])/i' === '' || preg_match('/^<(!doctype\s+html|html[\s>])/i', $trimmed)) {
+            if (preg_match('/^<(!doctype\s+html|html[\s>])/i', $trimmed)) {
                 continue;
             }
 
