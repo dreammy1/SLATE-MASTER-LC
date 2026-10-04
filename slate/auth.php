@@ -511,6 +511,67 @@ if ($action === 'database_create') {
     if (!empty($cpToken)) $config['cpanel_api_token'] = $cpToken;
     if (!empty($cpUser) || !empty($cpToken)) saveConfig($config);
 
+    // ── Pre-check: Check if auth.php ALREADY created / provisioned a DB for this Slate app ──
+    // On retry / redeploy, do NOT create another new database: reuse the record, test connection, and continue!
+    if (!empty($config['provisioned_db']) && is_array($config['provisioned_db'])) {
+        $prev = $config['provisioned_db'];
+        $pHost = $prev['db_host'] ?? 'localhost';
+        $pUser = $prev['db_user'] ?? '';
+        $pPass = $prev['db_password'] ?? '';
+        $pName = $prev['db_name'] ?? '';
+        if (!empty($pName) && !empty($pUser) && testDbConnection($pHost, $pUser, $pPass, $pName)) {
+            respond(200, [
+                'status'      => 'PROVISIONED',
+                'reused'      => true,
+                'message'     => "Reusing previously provisioned database `{$pName}`. Skipped duplicate creation on retry.",
+                'credentials' => [
+                    'db_name'     => $pName,
+                    'db_user'     => $pUser,
+                    'db_password' => $pPass,
+                    'db_host'     => $pHost,
+                    'db_port'     => 3306,
+                ],
+                'steps' => [['step' => 'reuse_existing_provisioned_db', 'status' => 'OK', 'name' => $pName]],
+            ]);
+        }
+    }
+
+    // Also check if .env already exists in the current directory with working DB credentials
+    $localEnv = __DIR__ . '/.env';
+    if (file_exists($localEnv)) {
+        $discoveredLocal = discoverDbCredentials(__DIR__);
+        if (!empty($discoveredLocal['db_name']) && !empty($discoveredLocal['db_user'])) {
+            $lHost = $discoveredLocal['db_host'] ?? 'localhost';
+            $lUser = $discoveredLocal['db_user'];
+            $lPass = $discoveredLocal['db_pass'] ?? '';
+            $lName = $discoveredLocal['db_name'];
+            if (testDbConnection($lHost, $lUser, $lPass, $lName)) {
+                $config['provisioned_db'] = [
+                    'db_name'     => $lName,
+                    'db_user'     => $lUser,
+                    'db_password' => $lPass,
+                    'db_host'     => $lHost,
+                    'source'      => '.env',
+                    'created_at'  => date('c'),
+                ];
+                saveConfig($config);
+                respond(200, [
+                    'status'      => 'PROVISIONED',
+                    'reused'      => true,
+                    'message'     => "Reusing database `{$lName}` found in existing .env. Skipped duplicate creation.",
+                    'credentials' => [
+                        'db_name'     => $lName,
+                        'db_user'     => $lUser,
+                        'db_password' => $lPass,
+                        'db_host'     => $lHost,
+                        'db_port'     => 3306,
+                    ],
+                    'steps' => [['step' => 'reuse_local_env_db', 'status' => 'OK', 'name' => $lName]],
+                ]);
+            }
+        }
+    }
+
     $appName = sanitizeDbName($payload['app_name'] ?? 'app', 4);
     $suffix  = sanitizeDbName(bin2hex(random_bytes(3)), 6);
 
@@ -565,6 +626,16 @@ if ($action === 'database_create') {
             }
         }
 
+        $config['provisioned_db'] = [
+            'db_name'     => $fullDbName,
+            'db_user'     => $fullUserName,
+            'db_password' => $password,
+            'db_host'     => 'localhost',
+            'created_by'  => 'auth.php',
+            'created_at'  => date('c'),
+        ];
+        saveConfig($config);
+
         respond(200, [
             'status'      => 'PROVISIONED',
             'message'     => 'Database and user provisioned automatically via cPanel UAPI.',
@@ -604,6 +675,15 @@ if ($action === 'database_create') {
                 $newDb = ($cpUser ? $cpUser . '_' : '') . 'slate_' . substr(bin2hex(random_bytes(3)), 0, 6);
                 try {
                     $pdo->exec("CREATE DATABASE IF NOT EXISTS `{$newDb}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+                    $config['provisioned_db'] = [
+                        'db_name'     => $newDb,
+                        'db_user'     => $dUser,
+                        'db_password' => $dPass,
+                        'db_host'     => $dHost,
+                        'created_by'  => 'auth.php_dedicated',
+                        'created_at'  => date('c'),
+                    ];
+                    saveConfig($config);
                     respond(200, [
                         'status'      => 'PROVISIONED',
                         'message'     => "Created dedicated database `{$newDb}` using verified MySQL connection from {$src}.",
@@ -619,6 +699,16 @@ if ($action === 'database_create') {
                 } catch (\Throwable $createEx) {
                     // Cannot CREATE DATABASE (normal for shared hosting user).
                     // Seamlessly adopt existing database!
+                    $config['provisioned_db'] = [
+                        'db_name'     => $dName,
+                        'db_user'     => $dUser,
+                        'db_password' => $dPass,
+                        'db_host'     => $dHost,
+                        'adopted'     => true,
+                        'source'      => $src,
+                        'created_at'  => date('c'),
+                    ];
+                    saveConfig($config);
                     respond(200, [
                         'status'      => 'PROVISIONED',
                         'message'     => "Connected and adopted database `{$dName}` from {$src}.",
@@ -634,6 +724,15 @@ if ($action === 'database_create') {
                 }
             } catch (\Throwable $connEx) {
                 // Return discovered credentials even if direct connection timed out
+                $config['provisioned_db'] = [
+                    'db_name'     => $dName,
+                    'db_user'     => $dUser,
+                    'db_password' => $dPass,
+                    'db_host'     => $dHost,
+                    'source'      => $src,
+                    'created_at'  => date('c'),
+                ];
+                saveConfig($config);
                 respond(200, [
                     'status'      => 'PROVISIONED',
                     'message'     => "Discovered credentials for database `{$dName}` from {$src}.",

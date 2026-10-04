@@ -173,6 +173,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
           dbUser = pc.db_user || dbUser;
           dbPass = pc.db_password || dbPass;
           dbHost = pc.db_host || "localhost";
+          target.dbName = dbName;
+          target.dbUser = dbUser;
+          target.dbPass = dbPass;
+          target.dbHost = dbHost;
           await updateOrder(id, { dbName, dbUser, dbHost, dbPassEncrypted: encryptSecret(dbPass) }).catch(() => {});
         } else {
           // If auto-provisioning could not create automatically and no DB details were sent:
@@ -180,6 +184,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
           await fail(new Error(prov.message || "We could not create the database automatically. Please enter database details or verify cPanel permissions."), "DATABASE");
           return;
         }
+      } else {
+        target.dbName = dbName;
+        target.dbUser = dbUser;
+        target.dbPass = dbPass;
+        target.dbHost = dbHost;
+        await emit({ stage: state.stage, percent: 20, message: `Reusing existing database (${dbName}). Skipped duplicate creation.` });
       }
       state.percent = 25;
       await emit({ stage: state.stage, percent: 25, message: `Database ready (${dbName}).` });
