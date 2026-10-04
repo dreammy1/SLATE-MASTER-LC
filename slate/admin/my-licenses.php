@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../includes/bootstrap.php';
+require_once dirname(__DIR__) . '/config.php';
 require_once __DIR__ . '/../includes/shop_client.php';
 
 Auth::requirePerm('settings.view');
