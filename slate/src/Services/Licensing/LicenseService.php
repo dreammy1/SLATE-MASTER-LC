@@ -195,11 +195,6 @@ final class LicenseService
         $license = self::forTenant($tenantId);
         if ($license === null) {
             return 'none';
-        }
-
-        // anti-drift-ignore: TENANT — touches a specific license row by its own id, for the license-validation side effect
-        \Database::query("UPDATE licenses SET last_validated_at = ? WHERE id = ?", [\slate_db_now(), $license['id']]);
-
         $status = (string)$license['status'];
         if (in_array($status, ['trial', 'active'], true) && !empty($license['expires_at'])
             && strtotime((string)$license['expires_at']) <= time()) {

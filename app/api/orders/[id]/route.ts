@@ -3,6 +3,7 @@ import { getOrder, getSite, getPackage, updateOrder, updateSite } from "@/lib/st
 import { decryptCpanelToken, cpanelTestConnection } from "@/lib/cpanel";
 import { encryptSecret } from "@/lib/crypto";
 import { normalizePublicSiteUrl, publicPathFromFilePath } from "@/lib/migrationPaths";
+import { deriveCheckoutTarget, cleanServerUrl } from "@/lib/checkoutTarget";
 
 /**
  * Public order status endpoint.
@@ -23,14 +24,38 @@ function maskEmail(e: string): string {
   return s[0] + "***" + s.slice(at - 1);
 }
 
+/**
+ * Time-box a storage read so this endpoint can never return an empty body.
+ * A thrown/hung read becomes a clean JSON error the UI can display.
+ *
+ * The 35s budget sits above the KV adapter's own retry window (~25s worst case)
+ * so a retried read is not cut off mid-retry by this outer guard.
+ */
+function withStorageTimeout<T>(p: Promise<T>, label: string, ms = 35_000): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(
+      () => reject(new Error(`Could not ${label}: the data store did not respond within ${Math.round(ms / 1000)}s. Check STORAGE_DRIVER / KV credentials.`)),
+      ms
+    );
+    p.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
+  });
+}
+
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
 const id = (await ctx.params).id;
 
   try {
-    const order = await getOrder(id);
+    // The tracking page POLLS this endpoint every 15s while the setup runs. A
+    // slow/stalled storage read used to hang until the platform killed the
+    // request, which returned an EMPTY body and made the browser throw
+    // "Failed to execute 'json' on 'Response': Unexpected end of JSON input",
+    // blanking the customer's progress page. Time-boxing the reads guarantees
+    // this handler always answers with real JSON — including a clear 503 when
+    // the data store is unavailable.
+    const order = await withStorageTimeout(getOrder(id), "load the order");
     if (!order) return NextResponse.json({ success: false, error: "Order not found." }, { status: 404 });
 
-    const pkg = await getPackage(order.package_id);
+    const pkg = await withStorageTimeout(getPackage(order.package_id), "load the package");
     const activateUrl = `${String(order.siteUrl || "").replace(/\/+$/, "")}/activate.php`;
 
     const nextStep = (() => {
@@ -99,8 +124,10 @@ const id = (await ctx.params).id;
         payMethod: order.payMethod,
         siteUrl: order.siteUrl,
         fileManagerPath: order.fileManagerPath,
+        hostingServerUrl: order.hostingServerUrl || order.cpanelHost || "",
         cpanelHost: order.cpanelHost,
         cpanelUser: order.cpanelUser,
+        hostingUsername: order.cpanelUser,
         cpanelApiTokenSet: Boolean(order.cpanelApiTokenEncrypted),
         contactName: order.contactName,
         contactEmail: maskEmail(order.contactEmail),
@@ -125,6 +152,16 @@ const id = (await ctx.params).id;
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
 const id = (await ctx.params).id;
 
+  // Probe (order-form Test button): stateless, stores nothing.
+  const probeBody = await req.json().catch(() => ({}));
+  if (id === "__probe__" || probeBody?.action === "test_cpanel") {
+    const h = String(probeBody?.cpanelHost || "").trim();
+    const u = String(probeBody?.cpanelUser || "").trim();
+    const tk = String(probeBody?.cpanelApiToken || "").trim();
+    if (!h || !u || !tk) return NextResponse.json({ success: false, message: "Fill host, username and API token first, then press Test." }, { status: 400 });
+    const pr = await cpanelTestConnection({ host: h, user: u, apiToken: tk });
+    return NextResponse.json({ success: pr.ok, message: pr.message }, { status: pr.ok ? 200 : 502 });
+  }
   // Re-test the stored cPanel credentials without ever returning the token.
   try {
     const order = await getOrder(id);
@@ -142,8 +179,9 @@ const id = (await ctx.params).id;
  *
  * There is no customer login on the public pages, so the guard is the data the
  * customer physically holds: the exact email address they typed on the order.
- *   { verifyEmail, contactName?, contactPhone?, contactEmail?, siteUrl?,
- *     fileManagerPath?, cpanelHost?, cpanelUser?, cpanelApiToken?, payMethod? }
+ *   { verifyEmail, contactName?, contactPhone?, contactEmail?, siteDomain?,
+ *     siteUrl?, fileManagerPath?, hostingUsername?, hostingServerUrl?,
+ *     cpanelHost?, cpanelUser?, cpanelApiToken?, payMethod? }
  *
  * Never editable here (Master console only): price, package, billing cycle,
  * payment status and progress. Those are the money path — support handles them.
@@ -192,7 +230,41 @@ const id = (await ctx.params).id;
     if (body.cpanelUser !== undefined) { patch.cpanelUser = String(body.cpanelUser).trim(); edited.push("cpanelUser"); }
     if (body.cpanelApiToken) { patch.cpanelApiTokenEncrypted = encryptSecret(String(body.cpanelApiToken).trim()); edited.push("cpanelApiToken"); }
 
-    const nextFilePath = body.fileManagerPath !== undefined ? String(body.fileManagerPath).trim() : order.fileManagerPath;
+    // ── Frictionless field names (one domain drives URL + upload path) ──
+    // The new checkout/edit form sends siteDomain / hostingUsername /
+    // hostingServerUrl. siteDomain is a single value ("client.com" or
+    // "client.com/crm") that derives BOTH the public URL and the cPanel folder,
+    // so the two can never drift apart.
+    if (body.hostingUsername !== undefined) {
+      const u = String(body.hostingUsername).trim();
+      patch.cpanelUser = u;
+      patch.hostingUsername = u;
+      edited.push("hostingUsername");
+    }
+    if (body.hostingServerUrl !== undefined) {
+      const srv = cleanServerUrl(String(body.hostingServerUrl));
+      patch.hostingServerUrl = srv;
+      // Also keep the legacy bare host in sync so cPanel automation still works
+      // when a token is later added.
+      if (srv) {
+        try { patch.cpanelHost = new URL(srv).hostname; } catch { patch.cpanelHost = srv; }
+      }
+      edited.push("hostingServerUrl");
+    }
+    if (body.siteDomain !== undefined) {
+      const derived = deriveCheckoutTarget(String(body.siteDomain));
+      if (!derived.siteUrl) {
+        return NextResponse.json({ success: false, error: "Enter a valid domain (e.g. client.com or client.com/crm)." }, { status: 400 });
+      }
+      patch.siteUrl = derived.siteUrl;
+      patch.base_path = derived.base_path;
+      patch.fileManagerPath = derived.fileManagerPath;
+      edited.push("siteDomain");
+    }
+
+    const nextFilePath = patch.fileManagerPath !== undefined
+      ? String(patch.fileManagerPath)
+      : body.fileManagerPath !== undefined ? String(body.fileManagerPath).trim() : order.fileManagerPath;
     if (body.fileManagerPath !== undefined) {
       patch.fileManagerPath = nextFilePath;
       patch.base_path = publicPathFromFilePath(nextFilePath) || "/";
@@ -215,7 +287,7 @@ const id = (await ctx.params).id;
     // Server details changed after the app was installed: keep monitoring in
     // sync and tell the customer (honestly) that a re-run may be needed.
     const serverFieldsChanged = edited.some((f) =>
-      ["siteUrl", "fileManagerPath", "cpanelHost", "cpanelUser", "cpanelApiToken"].includes(f)
+      ["siteUrl", "siteDomain", "fileManagerPath", "cpanelHost", "hostingServerUrl", "cpanelUser", "hostingUsername", "cpanelApiToken"].includes(f)
     );
     if (serverFieldsChanged && ["bootstrap_done", "install_running", "completed"].includes(order.status)) {
       warnings.push(

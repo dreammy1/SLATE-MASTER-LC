@@ -145,12 +145,39 @@ function showFailure(reason, failedStage, percent, guide){
       steps.map(function(s){ return '<li>' + s + '</li>'; }).join('') +
     '</ol></div>' + help +
     '<button class="ghost" id="copy">Copy details for support</button></div>';
-  const c = $('copy');
+  var c = $('copy');
   if (c) c.onclick = function(){
-    const txt = 'Site: ' + SITE + '\nStage: ' + failedStage + ' (' + percent + '%)\nError: ' + reason;
+    var txt = 'Site: ' + SITE + '\nStage: ' + failedStage + ' (' + percent + '%)\nError: ' + reason;
     if (navigator.clipboard) navigator.clipboard.writeText(txt);
     c.textContent = 'Copied';
   };
+}
+
+/**
+ * Explains a "Failed to fetch" honestly.
+ *
+ * The browser reports every network-layer problem with the same opaque message,
+ * so the customer is told "Master could not be reached" and assumes their host
+ * is down. The most common cause is NOT the network: this page runs on the
+ * customer's domain and calls Master on a different one, so the browser BLOCKS
+ * the call unless Master returns the CORS headers. That is fixed on Master's
+ * side, so the advice is to retry rather than to go and change their hosting.
+ */
+function unreachable(message, stage, percent){
+  var isDev = /\.devtunnels\.ms$/i.test(MASTER);
+  var guide = {
+    title: 'Your provider could not be reached from this page',
+    steps: isDev ? [
+      'Your provider is running from a temporary dev tunnel. It stops whenever their computer sleeps, restarts or loses network — that is the most likely cause here.',
+      'Press Retry installation once they confirm the dashboard is back online.',
+      'If your provider is testing this on a shared or free service, a permanent domain is needed: a dev tunnel address cannot be relied on for customer sites.'
+    ] : [
+      'This page calls your provider\'s dashboard on a different web address. Your browser blocked the call, which usually means the dashboard is temporarily offline.',
+      'Press Retry installation in a minute.',
+      'If it keeps failing, ask your provider to confirm their dashboard address is reachable from the internet.'
+    ]
+  };
+  showFailure(message + ' — ' + guide.steps[0], stage, percent, guide);
 }
 
 async function install(key){
@@ -167,7 +194,7 @@ async function install(key){
     });
     vd = await v.json();
   } catch (e) {
-    showFailure('Master could not be reached: ' + e.message, 'ACTIVATE', 0, null);
+    unreachable('Could not reach your provider: ' + e.message, 'ACTIVATE', 0);
     btn.disabled = false; btn.textContent = 'Retry installation'; return;
   }
   if (!v.ok || !vd.success) {
@@ -185,7 +212,7 @@ async function install(key){
       body: JSON.stringify({ key: key, domain: SITE })
     });
   } catch (e) {
-    showFailure('Lost connection to Master during install: ' + e.message, 'DEPLOY', 6, null);
+    unreachable('Lost the connection during install: ' + e.message, 'DEPLOY', 6);
     btn.disabled = false; btn.textContent = 'Retry installation'; return;
   }
 

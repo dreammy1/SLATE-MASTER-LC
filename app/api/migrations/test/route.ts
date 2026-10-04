@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { ServerEndpoint } from "@/lib/storage";
 import { verifyEndpoint, handshakeEndpoint } from "@/lib/migrationExecutor";
 
-// The MASTER auth.php (public/auth.php) declares these actions as supported.
-// If a remote agent's diagnostics.supported_actions is missing any of these → it's STALE.
-const CRITICAL_MIGRATION_ACTIONS = [
+// Actions the remote agent MUST advertise for a server-to-server migration to
+// work. ONLY actions the migration itself performs belong in this list.
+const REQUIRED_MIGRATION_ACTIONS = [
   "diagnostics",
   "handshake",
   "cpanel_setup",
@@ -17,42 +17,65 @@ const CRITICAL_MIGRATION_ACTIONS = [
   "dump_database",
   "sql_import",
   "write_config",
-  "license_status",
-  "license_set_key",
-  "license_enforce",
 ];
+
+// Licensing actions. A migration never calls these, so their absence is a
+// WARNING (the site cannot be suspended/reactivated until auth.php is
+// refreshed) and never a reason to block the migration.
+//
+// Treating them as migration-critical was a real bug: an agent that migrates
+// perfectly well was declared "STALE — Step 3 will FAIL" purely because it was
+// an older release without the licensing endpoints, and the operator could not
+// start a migration that would have succeeded.
+const LICENSE_FEATURE_ACTIONS = ["license_status", "license_set_key", "license_enforce"];
 
 function hasRequiredConnectionFields(endpoint: Partial<ServerEndpoint>) {
   return Boolean(endpoint.siteUrl && endpoint.fileManagerPath);
 }
 
-function checkStaleAgent(verifyResult: any, roleLabel: string): { stale: boolean; missing: string[]; warning?: string } {
+function checkStaleAgent(
+  verifyResult: any,
+  roleLabel: string
+): { stale: boolean; missing: string[]; missingFeatures: string[]; warning?: string } {
   const diag = verifyResult?.details || verifyResult;
   const supported: string[] | undefined = diag?.supported_actions;
   if (!supported || !Array.isArray(supported)) {
     return {
       stale: true,
-      missing: CRITICAL_MIGRATION_ACTIONS.slice(),
+      missing: REQUIRED_MIGRATION_ACTIONS.slice(),
+      missingFeatures: LICENSE_FEATURE_ACTIONS.slice(),
       warning: `${roleLabel}: remote auth.php did NOT advertise supported_actions → likely a STALE/OLD agent release. Step 3 sql_import/write_config will FAIL. Re-download auth.php from Migration page and re-upload.`,
     };
   }
-  const missing = CRITICAL_MIGRATION_ACTIONS.filter((a) => !supported.includes(a));
+  const missing = REQUIRED_MIGRATION_ACTIONS.filter((a) => !supported.includes(a));
+  const missingFeatures = LICENSE_FEATURE_ACTIONS.filter((a) => !supported.includes(a));
   if (missing.length > 0) {
     return {
       stale: true,
       missing,
-      warning: `${roleLabel}: remote auth.php is MISSING ${missing.length} required action(s): ${missing.join(", ")}. This agent is STALE — Step 3 will fail. Re-download auth.php from Migration page ("Get auth.php") and re-upload to ${diag?.capabilities?.target_path || "app folder"} OVERWRITING the old file. File permissions: 0644, dir: 0755.`,
+      missingFeatures,
+      warning: `${roleLabel}: remote auth.php is MISSING ${missing.length} action(s) the migration needs: ${missing.join(", ")}. This agent is STALE — Step 3 will fail. Re-download auth.php from Migration page ("Get auth.php") and re-upload to ${diag?.capabilities?.target_path || "app folder"} OVERWRITING the old file. File permissions: 0644, dir: 0755.`,
     };
   }
   const diagVersion = diag?.agent_version || diag?.agent_release;
+  if (missingFeatures.length > 0) {
+    // Not a failure — say precisely what is degraded so nobody re-uploads for nothing.
+    return {
+      stale: false,
+      missing: [],
+      missingFeatures,
+      warning: `${roleLabel}: agent ${diagVersion || ""} can run the migration, but it does not support ${missingFeatures.join(", ")}. Those console/licensing features stay unavailable until auth.php is refreshed. Migration can proceed.`,
+    };
+  }
   if (!diagVersion) {
     return {
       stale: false,
       missing: [],
+      missingFeatures: [],
       warning: `${roleLabel}: actions OK but agent has no version field; consider re-deploying latest auth.php.`,
     };
   }
-  return { stale: false, missing: [] };
+  return { stale: false, missing: [], missingFeatures: [] };
 }
 
 export async function POST(req: NextRequest) {
@@ -76,7 +99,7 @@ export async function POST(req: NextRequest) {
         push(msg, "error");
         return NextResponse.json({ success: false, message: msg, logs }, { status: 400 });
       }
-      push(`Probing auth.php agent at ${singleEndpoint.siteUrl}${singleEndpoint.fileManagerPath}...`);
+      push(`Probing auth.php agent for ${singleEndpoint.siteUrl} (cPanel folder ${singleEndpoint.fileManagerPath})...`);
       const verify = await verifyEndpoint(singleEndpoint);
       if (verify.ok) {
         push(`Agent OK: ${verify.message}`, "success");
@@ -106,6 +129,9 @@ export async function POST(req: NextRequest) {
         }
       } else {
         push(`FAIL: ${verify.message}`, "error");
+        if ((verify as any).blocked) {
+          push(`ACTION REQUIRED: ${(verify as any).remediation || "The host firewall is blocking the Master server."}`, "warn");
+        }
       }
       const elapsed = ((Date.now() - startedAt) / 1000).toFixed(2);
       push(`=== VERIFICATION FINISHED in ${elapsed}s — ${verify.ok ? "READY" : "FAILED"} ===`, verify.ok ? "success" : "error");
@@ -116,6 +142,8 @@ export async function POST(req: NextRequest) {
           : verify.message || "Endpoint failed verification. Check auth.php is uploaded to correct path.",
         logs,
         elapsed_seconds: Number(elapsed),
+        blocked: Boolean((verify as any).blocked),
+        remediation: (verify as any).remediation || "",
         details: {
           agentUrl: verify.agentUrl,
           diagnostics: verify.details,
@@ -159,11 +187,15 @@ export async function POST(req: NextRequest) {
       }
     } else {
       push(`SOURCE FAIL: ${srcVerify.message}`, "error");
+      if ((srcVerify as any).blocked) push(`ACTION REQUIRED: ${(srcVerify as any).remediation}`, "warn");
     }
 
     // ---- TARGET TESTS ----
     const targetResults: any[] = [];
     let anyTargetStale = false;
+    let anyBlocked = Boolean((srcVerify as any).blocked);
+    const remediations: string[] = [];
+    if ((srcVerify as any).remediation) remediations.push(`SOURCE: ${(srcVerify as any).remediation}`);
     for (let i = 0; i < targets.length; i++) {
       const target = targets[i];
       push(`--- TARGET ${i + 1} / ${targets.length} ---`);
@@ -184,13 +216,20 @@ export async function POST(req: NextRequest) {
         }
       } else {
         push(`TARGET ${i + 1} FAIL: ${tgtVerify.message}`, "error");
+        if ((tgtVerify as any).blocked) {
+          anyBlocked = true;
+          push(`ACTION REQUIRED: ${(tgtVerify as any).remediation}`, "warn");
+        }
+        if ((tgtVerify as any).remediation) remediations.push(`TARGET ${i + 1}: ${(tgtVerify as any).remediation}`);
       }
       targetResults.push({ index: i, ...tgtVerify });
     }
 
     const allOk = srcVerify.ok && targetResults.every((t) => t.ok) && !srcStale && !anyTargetStale;
     const elapsed = ((Date.now() - startedAt) / 1000).toFixed(2);
-    if (srcStale || anyTargetStale) {
+    if (anyBlocked) {
+      push(`=== VERIFICATION FAILED in ${elapsed}s — HOST FIREWALL BLOCKED THE MASTER SERVER (not a stale auth.php) ===`, "error");
+    } else if (srcStale || anyTargetStale) {
       push(`=== VERIFICATION FAILED in ${elapsed}s — STALE AGENT DETECTED (re-download + re-upload auth.php) ===`, "error");
     } else {
       push(`=== VERIFICATION FINISHED in ${elapsed}s — ${allOk ? "ALL ENDPOINTS READY" : "SOME ENDPOINTS FAILED"} ===`, allOk ? "success" : "error");
@@ -200,9 +239,13 @@ export async function POST(req: NextRequest) {
       success: allOk,
       message: allOk
         ? `Connection verified for Source + ${targets.length} target(s) in ${elapsed}s.`
-        : (srcStale || anyTargetStale
-          ? "STALE AGENT detected on one or more servers. Re-download auth.php from the Migration page and re-upload to each server's app folder. See logs for details."
-          : "One or more endpoints failed connection verification. Expand logs for details."),
+        : (anyBlocked
+          ? "One or more hosts are blocking the Master server with a firewall/bot-protection (Imunify360). This is not a stale auth.php. Whitelist the Master server's public IP and add an auth.php exclusion on those hosts, then Test again."
+          : srcStale || anyTargetStale
+            ? "STALE AGENT detected on one or more servers. Re-download auth.php from the Migration page and re-upload to each server's app folder. See logs for details."
+            : "One or more endpoints failed connection verification. Expand logs for details."),
+      blocked: anyBlocked,
+      remediation: remediations.join(" "),
       logs,
       elapsed_seconds: Number(elapsed),
       stale_agent: srcStale || anyTargetStale,

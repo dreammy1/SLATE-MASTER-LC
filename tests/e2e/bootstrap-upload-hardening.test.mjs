@@ -76,7 +76,10 @@ describe("upload response shape (the 'auth.php uploads, activate.php never does'
 
   it("both files are still required and individually verified", () => {
     assert.match(cpanelSrc, /verified on the server/, "each file must be confirmed on the server");
-    assert.match(agentSrc, /AGENT_FILES\.filter\(\(f\) => !listing\.files\.includes\(f\)\)/, "the final listing must check both files");
+    // The expected set is the required AGENT_FILES PLUS the installer, so the
+    // final listing check must cover every one of them.
+    assert.match(agentSrc, /\[\.\.\.AGENT_FILES, "slate-installer\.php"\]/, "the expected set must include both agent files and the installer");
+    assert.match(agentSrc, /\.filter\(\(f\) => !listing\.files\.includes\(f\)\)/, "the final listing must check every expected file");
   });
 });
 describe("verification must not lie about files that ARE on the server", () => {

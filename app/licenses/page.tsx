@@ -330,6 +330,11 @@ export default function ClientConsolePage() {
           {orders.map((o) => (
             <div key={o.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-1.5 border-b border-[#1e293b]">
               <span className="text-slate-300 min-w-0">{o.id} · {o.siteUrl} · {o.billing_cycle} · <b className={statusTone(o.status)}>{o.status}</b> · {o.contactEmail}</span>
+              {(o as any).serverVerified === "needs_help" && (
+                <div className="text-[11px] text-amber-300 break-words" title={(o as any).serverCheckMessage || ""}>
+                  server login not verified - fix in Manage before running setup.
+                </div>
+              )}
               <span className="flex gap-1 shrink-0">
                 <button onClick={() => openDetail(o.id)} className="px-3 py-1 rounded border-[#00f0ff] text-[#00f0ff]">Manage</button>
                 {o.status === "pending_review" && <button onClick={() => approveOrder(o.id)} className="px-3 py-1 rounded border-emerald-500 text-emerald-400">Approve payment</button>}

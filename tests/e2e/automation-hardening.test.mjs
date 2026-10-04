@@ -25,8 +25,10 @@ describe("database quota safety (never create a 2nd database / user)", () => {
   });
 
   it("reuses instead of creating when the database already exists", () => {
-    assert.match(cpanelSrc, /reused: dbReused/, "must report whether it reused the database");
-    assert.match(cpanelSrc, /reused: boolean; reusedUser: boolean/, "must report reuse for both");
+    // The reuse path must report reuse (not creation) so the caller can tell the
+    // customer no quota was consumed.
+    assert.match(cpanelSrc, /reused: true,\s*\r?\n\s*reusedUser: true,\s*\r?\n\s*created: false/, "must report whether it reused the database");
+    assert.match(cpanelSrc, /reused: boolean;\s*reusedUser: boolean/, "must report reuse for both");
     // The create calls must sit behind the existence check.
     const fn = cpanelSrc.slice(cpanelSrc.indexOf("export async function cpanelProvisionDatabase"));
     const checkAt = fn.indexOf("databaseExists(");

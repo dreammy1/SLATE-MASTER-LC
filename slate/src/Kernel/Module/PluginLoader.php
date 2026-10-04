@@ -95,6 +95,34 @@ class PluginLoader {
             try {
                 $plugin = self::loadOne($slug, $row);
                 if ($plugin) {
+                    // ── Entitlement gate ──────────────────────────────
+                    // When a plugin declares "licensable": true in its
+                    // plugin.json, loading it requires a valid entitlement
+                    // (an active plugin_license row OR inclusion in the
+                    // tenant's package). Non-licensable/system plugins
+                    // are never gated.
+                    $manifest = $plugin->manifest();
+                    $isLicensable = !empty($manifest['licensable']);
+                    if ($isLicensable) {
+                        $allowed = false;
+                        try {
+                            if (class_exists('\\Slate\\Services\\Licensing\\PluginEntitlement')) {
+                                $allowed = \Slate\Services\Licensing\PluginEntitlement::allows($slug, true);
+                            }
+                        } catch (\Throwable $ge) {
+                            // Pre-migration or missing table — fail open
+                            // so existing installs don't break on upgrade
+                            // before the migration runs.
+                            $allowed = true;
+                            slate_log("Plugin '$slug' entitlement check failed (graceful pass): " . $ge->getMessage(), 'warning');
+                        }
+                        if (!$allowed) {
+                            slate_log("Plugin '$slug' blocked by entitlement gate (no valid license).", 'info');
+                            continue;
+                        }
+                    }
+                    // ── /Entitlement gate ─────────────────────────────
+
                     self::$active[$slug] = $plugin;
                     self::$activeSlugs[$slug] = true;
                     $started = microtime(true);
@@ -731,6 +759,8 @@ class PluginLoader {
             'slug', 'name', 'version', 'description', 'author',
             'author_url', 'requires_core', 'works_better_with', 'permissions',
             'system', 'capabilities',
+            // Plugin Shop / Licensing metadata (added for per-plugin sales)
+            'licensable', 'price', 'shop',
         ];
         $unknown = array_diff(array_keys($m), $allowedKeys);
         if (!empty($unknown)) {

@@ -1,6 +1,7 @@
 "use client";
 import React, { use, useCallback, useEffect, useState } from "react";
 import { BootstrapRunner } from "@/app/pricing/order-form";
+import { fetchJson } from "@/lib/safeJson";
 
 /**
  * Customer order tracking / resume page: /orders/<orderId>
@@ -40,13 +41,22 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch(`/api/orders/${id}`, { cache: "no-store" });
-      const d = await res.json();
-      if (!d.success) {
-        setError(d.error || "Order not found.");
+      // NEVER `res.json()` directly here: this runs every 15s while the setup is
+      // in flight, and a single empty response (crash, proxy timeout, storage
+      // blip) threw "Failed to execute 'json' on 'Response': Unexpected end of
+      // JSON input", blanked the page and froze the progress view. fetchJson
+      // returns a safe object instead, so a bad poll can never break the page.
+      const { data: d } = await fetchJson(`/api/orders/${id}`, { cache: "no-store" });
+      if (!d?.success) {
+        // Only surface a hard error when there is nothing to show. A failed
+        // background poll must never replace a page that is already working.
+        // The functional update reads the latest `data` without needing it as a
+        // useCallback dependency (no stale closure).
+        setError((prev) => (prev ? prev : d?.error || "Order not found."));
       } else {
         setData(d);
         setProgress(d.order?.progressPercent || 0);
+        setError("");
       }
     } catch (e: any) {
       setError(e?.message || "Could not load the order.");
@@ -150,6 +160,14 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
             <button onClick={load} className="px-4 py-2 rounded border border-[#1e293b] text-slate-300 text-xs">
               Refresh status
             </button>
+            <a href={`/api/orders/${o.id}/invoice`} target="_blank" rel="noreferrer"
+              className="px-4 py-2 rounded border border-[#1e293b] text-slate-300 text-xs">
+              🧾 Invoice
+            </a>
+            <a href={`/api/orders/${o.id}/download-auth`}
+              className="px-4 py-2 rounded border border-[#1e293b] text-slate-300 text-xs">
+              ⬇ auth.php
+            </a>
           </div>
         </div>
 
@@ -203,11 +221,9 @@ function SelfEditPanel({ order, onSaved }: { order: any; onSaved: () => void }) 
     contactName: order.contactName || "",
     contactPhone: order.contactPhone || "",
     contactEmail: "",
-    siteUrl: order.siteUrl || "",
-    fileManagerPath: order.fileManagerPath || "",
-    cpanelHost: order.cpanelHost || "",
-    cpanelUser: order.cpanelUser || "",
-    cpanelApiToken: "",
+    siteDomain: String(order.siteUrl || "").replace(/^https?:\/\//i, ""),
+    hostingUsername: order.hostingUsername || order.cpanelUser || "",
+    hostingServerUrl: order.hostingServerUrl || order.cpanelHost || "",
     payMethod: order.payMethod || "manual_bank",
   });
 
@@ -220,21 +236,18 @@ function SelfEditPanel({ order, onSaved }: { order: any; onSaved: () => void }) 
       verifyEmail: form.verifyEmail,
       contactName: form.contactName,
       contactPhone: form.contactPhone,
-      siteUrl: form.siteUrl,
-      fileManagerPath: form.fileManagerPath,
-      cpanelHost: form.cpanelHost,
-      cpanelUser: form.cpanelUser,
+      siteDomain: form.siteDomain,
+      hostingUsername: form.hostingUsername,
+      hostingServerUrl: form.hostingServerUrl,
       payMethod: form.payMethod,
     };
-    if (form.cpanelApiToken) patch.cpanelApiToken = form.cpanelApiToken;
     if (form.contactEmail && form.contactEmail !== order.contactEmail) patch.contactEmail = form.contactEmail;
 
     try {
-      const res = await fetch(`/api/orders/${order.id}`, {
+      const { data: d } = await fetchJson(`/api/orders/${order.id}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),
       });
-      const d = await res.json();
-      if (!d.success) { setError(d.error || "Your changes could not be saved."); return; }
+      if (!d?.success) { setError(d?.error || "Your changes could not be saved."); return; }
       setDone(d.edited || []);
       setWarnings(d.warnings || []);
       setOpen(false);
@@ -285,11 +298,9 @@ function SelfEditPanel({ order, onSaved }: { order: any; onSaved: () => void }) 
           <EditRow label="Name" value={form.contactName} onChange={(v) => set("contactName", v)} />
           <EditRow label="Phone" value={form.contactPhone} onChange={(v) => set("contactPhone", v)} />
           <EditRow label="Email (leave blank to keep)" value={form.contactEmail} onChange={(v) => set("contactEmail", v)} placeholder={order.contactEmail} />
-          <EditRow label="Site URL" value={form.siteUrl} onChange={(v) => set("siteUrl", v)} placeholder="https://client.com/slate" />
-          <EditRow label="Site path" value={form.fileManagerPath} onChange={(v) => set("fileManagerPath", v)} placeholder="/public_html/slate" />
-          <EditRow label="cPanel host" value={form.cpanelHost} onChange={(v) => set("cpanelHost", v)} />
-          <EditRow label="cPanel user" value={form.cpanelUser} onChange={(v) => set("cpanelUser", v)} />
-          <EditRow label="New cPanel API token (blank = keep)" value={form.cpanelApiToken} onChange={(v) => set("cpanelApiToken", v)} />
+          <EditRow label="Site domain (client.com or client.com/crm)" value={form.siteDomain} onChange={(v) => set("siteDomain", v)} placeholder="client.com" />
+          <EditRow label="Hosting username" value={form.hostingUsername} onChange={(v) => set("hostingUsername", v)} />
+          <EditRow label="Hosting server URL" value={form.hostingServerUrl} onChange={(v) => set("hostingServerUrl", v)} placeholder="https://cpanel.client.com:2083" />
 
           <div>
             <label className="block text-slate-400 mb-1 uppercase">Payment method</label>

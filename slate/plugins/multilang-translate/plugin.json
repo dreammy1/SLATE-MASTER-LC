@@ -1,14 +1,41 @@
 {
-    "slug": "multilang-translate",
-    "name": "Slate Multi Language Visual Translation",
-    "version": "1.3.0",
-    "description": "Visual multi-language translation manager. Auto-harvests every text string rendered across admin, customer portal, frontend and all active plugins into a spreadsheet-style grid (columns = languages), lets you translate, find & replace, import/export CSV, and serves live translations through a front-end language switcher.",
-    "author": "Rasel Ahmmed",
-    "author_url": "https://example.com",
-    "requires_core": ">=1.0.0",
-    "permissions": [
-        {"key": "mlt.view",   "label": "View translations"},
-        {"key": "mlt.manage", "label": "Manage languages, translate, publish"},
-        {"key": "mlt.import_export", "label": "Import / export translation CSVs"}
-    ]
+    "slug":  "multilang-translate",
+    "name":  "Slate Multi Language Visual Translation",
+    "version":  "1.3.0",
+    "description":  "Visual multi-language translation manager. Auto-harvests every text string rendered across admin, customer portal, frontend and all active plugins into a spreadsheet-style grid (columns = languages), lets you translate, find \u0026 replace, import/export CSV, and serves live translations through a front-end language switcher.",
+    "author":  "Rasel Ahmmed",
+    "author_url":  "https://example.com",
+    "requires_core":  "\u003e=1.0.0",
+    "permissions":  [
+                        {
+                            "key":  "mlt.view",
+                            "label":  "View translations"
+                        },
+                        {
+                            "key":  "mlt.manage",
+                            "label":  "Manage languages, translate, publish"
+                        },
+                        {
+                            "key":  "mlt.import_export",
+                            "label":  "Import / export translation CSVs"
+                        }
+                    ],
+    "licensable":  true,
+    "price":  {
+                  "lifetime_cents":  27000,
+                  "monthly_cents":  1100,
+                  "yearly_cents":  11000,
+                  "currency":  "USD"
+              },
+    "shop":  {
+                 "category":  "Content",
+                 "features":  [
+                                  "Inline visual translation editor",
+                                  "Per-page language switching",
+                                  "Locale-aware routing and SEO tags",
+                                  "Translation memory reuse"
+                              ],
+                 "tagline":  "Visual translation for a multilingual site",
+                 "order":  60
+             }
 }

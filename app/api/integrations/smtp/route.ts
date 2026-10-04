@@ -16,15 +16,34 @@ function decryptStored(encrypted?: string): string {
   try { return decryptSecret(encrypted); } catch { return ""; }
 }
 
+/**
+ * Resolve the effective SMTP config for one request.
+ *
+ * Precedence: an EXPLICIT value in the request body > saved settings > env.
+ *
+ * "Explicit" includes an empty string: when the operator clears the host field
+ * and presses Test, they mean "I have no host", not "use the one from .env". The
+ * old `body.smtp_host || saved || env` chain treated the blank as absent, so the
+ * request went out against a stale host and the UI sat on a real SMTP connection
+ * for a full minute before erroring instead of failing fast with guidance.
+ *
+ * The password is the one exception, because it is never echoed back to the UI:
+ * a blank password therefore means "keep the saved one" rather than "clear it".
+ */
 async function resolveConfig(body: any = {}) {
   const s = await getSettings();
+  const pick = (provided: any, ...fallbacks: Array<any>) => {
+    if (provided !== undefined) return provided;
+    for (const f of fallbacks) if (f) return f;
+    return "";
+  };
   return {
-    host: body.smtp_host || s.smtpHost || process.env.SMTP_HOST || "",
-    port: String(body.smtp_port || s.smtpPort || process.env.SMTP_PORT || "587"),
-    user: body.smtp_user || s.smtpUser || process.env.SMTP_USER || "",
-    pass: body.smtp_pass || decryptStored(s.smtpPassEncrypted) || process.env.SMTP_PASS || "",
-    from: body.smtp_from || s.smtpFrom || process.env.SMTP_FROM_LICENSE || process.env.SMTP_FROM || "",
-    encryption: body.smtp_encryption || s.smtpEncryption || process.env.SMTP_ENCRYPTION || "tls",
+    host: pick(body.smtp_host, s.smtpHost, process.env.SMTP_HOST),
+    port: String(pick(body.smtp_port, s.smtpPort, process.env.SMTP_PORT) || "587"),
+    user: pick(body.smtp_user, s.smtpUser, process.env.SMTP_USER),
+    pass: pick(body.smtp_pass || undefined, decryptStored(s.smtpPassEncrypted), process.env.SMTP_PASS),
+    from: pick(body.smtp_from, s.smtpFrom, process.env.SMTP_FROM_LICENSE || process.env.SMTP_FROM),
+    encryption: pick(body.smtp_encryption, s.smtpEncryption, process.env.SMTP_ENCRYPTION) || "tls",
   };
 }
 

@@ -1,18 +1,36 @@
 {
-    "slug": "stripe-payment",
-    "name": "Stripe Payment Gateway",
-    "version": "1.2.1",
-    "description": "Generic Stripe checkout for any Slate plugin (v1.2). Exposes StripePaymentAPI::createCheckout(lineItems, opts) so plugins don't need their own Stripe wiring. Fires a stripe_webhook_event action so consumers can react to events. Includes a Charges admin page with refund support and a test/live mode toggle. Continues to drive Shop checkout (hosted + embedded Payment Element).",
-    "author": "Slate",
-    "requires_core": ">=1.0.0",
-    "permissions": [
-        {
-            "key": "stripe.manage_settings",
-            "label": "Manage Stripe gateway settings and API credentials"
-        },
-        {
-            "key": "stripe.manage_charges",
-            "label": "View Stripe charges and issue refunds"
-        }
-    ]
+    "slug":  "stripe-payment",
+    "name":  "Stripe Payment Gateway",
+    "version":  "1.2.1",
+    "description":  "Generic Stripe checkout for any Slate plugin (v1.2). Exposes StripePaymentAPI::createCheckout(lineItems, opts) so plugins don\u0027t need their own Stripe wiring. Fires a stripe_webhook_event action so consumers can react to events. Includes a Charges admin page with refund support and a test/live mode toggle. Continues to drive Shop checkout (hosted + embedded Payment Element).",
+    "author":  "Slate",
+    "requires_core":  "\u003e=1.0.0",
+    "permissions":  [
+                        {
+                            "key":  "stripe.manage_settings",
+                            "label":  "Manage Stripe gateway settings and API credentials"
+                        },
+                        {
+                            "key":  "stripe.manage_charges",
+                            "label":  "View Stripe charges and issue refunds"
+                        }
+                    ],
+    "licensable":  true,
+    "price":  {
+                  "lifetime_cents":  29000,
+                  "monthly_cents":  1200,
+                  "yearly_cents":  12000,
+                  "currency":  "USD"
+              },
+    "shop":  {
+                 "category":  "Payments",
+                 "features":  [
+                                  "Hosted and embedded checkout",
+                                  "Terminal / in-person payments",
+                                  "Refunds and invoices",
+                                  "Signed webhooks with idempotency"
+                              ],
+                 "tagline":  "Accept card payments across your site",
+                 "order":  30
+             }
 }

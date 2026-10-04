@@ -42,6 +42,15 @@ let memoryDb: StorageSchema | null = null;
 /**
  * Serialises writes so two concurrent mutations cannot interleave their
  * `adapter.write()` calls and publish the document out of order.
+ *
+ * The `.catch()` on the tail is what keeps this queue alive. `saveDb()` used to
+ * chain the raw write straight onto the queue, so ONE failed write (a momentary
+ * Upstash/network error, a disk hiccup) left `writeQueue` holding a REJECTED
+ * promise. Every later write chained onto that rejection and failed instantly,
+ * forever — a single transient storage blip permanently bricked every write in
+ * the process: no order progress, no site updates, no licences. That is exactly
+ * the "it worked for days, then nothing performs any more" symptom. Resetting
+ * the chain on failure keeps one bad write from poisoning all future ones.
  */
 let writeQueue: Promise<void> = Promise.resolve();
 
@@ -92,8 +101,15 @@ export async function saveDb(data: StorageSchema): Promise<void> {
     return;
   }
 
-  writeQueue = writeQueue.then(() => adapter().write(data));
-  return writeQueue;
+  writeQueue = writeQueue
+    .catch(() => { /* recover from a previously rejected write */ })
+    .then(() => adapter().write(data));
+  return writeQueue.catch(() => {
+    // Report the failure to THIS caller, but never let it poison the chain for
+    // everyone else: reset the queue so the next write starts from a clean slate.
+    writeQueue = Promise.resolve();
+    throw new Error("The data store could not be saved. Check STORAGE_DRIVER / KV credentials and retry.");
+  });
 }
 
 /**

@@ -3,12 +3,14 @@
   "version": "2.4.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3001 -H 0.0.0.0",
+    "dev:3000": "next dev -p 3000",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test:persistence": "node scripts/verify-persistence.js",
+    "test:cpanel": "node scripts/test-cpanel-auth.mjs",
     "test:e2e": "node --test tests/e2e/*.test.mjs",
     "selftest": "node -e \"fetch((process.env.E2E_BASE_URL||'http://localhost:3000')+'/api/selftest').then(r=>r.json()).then(d=>{console.log(d.summary);d.checks.filter(c=>!c.ok).forEach(c=>console.log('FAIL',c.name,c.detail));process.exit(d.failed?1:0)})\"",
     "keepalive": "node scripts/keepalive.js",
@@ -27,6 +29,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.13.3",
+    "stripe": "^22.6.2",
     "tailwind-merge": "^2.5.4"
   },
   "overrides": {

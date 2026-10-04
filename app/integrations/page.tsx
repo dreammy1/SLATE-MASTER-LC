@@ -31,7 +31,10 @@ export default function IntegrationsPage() {
   const handleSmtpTest = async () => {
     setLoading({ ...loading, smtpTest: true });
     try {
-      const res = await fetch("/api/integrations/smtp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "test_connection", ...smtp }) });
+      // The API reads smtp_* field names; the form state uses short names. Spread
+      // the raw state and the operator's typed host/user are silently dropped and
+      // the test runs against the SAVED/env config instead.
+      const res = await fetch("/api/integrations/smtp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "test_connection", smtp_host: smtp.host, smtp_port: smtp.port, smtp_user: smtp.user, smtp_pass: smtp.pass, smtp_from: smtp.from, smtp_encryption: smtp.encryption }) });
       const data = await res.json();
       setResults({ ...results, smtpTest: data });
       if (data.success) setSmtpStatus({ ...smtpStatus, tested: true });
@@ -53,7 +56,7 @@ export default function IntegrationsPage() {
   const handleSmtpSendTest = async () => {
     setLoading({ ...loading, smtpSend: true });
     try {
-      const res = await fetch("/api/integrations/smtp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "send_test_email", ...smtp }) });
+      const res = await fetch("/api/integrations/smtp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "send_test_email", smtp_host: smtp.host, smtp_port: smtp.port, smtp_user: smtp.user, smtp_pass: smtp.pass, smtp_from: smtp.from, smtp_encryption: smtp.encryption, test_email_to: smtp.test_email_to }) });
       const data = await res.json();
       setResults({ ...results, smtpSend: data });
     } catch (e) { setResults({ ...results, smtpSend: { success: false, error: "Network error" } }); }

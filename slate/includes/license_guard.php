@@ -115,7 +115,48 @@ if (!function_exists('slate_license_guard')) {
         return $mode;
     }
 
-    /** @return array<int,array{match:string,mode:string}> */
+    /**
+     * The package slug this site was installed with.
+     *
+     * Written to .slate_agent_config.json by the Master agent during setup and
+     * pushed into .env as SLATE_PACKAGE_SLUG. Without it the guard cannot tell
+     * one package's restriction rules from another's.
+     */
+    function slate_package_slug(): string
+    {
+        static $slug = null;
+        if ($slug !== null) return $slug;
+        $slug = '';
+        if (function_exists('env')) {
+            $slug = (string) env('SLATE_PACKAGE_SLUG', '');
+        }
+        if ($slug === '' && isset($_ENV['SLATE_PACKAGE_SLUG'])) {
+            $slug = (string) $_ENV['SLATE_PACKAGE_SLUG'];
+        }
+        if ($slug === '') {
+            $v = getenv('SLATE_PACKAGE_SLUG');
+            if ($v !== false) $slug = (string) $v;
+        }
+        if ($slug === '') {
+            $cfgPath = __DIR__ . '/../.slate_agent_config.json';
+            if (is_file($cfgPath)) {
+                $cfg = json_decode((string) @file_get_contents($cfgPath), true);
+                if (is_array($cfg) && !empty($cfg['package_slug'])) {
+                    $slug = (string) $cfg['package_slug'];
+                }
+            }
+        }
+        $slug = strtolower(trim($slug, " \t\"'"));
+        return $slug;
+    }
+    /**
+     * @return array<int,array{match:string,mode:string}>
+     *
+     * Rows are scoped to THIS site's package. Previously every package's rules
+     * were loaded in one flat list, so a Business Ops site also picked up
+     * Coaching Suite's restrictions (and vice versa) - whichever rows happened
+     * to sort first won.
+     */
     function slate_license_rules(): array
     {
         static $cache = null;
@@ -133,12 +174,18 @@ if (!function_exists('slate_license_guard')) {
             ['match' => 'plugins/membership/admin/members.php', 'mode' => 'readonly'],
             ['match' => 'admin/contact_forms.php', 'mode' => 'readonly'],
         ];
+        $slug = slate_package_slug();
         try {
-            if (class_exists('Database')) {
-                $rows = \Database::rows("SELECT `match`, `mode` FROM package_restrictions ORDER BY sort_order ASC, id ASC");
+            if (class_exists('Database') && $slug !== '') {
+                $rows = \Database::rows(
+                    "SELECT `match`, `mode` FROM package_restrictions WHERE package_slug = ? ORDER BY sort_order ASC, id ASC",
+                    [$slug]
+                );
                 if (!empty($rows)) { $cache = $rows; return $cache; }
             }
         } catch (\Throwable $e) { /* table may not exist pre-migration */ }
+        // No slug known, or the package has no rows: fall back to the built-in
+        // defaults so an un-migrated site still gets read-only expiry mode.
         $cache = $defaults;
         return $cache;
     }

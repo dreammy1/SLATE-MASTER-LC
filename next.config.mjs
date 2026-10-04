@@ -49,6 +49,14 @@ const nextConfig = {
   // components and double-invocation broke the scaffold progress stream.
   reactStrictMode: false,
 
+  // LOCAL TEST via VS Code dev tunnel:
+  // allow the dev-tunnel origin + LAN IP to use this dev server without
+  // "Blocked request" / cross-origin warnings in Next 14/15.
+  allowedDevOrigins: [
+    "n3s9qzd1-3001.inc1.devtunnels.ms",
+    "192.168.0.118",
+  ],
+
   // Inlined into BOTH the middleware and Node.js bundles — see the note above.
   env: {
     SLATE_JWT_SECRET,

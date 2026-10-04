@@ -1,24 +1,60 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { getOrder, updateOrder, getPackage } from "@/lib/storage";
 import type { OrderStatus } from "@/lib/storage";
-import { decryptCpanelToken, cpanelTestConnection, cpanelProvisionDatabase, verifyFileOverHttp } from "@/lib/cpanel";
+import { decryptCpanelToken, cpanelTestConnection, cpanelProvisionDatabase, verifyFileOverHttp, cpanelAccountPrefix, buildDatabaseName, buildDatabaseUser, cpanelUapiCall } from "@/lib/cpanel";
 import { encryptSecret, decryptSecret } from "@/lib/crypto";
 import { guideForStage } from "@/lib/bootstrapGuide";
 import { uploadAgentFiles, placeAgentWithFallback, checkAgent } from "@/lib/agentUpload";
 import type { FolderCandidate } from "@/lib/migrationPaths";
 import { registerSiteForOrder } from "@/lib/siteRegister";
 import { issueAndDeliverLicense } from "@/lib/licenseIssue";
+import { readCpanelHealth } from "@/lib/cpanelHealth";
 import crypto from "crypto";
 
 /** Re-running is safe: bootstrap is idempotent and resumes from the failed step. */
 const RESUMABLE: OrderStatus[] = ["paid", "bootstrap_running", "failed", "bootstrap_done"];
+
+/**
+ * Hard cap on any single awaited step. The stream used to freeze at a fixed
+ * percent (most often 5%) when the awaited call underneath never settled — a
+ * storage (KV/file) write that hung, or a cPanel request whose socket stayed
+ * open with no bytes. Every network/storage step now races against this so a
+ * stall surfaces as a clear, resumable error instead of a frozen bar.
+ */
+const STEP_TIMEOUT_MS = 90_000;
+
+/**
+ * Budget for a storage (KV/file) round-trip. This MUST stay comfortably above
+ * the adapter's own worst case (SLATE_KV_RETRIES × SLATE_KV_TIMEOUT_MS + backoff,
+ * 25s by default) or this outer guard would cut off a KV call that is still
+ * legitimately retrying — turning a self-healing blip back into a hard failure.
+ */
+const STORAGE_TIMEOUT_MS = 35_000;
+
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s — the remote server or storage did not answer. Press Retry automation; the step is safe to repeat.`)), ms);
+    p.then(
+      (v) => { clearTimeout(t); resolve(v); },
+      (e) => { clearTimeout(t); reject(e); }
+    );
+  });
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({} as any));
   const orderId = body.orderId as string;
   if (!orderId) return NextResponse.json({ success: false, error: "orderId required." }, { status: 400 });
 
-  const order = await getOrder(orderId);
+  let order;
+  try {
+    order = await withTimeout(getOrder(orderId), STORAGE_TIMEOUT_MS, "Loading the order");
+  } catch (err: any) {
+    return NextResponse.json(
+      { success: false, error: `Could not read the order store (${err?.message || "storage unavailable"}). Check STORAGE_DRIVER / KV credentials, then retry.` },
+      { status: 503 }
+    );
+  }
   if (!order) return NextResponse.json({ success: false, error: "Order not found." }, { status: 404 });
   if (!RESUMABLE.includes(order.status)) {
     return NextResponse.json(
@@ -26,7 +62,15 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  const pkg = await getPackage(order.package_id);
+  let pkg;
+  try {
+    pkg = await withTimeout(getPackage(order.package_id), STORAGE_TIMEOUT_MS, "Loading the package");
+  } catch (err: any) {
+    return NextResponse.json(
+      { success: false, error: `Could not read the package store (${err?.message || "storage unavailable"}). Check STORAGE_DRIVER / KV credentials, then retry.` },
+      { status: 503 }
+    );
+  }
   if (!pkg) return NextResponse.json({ success: false, error: "Package not found." }, { status: 400 });
 
   const stream = new TransformStream();
@@ -61,29 +105,69 @@ export async function POST(req: NextRequest) {
     siteUrl: order.siteUrl,
   });
 
-  /** Every failure lands here: persist status, then emit a clear error + numbered manual steps. */
+  /**
+   * Every failure lands here: emit a clear error + numbered manual steps FIRST,
+   * then persist the status.
+   *
+   * Order matters. The emit used to come after the `updateOrder()` write, so when
+   * the thing that failed WAS storage, the failing write awaited forever and the
+   * customer never saw the error — the bar just sat there. Telling the browser
+   * first guarantees the failure is always visible; the write is then best-effort
+   * and time-boxed so it cannot stall the stream.
+   */
   const fail = async (err: any, stageName?: string) => {
     const reason = err?.message || String(err) || "Unknown error.";
     const failedStage = stageName || state.stage;
     const guide = guideForStage(failedStage, reason, ctx());
-    await updateOrder(orderId, {
-      status: "failed", error: reason, progressStage: failedStage, progressPercent: state.percent,
-    }).catch(() => {});
     await emit({ stage: failedStage, percent: state.percent, error: reason, failedStage, guide, warnings: state.warnings });
+    await withTimeout(
+      updateOrder(orderId, {
+        status: "failed", error: reason, progressStage: failedStage, progressPercent: state.percent,
+      }).catch(() => {}),
+      20_000,
+      "Saving the failure status"
+    ).catch(() => { /* storage is the thing that broke; the customer still has the error */ });
   };
 
   (async () => {
     try {
-      // STEP 1 (5%) - cPanel validation
+      // STEP 1 (5%) - cPanel validation.
+      //
+      // Strict on purpose: purchases are never refused (orders record the
+      // login honestly instead), so this is the gate where a bad login must
+      // stop automation. A wrong token here would otherwise burn quota and
+      // time on a server we cannot touch — the failure names the login fix.
       state.stage = "VALIDATING";
       await emit({ stage: state.stage, percent: 5, message: "Validating cPanel access and site URL..." });
-      await updateOrder(orderId, { status: "bootstrap_running", progressPercent: 5, progressStage: state.stage });
+      await withTimeout(
+        updateOrder(orderId, { status: "bootstrap_running", progressPercent: 5, progressStage: state.stage }),
+        STORAGE_TIMEOUT_MS,
+        "Saving the order status"
+      );
 
       const creds = { host: order.cpanelHost, user: order.cpanelUser, apiToken: decryptCpanelToken(order.cpanelApiTokenEncrypted) };
-      const probe = await cpanelTestConnection(creds);
+      const probe = await withTimeout(cpanelTestConnection(creds), STEP_TIMEOUT_MS, "The cPanel connection check");
       if (!probe.ok) { state.percent = 5; return await fail(new Error(probe.message), "VALIDATING"); }
+      if (order.serverVerified !== "verified") {
+        await updateOrder(orderId, { serverVerified: "verified", serverCheckMessage: probe.message }).catch(() => {});
+      }
       state.percent = 12;
       await emit({ stage: state.stage, percent: state.percent, message: probe.message });
+
+      /* ── cPanel health "BEFORE" snapshot ───────────────────────────────
+       * Captured while the account is still untouched, so the console can show
+       * the real resource panel (Databases 1/2, Disk Usage, File Usage …) beside
+       * the "after" reading. Best-effort by design: a host without
+       * ResourceUsage reports why and the run continues untouched.
+       */
+      const healthBefore = await withTimeout(
+        readCpanelHealth((m, f, p) => cpanelUapiCall(creds, m, f, p), String(order.cpanelHost || ""), String(order.cpanelUser || "")),
+        30_000,
+        "Reading cPanel account statistics"
+      ).catch(() => null);
+      if (healthBefore?.ok) {
+        await updateOrder(orderId, { healthBefore }).catch(() => {});
+      }
 
       // STEP 2 (20-38%) - MySQL database + user.
       // QUOTA SAFETY: the name is generated ONCE and persisted BEFORE any
@@ -93,18 +177,28 @@ export async function POST(req: NextRequest) {
       // that surfaced as "cannot create database" while a good database from the
       // previous attempt already existed. Now we also SCAN first and reuse.
       state.stage = "DATABASE";
-      const hostPart = order.siteUrl.replace(/^https?:\/\//, "").split("/")[0].replace(/[^a-z0-9]/gi, "").slice(0, 8) || "slate";
+      // The name is built from the cPanel ACCOUNT, never from the customer's
+      // domain. cPanel prefixes every database with the account username and
+      // rejects anything else:
+      //   The name "hggoffen_5c70" does not begin with the required prefix
+      //   "hggoffenbach_".
+      // The prefix is read back from the account, so a re-run keeps the same
+      // name and a resumed run never creates a second database.
       const suffix = crypto.randomBytes(2).toString("hex");
-      const clean = (s: string) => s.replace(/[^a-zA-Z0-9_]/g, "").slice(0, 32);
-      state.dbName = order.dbName || clean(`${hostPart.toLowerCase()}_${suffix}`);
-      const dbUser = order.dbUser || clean(`${hostPart.toLowerCase()}_u${suffix}`);
+      const account = await withTimeout(cpanelAccountPrefix(creds), 30_000, "Reading the cPanel account prefix");
+      const prefix = account.dbPrefix;
+      const state_dbCandidate = buildDatabaseName(prefix, `slate_${suffix}`);
+      state.dbName = order.dbName || state_dbCandidate;
+      // `let`: cPanel may assign its own user name, which we must persist (see
+      // the "PERSIST THE REAL NAMES" block below).
+      let dbUser = order.dbUser || buildDatabaseUser(account.accountName, `u${suffix}`);
       const dbPass = order.dbPassEncrypted ? decryptSecret(order.dbPassEncrypted) : crypto.randomBytes(12).toString("base64").replace(/[^a-zA-Z0-9]/g, "x").slice(0, 16) + "A1!";
 
       await emit({
         stage: state.stage, percent: 20,
         message: order.dbName
           ? `Scanning for the existing database ${state.dbName} (re-run — reusing instead of creating a new one)...`
-          : `Checking whether database ${state.dbName} already exists...`,
+          : `Checking whether database ${state.dbName} already exists... (${account.message})`,
       });
 
       // Persist the identity FIRST so a crash, timeout or retry can never
@@ -115,9 +209,50 @@ export async function POST(req: NextRequest) {
         progressPercent: 25, progressStage: "DATABASE_NAME_RESERVED",
       });
 
-      const dbRes = await cpanelProvisionDatabase(creds, state.dbName, dbUser, dbPass);
+      const dbRes = await withTimeout(
+        cpanelProvisionDatabase(creds, state.dbName, dbUser, dbPass),
+        STEP_TIMEOUT_MS,
+        "Provisioning the database"
+      );
       if (!dbRes.ok) { state.percent = 21; return await fail(new Error(dbRes.message), "DATABASE"); }
-      if (dbRes.reused || dbRes.reusedUser) {
+
+      /* ── PERSIST THE REAL NAMES ────────────────────────────────────────
+       * cPanel may not honour the names we request: on this host
+       * setup_db_and_user invented hggoffenbach_rpt4mi2v2dte8jwx7gn97fqer9k8bed6
+       * and hggoffenbach_myi2ccnm9d0dnfm3fheaz3akm46keznkqywf0424ru5h5sos2.
+       * Storing the REQUESTED name left the order holding a database that never
+       * existed ("hggoffen_5c70"), so every re-run scanned, failed to match, and
+       * tried to create again until the MySQL quota was exhausted.
+       *
+       * The names the account ACTUALLY has are now written back, so the next run
+       * matches on them and skips creation completely.
+       */
+      if (dbRes.actualDbName || dbRes.actualDbUser) {
+        const renames: string[] = [];
+        if (dbRes.actualDbName && dbRes.actualDbName !== state.dbName) {
+          renames.push(`database ${state.dbName} -> ${dbRes.actualDbName}`);
+          state.dbName = dbRes.actualDbName;
+        }
+        if (dbRes.actualDbUser && dbRes.actualDbUser !== dbUser) {
+          renames.push(`user ${dbUser} -> ${dbRes.actualDbUser}`);
+        }
+        if (renames.length) {
+          state.warnings.push(
+            `cPanel assigned its own database names, so we saved the real ones (${renames.join("; ")}). Your plan's database was used once — it will be reused, never created again.`
+          );
+        }
+        dbUser = dbRes.actualDbUser || dbUser;
+        await updateOrder(orderId, { dbName: state.dbName, dbUser }).catch(() => {});
+      }
+
+      if (dbRes.skipped) {
+        // Our system already created this database on an earlier run, so this
+        // run deliberately created nothing. Say so plainly so nobody wastes time
+        // deleting and re-creating it.
+        state.warnings.push(
+          `Database ${state.dbName} was already created by a previous run, so this run skipped creation entirely — no additional database or quota was used.`
+        );
+      } else if (dbRes.reused || dbRes.reusedUser) {
         state.warnings.push(
           `Reused the existing ${dbRes.reused ? "database" : ""}${dbRes.reused && dbRes.reusedUser ? " and " : ""}${dbRes.reusedUser ? "database user" : ""} from a previous attempt — no new quota was used.`
         );
@@ -142,7 +277,7 @@ export async function POST(req: NextRequest) {
         stage: state.stage, percent: 45,
         message: `Placing the SLATE files automatically (existing folders are reused, new ones are created)...`,
       });
-      const up = await placeAgentWithFallback({
+      const up = await withTimeout(placeAgentWithFallback({
         creds,
         siteUrl: order.siteUrl,
         fileManagerPath: order.fileManagerPath,
@@ -164,7 +299,7 @@ export async function POST(req: NextRequest) {
             return { ok: false, message: `${url} did not respond (${err?.message || "timeout"})` };
           }
         },
-      });
+      }), STEP_TIMEOUT_MS, "Placing the SLATE files");
       if (!up.ok) {
         state.percent = 45;
         state.warnings.push(...up.warnings);
@@ -243,6 +378,23 @@ export async function POST(req: NextRequest) {
       state.warnings.push(...lic.warnings);
       state.percent = 94;
 
+      /* ── cPanel health "AFTER" snapshot ────────────────────────────────
+       * Taken now that the database and the files are in place, so the console
+       * can show the account panel beside the "before" reading and prove exactly
+       * what the automation consumed (e.g. Databases 1/2, Disk Usage up).
+       */
+      const healthAfter = await withTimeout(
+        readCpanelHealth((m, f, p) => cpanelUapiCall(creds, m, f, p), String(order.cpanelHost || ""), String(order.cpanelUser || "")),
+        30_000,
+        "Reading cPanel account statistics"
+      ).catch(() => null);
+      if (healthAfter?.ok) {
+        await updateOrder(orderId, { healthAfter }).catch(() => {});
+      }
+      if (healthBefore && !healthBefore.ok && healthBefore.unavailable) {
+        state.warnings.push(healthBefore.unavailable);
+      }
+
       // STEP 7 (100%) - complete
       await updateOrder(orderId, { status: "bootstrap_done", progressPercent: 100, progressStage: "COMPLETE", error: undefined });
       state.percent = 100;
@@ -256,6 +408,8 @@ export async function POST(req: NextRequest) {
         expiresAt: lic.expiresAt,
         siteId: site.id,
         db: { name: state.dbName, user: dbUser, host: "localhost" },
+        // Server-reported evidence of what changed on the account.
+        health: { before: healthBefore, after: healthAfter },
         warnings: state.warnings,
       });
     } catch (err: any) {

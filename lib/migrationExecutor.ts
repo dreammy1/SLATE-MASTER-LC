@@ -4,6 +4,13 @@ import path from "path";
 import { getAuthPhpUrl } from "./githubWorkflow";
 import { publicPathFromFilePath } from "./migrationPaths";
 import { ServerEndpoint } from "./storage";
+import {
+  agentFetch,
+  readAgentResponse,
+  isBlockedKind,
+  wafRemediation,
+  type AgentBody,
+} from "./agentHttp";
 
 export interface StepLog {
   timestamp: string;
@@ -44,10 +51,15 @@ function withActionQuery(baseUrl: string, action: string): string {
   return `${baseUrl}${separator}action=${encodeURIComponent(action)}`;
 }
 
+/**
+ * Every remote-agent request goes through the shared hardened transport
+ * (browser-shaped headers, redirect-follow, hard timeout). See lib/agentHttp.ts
+ * for why: hosts running Imunify360 bot-protection returned a JavaScript
+ * challenge or a hard 403 to a bare `fetch()`, which used to be misread as a
+ * stale auth.php.
+ */
 function safeFetch(url: string, init: RequestInit = {}, timeoutMs = 60_000) {
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), timeoutMs);
-  return fetch(url, { ...init, signal: controller.signal } as any).finally(() => clearTimeout(t));
+  return agentFetch(url, init, timeoutMs);
 }
 
 async function parseJsonSafe(res: Response) {
@@ -57,6 +69,20 @@ async function parseJsonSafe(res: Response) {
   } catch {
     return { _raw: text, error: `Non-JSON response: HTTP ${res.status}` };
   }
+}
+
+/**
+ * Turn a classified agent body into the one sentence an operator can act on.
+ * A WAF block and a missing file are completely different problems, so they
+ * must never share a message.
+ */
+function remediateFor(body: AgentBody, agentUrl: string, fileManagerPath?: string): string {
+  if (isBlockedKind(body.kind)) return wafRemediation(agentUrl);
+  if (body.kind === "html") {
+    return `Upload auth.php into the folder this URL maps to (cPanel path: ${fileManagerPath || "the app folder"}), set file permissions to 0644 and folder to 0755, then press Test again.`;
+  }
+  if (body.kind === "empty") return "The site answered with nothing. Confirm the site is online, then press Test again.";
+  return "Check that the Site URL and the File Manager Path point at the same folder that holds auth.php, then press Test again.";
 }
 
 function removeAnsiCodes(value: string) {
@@ -133,7 +159,7 @@ export async function sanitizeSqlDumpFile(sqlPath: string): Promise<{ ok: boolea
 // ────────────────────────────────────────────────────────────────────────────
 export async function verifyEndpoint(
   endpoint: Partial<ServerEndpoint>
-): Promise<{ ok: boolean; message: string; details?: any; agentUrl?: string }> {
+): Promise<{ ok: boolean; message: string; details?: any; agentUrl?: string; blocked?: boolean; remediation?: string }> {
   if (!endpoint.siteUrl || !endpoint.fileManagerPath) {
     return { ok: false, message: "siteUrl and fileManagerPath are required to locate the remote auth.php agent." };
   }
@@ -142,17 +168,49 @@ export async function verifyEndpoint(
     return { ok: false, message: `Could not build auth.php URL from siteUrl=${endpoint.siteUrl} path=${endpoint.fileManagerPath}.` };
   }
 
-  // Step A: diagnostics probe
-  let diagnostics: any = null;
+  // Step A: diagnostics probe.
+  //
+  // THE BUG THIS REPLACES: an HTTP 200 used to be treated as a healthy agent
+  // even when the body was the host firewall's HTML challenge page. The caller
+  // then saw no `supported_actions`, blamed a stale auth.php, and sent the
+  // operator into a re-upload loop that could never succeed. A reply is only an
+  // agent when the BODY is the agent — never merely because the status was 200.
+  let body: AgentBody;
   try {
     const res = await safeFetch(`${agentUrl}?action=diagnostics`, { method: "GET" }, 15_000);
-    diagnostics = await parseJsonSafe(res);
+    body = await readAgentResponse(res);
+
+    if (isBlockedKind(body.kind)) {
+      const remediation = wafRemediation(agentUrl);
+      return {
+        ok: false,
+        agentUrl,
+        blocked: true,
+        remediation,
+        message: `${body.message} ${remediation}`,
+        details: { status: body.status, kind: body.kind, agentUrl },
+      };
+    }
+
     if (!res.ok) {
       return {
         ok: false,
         agentUrl,
-        message: `Remote agent at ${agentUrl} returned HTTP ${res.status}. Please verify auth.php is uploaded and file permissions are 0644.`,
-        details: diagnostics,
+        blocked: isBlockedKind(body.kind),
+        remediation: remediateFor(body, agentUrl, endpoint.fileManagerPath),
+        message: `Remote agent at ${agentUrl} returned HTTP ${res.status}. ${body.message} Please verify auth.php is uploaded and file permissions are 0644.`,
+        details: { status: body.status, kind: body.kind, agentUrl },
+      };
+    }
+
+    if (!body.isAgent) {
+      return {
+        ok: false,
+        agentUrl,
+        blocked: false,
+        remediation: remediateFor(body, agentUrl, endpoint.fileManagerPath),
+        message: `${body.message} ${remediateFor(body, agentUrl, endpoint.fileManagerPath)}`,
+        details: { status: body.status, kind: body.kind, agentUrl },
       };
     }
   } catch (err: any) {
@@ -163,7 +221,13 @@ export async function verifyEndpoint(
     };
   }
 
-  // Step B: if cPanel credentials are present, try to link them
+  let diagnostics: any = body.json;
+
+  // Step B: if cPanel credentials are present, try to link them.
+  //
+  // Only ever attempted against a confirmed agent: firing an extra POST at a
+  // firewall that is already unhappy just adds noise and latency, and this call
+  // is non-fatal by design.
   let cpanelLinked = diagnostics?.cpanel_linked ?? false;
   if (!cpanelLinked && endpoint.cpanelUser && endpoint.cpanelApiToken) {
     try {

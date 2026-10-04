@@ -1,35 +1,51 @@
 import { NextRequest, NextResponse } from "next/server";
+import Stripe from "stripe";
+import { getOrder, updateOrder } from "@/lib/storage";
 
-/** Stripe webhook stub (manual-first). Verifies signature when STRIPE_WEBHOOK_SECRET is set; marks matching order paid. */
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+  apiVersion: "2023-10-16" as any,
+});
+
+/** Stripe webhook: Verifies signature, avoids replay attacks, and marks matching order paid. */
 export async function POST(req: NextRequest) {
   try {
     const secret = process.env.STRIPE_WEBHOOK_SECRET || "";
     const sig = req.headers.get("stripe-signature") || "";
     const raw = await req.text();
-    if (secret) {
-      const crypto = await import("crypto");
-      const expected = crypto.createHmac("sha256", secret).update(raw).digest("hex");
-      if (sig !== expected && !sig.includes(expected)) {
-        return NextResponse.json({ success: false, error: "Bad webhook signature." }, { status: 400 });
+    let event: Stripe.Event;
+
+    if (secret && sig) {
+      try {
+        event = stripe.webhooks.constructEvent(raw, sig, secret);
+      } catch (err: any) {
+        return NextResponse.json({ success: false, error: `Webhook signature verification failed: ${err.message}` }, { status: 400 });
       }
+    } else {
+      // Fallback for development without a webhook secret (if permitted, usually only locally)
+      if (process.env.NODE_ENV === "production") {
+        return NextResponse.json({ success: false, error: "Missing stripe-signature or webhook secret in production." }, { status: 400 });
+      }
+      try { event = JSON.parse(raw); } catch { event = {} as Stripe.Event; }
     }
-    let event: any = {};
-    try { event = JSON.parse(raw); } catch { event = {}; }
-    // Idempotency: stripe_session_id / event.id
-    const sessionId: string = event?.data?.object?.id || event?.id || "";
-    const orderId: string = event?.data?.object?.metadata?.orderId || event?.orderId || "";
-    if (orderId) {
-      const { getOrder, updateOrder } = await import("@/lib/storage");
-      const order = await getOrder(orderId);
-      if (order && order.status !== "paid") {
-        if (sessionId && order.stripe_session_id && order.stripe_session_id === sessionId) {
-          return NextResponse.json({ success: true, deduped: true });
+
+    const dataObj = event.data?.object as any;
+    const sessionId: string = dataObj?.id || event.id || "";
+    const orderId: string = dataObj?.metadata?.orderId || "";
+
+    if (event.type === "checkout.session.completed" || event.type === "payment_intent.succeeded") {
+      if (orderId) {
+        const order = await getOrder(orderId);
+        if (order) {
+          if (order.status === "paid") {
+            return NextResponse.json({ success: true, deduped: true }); // Idempotency check: Already paid
+          }
+          await updateOrder(orderId, { status: "paid", stripe_session_id: sessionId || undefined });
         }
-        await updateOrder(orderId, { status: "paid", stripe_session_id: sessionId || undefined });
+        return NextResponse.json({ success: true, orderId });
       }
-      return NextResponse.json({ success: true, orderId });
     }
-    return NextResponse.json({ success: true, received: true, note: "No orderId in metadata — manual approve path." });
+    
+    return NextResponse.json({ success: true, received: true, note: "Unhandled event type or missing orderId." });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }

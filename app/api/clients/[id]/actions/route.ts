@@ -29,6 +29,7 @@ import { checkAgent } from "@/lib/agentUpload";
 import { handshakeEndpoint } from "@/lib/migrationExecutor";
 import { resolveMasterOrigin } from "@/lib/masterOrigin";
 import { getAuthPhpUrl } from "@/lib/githubWorkflow";
+import { executeClientPushUpdate } from "@/lib/clientUpdate";
 import type { FolderCandidate } from "@/lib/migrationPaths";
 
 /**
@@ -322,6 +323,22 @@ async function handleTestCpanel({ order, body }: Ctx): Promise<NextResponse> {  
   return NextResponse.json({ success: probe.ok, message: probe.message }, { status: probe.ok ? 200 : 502 });
 }
 
+async function handlePushUpdate({ order, lic, site, pkg, body }: Ctx): Promise<NextResponse> {
+  const targetSite = site || (lic?.siteId ? await getSite(lic.siteId) : null);
+  if (!targetSite) {
+    return NextResponse.json({ success: false, error: "No live site linked to this client — cannot push update." }, { status: 400 });
+  }
+
+  const res = await executeClientPushUpdate(targetSite, pkg, {
+    ref: body.ref || body.githubRef,
+    plugins: Array.isArray(body.plugins) ? body.plugins : undefined,
+    lic,
+    actor: "master-ops",
+  });
+
+  return NextResponse.json(res, { status: res.success ? 200 : 502 });
+}
+
 const HANDLERS: Record<string, (c: Ctx) => Promise<NextResponse>> = {
   remote_access: handleRemoteAccess,
   rotate_key: handleRotateKey,
@@ -331,5 +348,6 @@ const HANDLERS: Record<string, (c: Ctx) => Promise<NextResponse>> = {
   repair_files: handleRepairFiles,
   reveal_key: handleRevealKey,
   write_config: handleWriteConfig,
+  push_update: handlePushUpdate,
 };
 

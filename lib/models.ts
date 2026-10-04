@@ -204,6 +204,8 @@ export interface Order {
   siteUrl: string;
   base_path: string;
   fileManagerPath: string;
+  /** Full hosting panel origin as typed by the customer, e.g. https://cpanel.client.com:2083 */
+  hostingServerUrl: string;
   cpanelHost: string;
   cpanelUser: string;
   cpanelApiTokenEncrypted: string;
@@ -233,6 +235,31 @@ export interface Order {
   clientEditedAt?: string;
   clientEditCount?: number;
   notes?: string;
+  /**
+   * Purchase-time server verification.
+   *
+   * Purchases NEVER depend on the host answering correctly at checkout time —
+   * a typo, an expired token, or a firewall that wakes up mid-order must not
+   * burn the sale. So the order is always created, and the cPanel probe result
+   * is recorded honestly here instead of aborting the purchase:
+   *   "verified"  → the probe passed, automation can run
+   *   "unchecked" → no probe could be trusted yet (e.g. transient render)
+   *   "needs_help"→ the probe failed; money is safe, support fixes the login
+   */
+  serverVerified?: "verified" | "unchecked" | "needs_help";
+  /** The exact probe result kept for support (never a reason to refuse money). */
+  serverCheckMessage?: string;
+  /**
+   * cPanel account resource panel (Databases, Disk Usage, File Usage, …) captured
+   * BEFORE and AFTER the automation ran.
+   *
+   * Present so the dashboard can show server-reported proof of what the setup
+   * changed — "1 / 2 databases, 214.55 MB / 20 GB disk" — instead of asking the
+   * customer for a screenshot. Best-effort: a host that does not expose
+   * ResourceUsage simply has no snapshot and nothing else is affected.
+   */
+  healthBefore?: any;
+  healthAfter?: any;
   createdAt: string;
   updatedAt?: string;
 }

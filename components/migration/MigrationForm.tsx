@@ -458,6 +458,12 @@ function EndpointPanel({
           {status.details?.agentUrl && (
             <div className="text-[10px] opacity-80 mt-1">Agent: {status.details.agentUrl}</div>
           )}
+          {status.remediation && (
+            <div className="mt-1.5 pt-1.5 border-t border-current/20 text-[10px] text-amber-300">
+              <span className="font-bold uppercase tracking-wide">Action required: </span>
+              {status.remediation}
+            </div>
+          )}
         </div>
       )}
 

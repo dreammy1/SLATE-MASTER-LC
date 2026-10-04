@@ -33,6 +33,7 @@ import { getAuthPhpUrl } from "./githubWorkflow";
 import { getAgentUrl, targetWriteConfig } from "./migrationExecutor";
 import { getAppInstallStatus } from "./appInstaller";
 import { decryptSecret } from "./crypto";
+import { callAgent, isBlockedKind, wafRemediation } from "./agentHttp";
 import { licenseIssuedMail, sendMail } from "./mailer";
 
 /**
@@ -167,7 +168,14 @@ export function siteTarget(site: Site): ServerEndpoint {
   } as ServerEndpoint;
 }
 
-/** POST any agent action with the site's handshake token (never exposes the token). */
+/**
+ * POST any agent action with the site's handshake token (never exposes the token).
+ *
+ * Uses the shared hardened transport and classifies the reply, so a host
+ * firewall challenge or a WordPress 404 is reported as exactly that instead of
+ * being read as `{ data: { raw: "<!doctype html>…" } }` and quietly treated as a
+ * healthy — but mysteriously empty — agent.
+ */
 export async function agentCall(
   site: Site,
   action: string,
@@ -177,15 +185,24 @@ export async function agentCall(
   const agentUrl = getAuthPhpUrl(site.domain, site.path);
   if (!agentUrl) return { ok: false, data: null, error: "No agent URL could be built for this site." };
   try {
-    const res = await fetch(`${agentUrl}?action=${encodeURIComponent(action)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Slate-Token": site.handshakeToken },
-      body: JSON.stringify({ action, token: site.handshakeToken, ...extra }),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-    const text = await res.text();
-    let data: any = {};
-    try { data = JSON.parse(text); } catch { data = { raw: text.slice(0, 400) }; }
+    const { res, body } = await callAgent(
+      `${agentUrl}?action=${encodeURIComponent(action)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Slate-Token": site.handshakeToken },
+        body: JSON.stringify({ action, token: site.handshakeToken, ...extra }),
+      },
+      timeoutMs,
+      agentUrl
+    );
+
+    if (isBlockedKind(body.kind)) {
+      return { ok: false, data: null, error: `${body.message} ${body.remediation || wafRemediation(agentUrl)}`.trim() };
+    }
+    if (!body.isAgent) {
+      return { ok: false, data: null, error: body.message };
+    }
+    const data = body.json || {};
     if (!res.ok || data?.error) {
       return { ok: false, data, error: data?.error || `Agent HTTP ${res.status}.` };
     }

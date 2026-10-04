@@ -13,8 +13,12 @@
 // ── Version + roots ──────────────────────────────────────────
 // Guarded: install.php defines these before requiring config.php,
 // so we skip the redefine to avoid a "Constant already defined" warning.
-if (!defined('SLATE_VERSION')) define('SLATE_VERSION', '1.0.0');
 if (!defined('SLATE_ROOT'))    define('SLATE_ROOT', __DIR__);
+if (!defined('SLATE_VERSION')) {
+    $vFile = SLATE_ROOT . '/.slate_version';
+    $vDisk = file_exists($vFile) ? trim((string)@file_get_contents($vFile)) : '';
+    define('SLATE_VERSION', $vDisk !== '' ? $vDisk : '1.0.0');
+}
 
 // ── Error reporting ──────────────────────────────────────────
 // Never expose errors to end users. Log only.

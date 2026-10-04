@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateAdmin, createToken, createSessionCookie } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 /**
  * POST /api/admin/login
@@ -8,6 +9,12 @@ import { authenticateAdmin, createToken, createSessionCookie } from "@/lib/auth"
  */
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get("x-forwarded-for") || req.ip || "unknown-ip";
+    const rl = checkRateLimit(ip, 10, 60);
+    if (!rl.success) {
+      return NextResponse.json({ success: false, error: rl.error }, { status: 429 });
+    }
+
     const body = await req.json().catch(() => ({}));
     const { username, password } = body;
 

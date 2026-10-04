@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findLicenseByHash, updateLicense, getPackage } from "@/lib/storage";
 import { hashLicenseKey, isValidKeyFormat } from "@/lib/licensing";
+import { corsPreflight, withCors } from "@/lib/cors";
 
 type Guide = { title: string; reason: string; steps: string[]; retryable: boolean; retryLabel?: string };
 
@@ -9,7 +10,15 @@ function guide(title: string, reason: string, steps: string[]): Guide {
 }
 
 function fail(error: string, status: number, g: Guide) {
-  return NextResponse.json({ success: false, error, failedStage: "ACTIVATE", percent: 0, guide: g }, { status });
+  // CORS on the way out: this endpoint is called from the CUSTOMER's browser on
+  // their own domain, so without the header the browser blocks the response and
+  // reports the opaque "Failed to fetch". See lib/cors.ts.
+  return withCors(NextResponse.json({ success: false, error, failedStage: "ACTIVATE", percent: 0, guide: g }, { status }));
+}
+
+/** The browser's preflight for a cross-origin activation call. */
+export async function OPTIONS() {
+  return corsPreflight();
 }
 
 export async function POST(req: NextRequest) {
@@ -131,16 +140,34 @@ export async function POST(req: NextRequest) {
       last_seen_at: new Date().toISOString(),
     });
     const pkg = updated ? await getPackage(updated.package_id) : null;
-    return NextResponse.json({
+
+    // ── Gap 2 fix: return per-plugin entitlements alongside the package ──
+    // The activate response previously only returned pkg.pluginSet (a list
+    // of slugs). The tenant's install script needs to know which plugins
+    // are individually licensed vs package-included so it can set up the
+    // correct entitlement records locally.
+    const pluginEntitlements: Record<string, { source: string; status: string; expires_at: string | null }> = {};
+    if (pkg && pkg.pluginSet) {
+      for (const pSlug of pkg.pluginSet) {
+        pluginEntitlements[pSlug] = {
+          source: "package",
+          status: updated?.status || "active",
+          expires_at: updated?.expires_at || null,
+        };
+      }
+    }
+
+    return withCors(NextResponse.json({
       success: true,
       reactivated: isRerunOnSameDomain,
       license: updated,
       package: pkg
         ? { slug: pkg.slug, pluginSet: pkg.pluginSet, restrictions: pkg.restrictions, githubRef: pkg.githubRef }
         : null,
-    });
+      pluginEntitlements,
+    }));
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return withCors(NextResponse.json({ success: false, error: err.message }, { status: 500 }));
   }
 }
 

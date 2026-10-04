@@ -49,6 +49,9 @@ type InstallerPayload = {
   admin_password?: string;
   plugins?: string[];
   force?: boolean;
+  ref?: string;
+  version?: string;
+  action?: string;
 };
 
 async function callInstaller(

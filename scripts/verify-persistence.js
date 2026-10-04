@@ -93,6 +93,7 @@ const ROOT = path.join(__dirname, "..");
   const { resolvePersistence, resetPersistence } = require(
     path.join(ROOT, "lib/persistence/adapterRegistry.ts")
   );
+  const { normalizeDb } = require(path.join(ROOT, "lib/persistence/normalize.ts"));
 
   console.log("\nPersistence port verification\n");
 
@@ -179,6 +180,35 @@ const ROOT = path.join(__dirname, "..");
     process.env.STORAGE_DRIVER = "mongodb";
     resetPersistence();
     assert.throws(() => resolvePersistence(), /Unknown STORAGE_DRIVER/);
+  });
+
+  // ── Catalogue self-heal (normalizeDb) ─────────────────────────────────────
+  await check("normalizeDb: collapses duplicate slugs to ONE row per slug", async () => {
+    const db = normalizeDb({
+      packages: [
+        { id: "pkg_a", slug: "business-ops", pluginSet: ["booking"], restrictions: [] },
+        { id: "pkg_b", slug: "business-ops", pluginSet: ["booking"], restrictions: [{ match: "x", mode: "block" }] },
+      ],
+    });
+    assert.strictEqual(db.packages.filter((p) => p.slug === "business-ops").length, 1);
+  });
+
+  await check("normalizeDb: keeps the REFERENCED row and backfills its missing rules", async () => {
+    const db = normalizeDb({
+      orders: [{ package_id: "pkg_a" }],
+      packages: [
+        { id: "pkg_a", slug: "business-ops", pluginSet: ["booking"], restrictions: [] },
+        { id: "pkg_b", slug: "business-ops", pluginSet: ["booking"], restrictions: [{ match: "settings.php", mode: "block" }] },
+      ],
+    });
+    const kept = db.packages.find((p) => p.slug === "business-ops");
+    assert.strictEqual(kept.id, "pkg_a", "the order-referenced row must survive");
+    assert.ok(kept.restrictions.length > 0, "its missing restrictions must be backfilled from the sibling");
+  });
+
+  await check("normalizeDb: empty package list re-seeds the catalogue", async () => {
+    const db = normalizeDb({ packages: [] });
+    assert.ok(db.packages.length > 0);
   });
 
   // ── restore env ───────────────────────────────────────────────────────────

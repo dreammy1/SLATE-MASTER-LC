@@ -108,7 +108,11 @@ if (file_exists($envPath)) {
 
 /* ── Constants the Slate classes require ─────────────────────────── */
 if (!defined('SLATE_ROOT'))    define('SLATE_ROOT', __DIR__);
-if (!defined('SLATE_VERSION')) define('SLATE_VERSION', '1.0.0');
+if (!defined('SLATE_VERSION')) {
+    $vFile = __DIR__ . '/.slate_version';
+    $vDisk = file_exists($vFile) ? trim((string)@file_get_contents($vFile)) : '';
+    define('SLATE_VERSION', $vDisk !== '' ? $vDisk : '1.0.0');
+}
 if (!defined('DB_HOST'))       define('DB_HOST',    $env['DB_HOST']    ?? 'localhost');
 if (!defined('DB_PORT'))       define('DB_PORT',    $env['DB_PORT']    ?? '');
 if (!defined('DB_NAME'))       define('DB_NAME',    $env['DB_NAME']    ?? '');
@@ -214,7 +218,7 @@ if ($action === 'status') {
     ]);
 }
 
-/* ── action=install : the headless install ───────────────────────── */
+/* ── action=install or action=update : headless install / update ── */
 $warnings = [];
 $report   = ['migrations' => [], 'plugins' => [], 'steps' => []];
 
@@ -225,6 +229,14 @@ $adminName     = trim((string)($body['admin_name'] ?? 'Site Owner'));
 $adminPassword = (string)($body['admin_password'] ?? '');
 $pluginSlugs   = array_values(array_filter(array_map('strval', (array)($body['plugins'] ?? []))));
 $force         = !empty($body['force']);
+$ref           = trim((string)($body['ref'] ?? $body['version'] ?? ''));
+
+// If a release ref / version was passed, record it in .slate_version
+if ($ref !== '') {
+    @file_put_contents(__DIR__ . '/.slate_version', $ref);
+}
+
+$effectiveVersion = $ref !== '' ? $ref : SLATE_VERSION;
 
 $pdo = installerConnect();
 
@@ -232,12 +244,9 @@ $pdo = installerConnect();
 try {
     $runner  = installerRunner($pdo);
     $onDisk  = $runner->discover();
-    $toRun   = array_values(array_intersect($MIGRATION_PLAN, $onDisk));
-    $missing = array_values(array_diff($MIGRATION_PLAN, $onDisk));
-    if ($missing) {
-        $warnings[] = 'Migration files not present on disk: ' . implode(', ', $missing);
-    }
-    $ran = $runner->migrate($toRun);
+    // Run all migrations (core spine + any newly discovered migrations on disk)
+    $toRun   = array_values(array_unique(array_merge($MIGRATION_PLAN, $onDisk)));
+    $ran     = $runner->migrate($toRun);
     $report['migrations'] = ['ran' => $ran, 'already_applied' => array_values(array_diff($toRun, $ran))];
     $report['steps'][]    = 'schema:' . count($ran) . ' applied';
 } catch (\Throwable $e) {
@@ -249,7 +258,7 @@ try {
     ]);
 }
 
-/* 2 ─ first admin user */
+/* 2 ─ first admin user (only if no users exist) */
 try {
     $userCount = (int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
     if ($userCount === 0) {
@@ -288,7 +297,7 @@ try {
     ]);
 }
 
-/* 3 ─ activate the client's package plugins */
+/* 3 ─ activate / refresh plugins */
 if ($pluginSlugs) {
     foreach ($pluginSlugs as $slug) {
         $slug = preg_replace('/[^A-Za-z0-9_\-]/', '', (string)$slug);
@@ -312,14 +321,15 @@ if ($pluginSlugs) {
     $report['steps'][] = 'plugins:' . count($report['plugins']);
 }
 
-/* 4 ─ .installed marker (skips the interactive wizard) */
-if (!$alreadyInstalled || $force) {
+/* 4 ─ .installed marker (written on install, refreshed on update) */
+if (!$alreadyInstalled || $force || $action === 'update' || $ref !== '') {
+    $markerAction = $alreadyInstalled ? 'Updated' : 'Installed';
     $marker = @file_put_contents(
         __DIR__ . '/.installed',
-        'Installed: ' . date('Y-m-d H:i:s') . ' | Slate ' . SLATE_VERSION . " | installed by SLATE Master OS\n"
+        "{$markerAction}: " . date('Y-m-d H:i:s') . ' | Slate ' . $effectiveVersion . " | by SLATE Master OS\n"
     );
     if ($marker === false) {
-        $warnings[] = '.installed could not be written (the folder is not writable), so your site may show the install wizard once. Make the folder writable and press Retry automation — your database is already set up.';
+        $warnings[] = '.installed could not be written (the folder is not writable). Make the folder writable and press Retry automation.';
     } else {
         @chmod(__DIR__ . '/.installed', 0640);
         $report['steps'][] = 'marker_written';
@@ -329,12 +339,15 @@ if (!$alreadyInstalled || $force) {
 $loginUrl = (SLATE_URL !== '' ? SLATE_URL : '') . '/admin/login.php';
 
 installerRespond(200, [
-    'status'     => 'INSTALLED',
+    'status'     => ($alreadyInstalled && $action !== 'install') ? 'UPDATED' : 'INSTALLED',
     'installer'  => SLATE_INSTALLER_VERSION,
+    'version'    => $effectiveVersion,
     'already'    => $alreadyInstalled,
-    'message'    => $alreadyInstalled
-        ? 'Slate was already installed — verification finished.'
-        : 'Slate installed successfully. Log in with your admin account.',
+    'message'    => ($action === 'update' || ($alreadyInstalled && $ref !== ''))
+        ? "Slate successfully updated to {$effectiveVersion}."
+        : ($alreadyInstalled
+            ? 'Slate was already installed — verification finished.'
+            : 'Slate installed successfully. Log in with your admin account.'),
     'site_url'   => SLATE_URL,
     'login_url'  => $loginUrl,
     'migrations' => $report['migrations'],

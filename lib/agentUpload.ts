@@ -21,7 +21,22 @@ import { folderCandidates, resolveWorkingTarget, type FolderCandidate } from "./
  * The client is never asked to create or paste anything.
  */
 
+/**
+ * The files placed next to each other in the client's folder.
+ *
+ * `slate-installer.php` is in this list because WITHOUT it the whole customer
+ * journey dead-ends. The activation page (activate.php) checks for this file
+ * next to itself and refuses to install without it, telling the customer to
+ * "re-run setup" — but re-running setup only ever uploaded auth.php and
+ * activate.php, so the installer never arrived and the advice could never work.
+ *
+ * It lives in `slate/` on Master (it is part of the application release), not in
+ * `public/`, so the bootstrap upload must read it from there. It is optional: if
+ * the file is absent from Master the agent files are still placed and the run
+ * continues, because a missing installer must not block the database work.
+ */
 const AGENT_FILES = ["auth.php", "activate.php"];
+const OPTIONAL_AGENT_FILES = ["slate-installer.php"];
 
 /**
  * Where the two agent files are read from.
@@ -44,6 +59,32 @@ async function readLocalAgent(file: string): Promise<{ ok: boolean; buf?: Buffer
   } catch {
     return { ok: false, message: `Master is missing public/${file} (source not found).` };
   }
+}
+
+/**
+ * Read the installer from the application release on Master.
+ *
+ * It is deliberately read from `slate/` and not `public/`: that is where the
+ * release keeps it, and `public/` is the folder the two agent files live in.
+ * Reading the wrong folder is what made it silently "missing" on the server.
+ */
+async function readInstaller(): Promise<{ ok: boolean; buf?: Buffer; message: string }> {
+  const candidates = [
+    path.join(process.cwd(), "slate", "slate-installer.php"),
+    path.join(process.cwd(), "public", "slate-installer.php"),
+  ];
+  for (const c of candidates) {
+    try {
+      const { default: fs } = await import("fs/promises");
+      const buf = await fs.readFile(c);
+      if (buf.length) {
+        return { ok: true, buf, message: `Read slate-installer.php from Master (${buf.length} bytes).` };
+      }
+    } catch {
+      /* try the next location */
+    }
+  }
+  return { ok: false, message: "Master has no slate/slate-installer.php to upload." };
 }
 
 async function readGithubAgent(file: string): Promise<{ ok: boolean; buf?: Buffer; message: string }> {
@@ -251,6 +292,35 @@ export async function uploadAgentFiles(
     return { ok: false, message: failures.join(" | "), warnings, steps, source };
   }
 
+  /* ── STEP 3b: the installer (OPTIONAL but essential for the journey) ────
+   *
+   * Uploaded separately from the two agent files because it lives in a different
+   * folder on Master and a missing copy must not fail the agent placement. If it
+   * cannot be uploaded we warn clearly instead of letting the customer reach an
+   * activation page that can never install.
+   */
+  const installer = await readInstaller();
+  if (installer.ok && installer.buf) {
+    let inst = await pushFile(creds, remoteDir, "slate-installer.php", installer.buf);
+    if (!inst.ok) {
+      steps.push("retried slate-installer.php");
+      await cpanelEnsureDir(creds, remoteDir).catch(() => null);
+      inst = await pushFile(creds, remoteDir, "slate-installer.php", installer.buf);
+    }
+    if (inst.ok) {
+      steps.push("uploaded slate-installer.php");
+    } else {
+      warnings.push(
+        `The setup files were placed, but slate-installer.php could not be uploaded (${inst.message}). ` +
+        `The activation page will report it missing until this is resolved.`
+      );
+    }
+  } else {
+    warnings.push(
+      `Master has no slate-installer.php to upload, so the activation page will report it missing. (${installer.message})`
+    );
+  }
+
   /* ── STEP 4: confirm both files really exist ──────────────────────────
    *
    * Two independent proofs, because the Fileman listing alone has twice reported
@@ -261,7 +331,11 @@ export async function uploadAgentFiles(
    * Either one is sufficient. Only when BOTH fail do we report a failure.
    */
   const listing = await cpanelListFiles(creds, remoteDir);
-  const missingFromListing = AGENT_FILES.filter((f) => !listing.files.includes(f));
+  // The installer is part of what a correct folder contains. Leaving it out of
+  // this check meant a folder could be reported as "verified" while the
+  // activation page would still be blocked by its absence.
+  const expected = [...AGENT_FILES, "slate-installer.php"];
+  const missingFromListing = expected.filter((f) => !listing.files.includes(f));
   let verifiedBy: AgentUploadResult["verifiedBy"] = missingFromListing.length ? "none" : "listing";
 
   if (missingFromListing.length && publicUrl) {

@@ -183,10 +183,57 @@ test("order tracking returns a next step for a real order", async () => {
   assert.ok(json.order.contactEmail.includes("*"), "customer email must be masked");
 });
 
+
 test("unknown order is a clean 404", async () => {
   const { res, json } = await get("/api/orders/does-not-exist-123");
   assert.equal(res.status, 404);
   assert.equal(json.success, false);
+});
+
+test("purchase is never refused by the server probe (order always recorded)", async () => {
+  const pkgs = await get("/api/packages");
+  const pkg = pkgs.json?.packages?.[0];
+  if (!pkg) return; // catalogue empty — nothing to purchase against
+  const { res, json } = await post("/api/orders", {
+    package_id: pkg.id,
+    billing_cycle: "monthly",
+    siteUrl: "https://probe-customer.example/slate",
+    fileManagerPath: "/public_html/slate",
+    cpanelHost: "probe-unreachable-host.invalid",
+    cpanelUser: "probeuser",
+    cpanelApiToken: "probe-token-that-cannot-possibly-validate",
+    contactName: "Probe Customer",
+    contactEmail: "probe@example.com",
+    payMethod: "manual_bank",
+  });
+  // Even with a deliberately dead cPanel host the sale must be recorded,
+  // with the probe failure attached as honest metadata — never as a refusal.
+  assert.equal(res.status, 201, `purchase must succeed, got ${res.status}: ${JSON.stringify(json).slice(0, 300)}`);
+  assert.equal(json.success, true);
+  assert.ok(json.order?.id, "must return the recorded order");
+  assert.equal(json.serverVerified, "needs_help", "must flag the login for support");
+  assert.ok(json.serverCheckMessage, "must keep the probe reason for support/customer");
+
+  // And bootstrap (after approval) must still refuse to automate against the
+  // unverified login. Approval is admin-side; re-approve here for the check.
+  const id = json.order.id;
+  await fetch(`${BASE}/api/orders`, {
+    method: "PATCH", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, action: "approve" }),
+  });
+  const boot = await post("/api/deploy/bootstrap", { orderId: id });
+  const events = (boot.text || "").split("\n").filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return {}; } });
+  const failed = events.find((e) => e.error);
+  assert.ok(failed, "bootstrap must stop on the bad login");
+  assert.equal(failed.failedStage, "VALIDATING", "must stop at the login gate, not halfway through quota work");
+  assert.match(JSON.stringify(failed), /cPanel UAPI unreachable|login|token|refused/i, "must name the login problem");
+
+  // Cleanup: the probe order must not linger in the dashboard.
+  await fetch(`${BASE}/api/orders`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, action: "cancel" }),
+  }).catch(() => {});
 });
 
 /* ─────────────── 4. activation + deploy guards ─────────────── */

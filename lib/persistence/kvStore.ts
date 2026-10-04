@@ -55,24 +55,78 @@ export class KvStore implements PersistenceAdapter {
   /**
    * The Upstash/Vercel REST protocol is a POST of a JSON command array, e.g.
    * ["SET", "slate:db", "<json>"]. Response shape is `{ result: ... }`.
+   *
+   * ── Why this retries ────────────────────────────────────────────────────────
+   *
+   * A free-tier KV endpoint throttles and, under a burst of concurrent reads
+   * (the dashboard loading several collections at once, or `next dev` giving a
+   * freshly-compiled route its own cold module instance), a single GET can take
+   * longer than the per-attempt budget. The old code treated that ONE slow reply
+   * as fatal: `AbortSignal.timeout(10s)` fired, the error propagated out of
+   * `getDb()`, and EVERY storage-backed endpoint answered 500 — the sites list,
+   * the order tracker, and the bootstrap stream, whose first action is an
+   * `updateOrder()` write at 5%. That is precisely the "it ran perfectly for two
+   * days, then nothing performs any more" symptom: nothing broke in the code,
+   * the KV endpoint simply got slower than the hard 10s cap.
+   *
+   * So a transient failure (timeout/abort, a dropped connection, HTTP 429, any
+   * 5xx) is now retried with a short backoff, while a REAL error (a 401/403 bad
+   * token, or an in-band `{ error }` from the command) fails immediately — no
+   * point hammering an endpoint that is telling us the credential is wrong.
    */
   private async command(command: unknown[]): Promise<any> {
-    const res = await fetch(this.url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(command),
-      // Never let a hung KV call hold a page render open indefinitely.
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!res.ok) {
-      throw new Error(`KV command failed: HTTP ${res.status} ${await res.text().catch(() => "")}`);
+    const timeoutMs = Number(process.env.SLATE_KV_TIMEOUT_MS || 8_000);
+    const maxAttempts = Math.max(1, Number(process.env.SLATE_KV_RETRIES || 3));
+    const backoffMs = [300, 900];
+
+    let lastErr: any = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const res = await fetch(this.url, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${this.token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(command),
+          // Bound each attempt so a hung KV call can never hold a page render
+          // open forever. Kept below the route-level budgets (20-30s) so a
+          // retried read still fits inside the caller's own timeout.
+          signal: AbortSignal.timeout(timeoutMs),
+        });
+
+        if (!res.ok) {
+          // 429 / 5xx are transient for a managed endpoint; 4xx is our fault.
+          const retryable = res.status === 429 || res.status >= 500;
+          const text = await res.text().catch(() => "");
+          const err = new Error(`KV command failed: HTTP ${res.status} ${text}`.trim());
+          if (!retryable) throw Object.assign(err, { fatal: true });
+          lastErr = err;
+        } else {
+          const payload = (await res.json()) as { result?: unknown; error?: string };
+          // An in-band error is a deliberate answer (bad command / bad key) — do
+          // not retry it.
+          if (payload.error) throw Object.assign(new Error(`KV command error: ${payload.error}`), { fatal: true });
+          return payload.result;
+        }
+      } catch (err: any) {
+        if (err?.fatal) throw err;
+        lastErr = err;
+      }
+
+      if (attempt < maxAttempts) {
+        const wait = backoffMs[Math.min(attempt - 1, backoffMs.length - 1)];
+        await new Promise((r) => setTimeout(r, wait));
+      }
     }
-    const payload = (await res.json()) as { result?: unknown; error?: string };
-    if (payload.error) throw new Error(`KV command error: ${payload.error}`);
-    return payload.result;
+
+    // All attempts exhausted: surface the last reason, but make it actionable.
+    const reason = lastErr?.message || String(lastErr) || "no response";
+    throw new Error(
+      `KV (${this.url}) did not answer after ${maxAttempts} attempts (${reason}). ` +
+        `Check Upstash/Vercel KV status and credentials, or set STORAGE_DRIVER=file on a host with a persistent disk.`
+    );
   }
 
   async read(): Promise<StorageSchema | null> {

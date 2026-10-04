@@ -174,8 +174,26 @@ $coreNav = [
         'perm'  => 'settings.view',
         'order' => 840,
         'group' => 'settings',
+        ],
+    // Licensing
+    [
+        'slug'  => 'my-licenses',
+        'label' => 'My Licenses',
+        'href'  => SLATE_URL . '/admin/my-licenses.php',
+        'icon'  => 'key',
+        'perm'  => 'settings.view',
+        'order' => 845,
+        'group' => 'licensing',
     ],
-    // ── System ──
+    [
+        'slug'  => 'plugins-shop',
+        'label' => 'Plugins Shop',
+        'href'  => SLATE_URL . '/admin/plugins-shop.php',
+        'icon'  => 'shopping-bag',
+        'perm'  => 'plugins.manage',
+        'order' => 846,
+        'group' => 'licensing',
+    ],
     [
         'slug'  => 'users',
         'label' => __('users', 'Users'),
@@ -407,7 +425,7 @@ if (!function_exists('slate_admin_group_label')) {
             'settings'      => 'Site settings',
             'system'        => 'Tools & connection',
             'plugins'       => 'Plugins',
-            'shop'          => 'Shop',
+            'shop' => 'Shop', 'licensing' => 'Licensing',
             'media'         => 'Media',
             'mcp-ai-hub'    => 'MCP & AI Hub',
         ];
@@ -1978,3 +1996,4 @@ if (!function_exists('slate_admin_nav_icon')) {
                 </form>
             </div>
         <?php unset($_platformModeTenant); endif; ?>
+

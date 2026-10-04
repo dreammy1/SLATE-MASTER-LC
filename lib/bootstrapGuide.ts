@@ -19,37 +19,103 @@ function guide(title: string, reason: string, steps: string[], retryable = true,
   return { title, reason, steps, retryable, retryLabel: retryable ? RETRY_LABEL : undefined, helpUrl };
 }
 
-/** cPanel credentials rejected / unreachable. */
+/**
+ * cPanel credentials rejected / unreachable.
+ *
+ * Two very different problems arrive at this stage and they need opposite fixes,
+ * so the reason is inspected and the guide is chosen to match:
+ *
+ *   • the host answered with its LOGIN PAGE  -> our username/token pair is
+ *     wrong. Nothing is wrong with the hosting; the customer only has to re-enter
+ *     the exact account username and create a fresh non-expiring token.
+ *   • the host could not be reached at all  -> the host is down or is blocking
+ *     this server's IP. Re-entering credentials would be pointless, so the guide
+ *     says to contact the host instead of looping the customer through cPanel.
+ */
 export function guideCpanel(reason: string, host = "your cPanel host"): RecoveryGuide {
+  const text = String(reason || "");
+  const authRejected = /login page instead of API data|not accepted|API token/i.test(text);
+  const unreachable = /fetch failed|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|certificate|self.signed|unreachable/i.test(text);
+
+  if (unreachable && !authRejected) {
+    return guide(
+      `We could not reach cPanel on ${host}`,
+      text,
+      [
+        "This is a hosting-side problem, not a mistake in your details — do not change your username or token yet.",
+        `Check that ${host} is online by opening https://${host}:2083 in your own browser.`,
+        "If cPanel loads for you but not for us, your host is blocking our server. Ask the host to allow cPanel API access from our server's IP, or to confirm cPanel is reachable on port 2082/2083.",
+        "Press Retry automation afterwards — nothing is lost, and the setup resumes from this step.",
+        "Still blocked? Send support your order ID and we will arrange an alternative way to place the files.",
+      ],
+      true,
+      "https://docs.cpanel.net/cpanel/introduction/"
+    );
+  }
+
   return guide(
     "We could not connect to your cPanel",
-    reason,
+    text,
     [
-      `Open ${host}:2083 in a new tab and sign in with your hosting username and password.`,
-      "In cPanel go to Security â†’ Manage API Tokens (or 'API Tokens').",
-      "Click Create Token, allow the whole token to have full access, then copy it (it is shown once).",
-      "Make sure your username is the FULL cPanel username (example: myhost_slate), not your email.",
-      "Make sure the host is only the domain (example: yourdomain.com) â€” do not paste https:// or a path.",
-      "Paste the values again below and press Retry automation.",
+      `Your order is safe and no payment is affected. The host answered with its sign-in page, which means the username and API token we hold were not accepted together.`,
+      `Open https://${host}:2083 in a new tab and sign in with your hosting username and password.`,
+      "In cPanel open Security -> Manage API Tokens, click Create, name it, and choose \"The API Token will not expire\".",
+      "Copy the token (it is shown only once) and paste it below.",
+      "For the username use the SHORT cPanel account name shown in the top-right of cPanel (example: uk701user) — not your email address.",
+      `For the host enter only the domain (example: ${host}) — no https:// and no trailing slash.`,
+      "Press Retry automation. The setup continues from this step and never re-charges or re-creates anything.",
     ],
     true,
-    "https://docs.cpanel.net/knowledge-base/security/how-to-use-api-tokens/"
+    "https://docs.cpanel.net/cpanel/security/manage-api-tokens-in-cpanel/"
   );
 }
 
 /** Database creation failed. */
 export function guideDatabase(reason: string, dbName?: string): RecoveryGuide {
+  const text = String(reason || "");
+  // A quota wall and a naming wall need different advice, and the customer must
+  // not be told to delete a database that our own system already created.
+  const quota = /max.*(database|user)|quota|limit reached|too many|maximum number/i.test(text);
+  const prefix = /required prefix|does not begin|must begin/i.test(text);
+
+  if (quota) {
+    return guide(
+      "Your hosting plan allows very few databases",
+      text,
+      [
+        "This is about your hosting plan's database limit, not a mistake in your details.",
+        `If a database named ${dbName || "(as shown on this page)"} already exists, do NOT delete it — press Retry automation and we will use it without creating anything new.`,
+        "To see what exists, open cPanel -> MySQL Databases and look at the list.",
+        "If you genuinely need a new one, delete a database you do not use, then press Retry automation.",
+        "Nothing is lost by retrying: the setup resumes from this step and never charges twice.",
+      ],
+      true,
+      "https://docs.cpanel.net/cpanel/databases/mysql-databases/"
+    );
+  }
+
+  if (prefix) {
+    return guide(
+      "The database name was generated with the wrong account prefix",
+      text,
+      [
+        "This is our mistake, not yours — the name was generated before we could read your cPanel account prefix. Nothing you did caused it.",
+        "Press Retry automation. The name is rebuilt from your cPanel account (for example hggoffenbach_) and this step runs on its own.",
+        "Your plan's database limit was not used by the failed attempt, so no quota is lost.",
+      ],
+      true,
+      "https://docs.cpanel.net/cpanel/databases/mysql-databases/"
+    );
+  }
+
   return guide(
     "We could not create the database automatically",
-    reason,
+    text,
     [
-      "Open cPanel â†’ MySQLÂ® Databases.",
-      dbName
-        ? `Type this database name: ${dbName} and press Create Database.`
-        : "Create a new database (any name, note it down).",
-      "Still on the same page, scroll to MySQL Users â†’ Add New User, create a user and save the password.",
-      "Under Add User To Database select your new user + database and click Add, then tick ALL PRIVILEGES and Make Changes.",
-      "Come back here and press Retry automation â€” we will detect the database already exists and continue.",
+      "Press Retry automation first — most temporary host errors clear on a second try, and we will reuse anything already created.",
+      "Open cPanel -> MySQL Databases and check whether a database was already created. If it exists, leave it: we will use it.",
+      "If a database exists, add a database user in the same page and grant it ALL PRIVILEGES, then press Retry automation.",
+      "Still failing? Send support your order ID and the red error text and we will finish the setup for you.",
     ],
     true,
     "https://docs.cpanel.net/cpanel/databases/mysql-databases/"

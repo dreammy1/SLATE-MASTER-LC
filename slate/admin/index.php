@@ -8,6 +8,20 @@
 require_once dirname(__DIR__) . '/config.php';
 Auth::require();
 
+// ── 1-click update trigger from dashboard banner ─────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'trigger_update')) {
+    header('Content-Type: application/json; charset=utf-8');
+    if (!Auth::isSuperAdmin() && !Auth::can('settings.edit')) {
+        echo json_encode(['ok' => false, 'message' => 'Unauthorized: only administrators can trigger updates.']);
+        exit;
+    }
+    $res = class_exists('\Slate\Services\Licensing\LicenseClient')
+        ? \Slate\Services\Licensing\LicenseClient::triggerUpdate()
+        : ['ok' => false, 'message' => 'LicenseClient not found.'];
+    echo json_encode($res);
+    exit;
+}
+
 $pageTitle = __('dashboard', 'Dashboard');
 require __DIR__ . '/partials/header.php';
 
@@ -227,6 +241,94 @@ $activityMeta = static function (string $action): array {
         <span class="dash-clock" id="dash-clock"><?= e(date('D · j M Y')) ?> · <span class="t"><?= e(date('g:i a')) ?></span></span>
     </div>
 </div>
+
+<?php
+$updateInfo = class_exists('\Slate\Services\Licensing\LicenseClient')
+    ? \Slate\Services\Licensing\LicenseClient::getAvailableUpdate()
+    : null;
+if ($updateInfo && !empty($updateInfo['hasUpdate'])):
+?>
+<div class="update-banner" id="slate-update-banner">
+    <div class="update-banner-ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+        </svg>
+    </div>
+    <div class="update-banner-body">
+        <div class="update-banner-title">
+            <?= __('update_available_title', 'Update Available') ?>: <strong><?= e($updateInfo['latestRef']) ?></strong>
+            <span class="update-badge"><?= e($updateInfo['package'] ? $updateInfo['package'] . ' Channel' : 'Release') ?></span>
+        </div>
+        <div class="update-banner-text">
+            <?= __('update_available_desc', 'A new version of Slate is ready. Your files and database migrations will be updated safely while preserving all data and settings.') ?>
+            (Current: <span class="text-mono"><?= e($updateInfo['currentRef']) ?></span>)
+        </div>
+    </div>
+    <div class="update-banner-actions">
+        <button type="button" class="btn btn-primary" id="btn-update-now" onclick="triggerSlateUpdate()">
+            <svg class="btn-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;width:14px;height:14px;margin-right:6px;animation:spin 1s linear infinite;"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+            <span class="btn-text"><?= __('update_now_cta', 'Update now') ?></span>
+        </button>
+    </div>
+</div>
+<style>
+.update-banner {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding: 16px 20px; margin-bottom: 20px;
+    background: linear-gradient(135deg, rgba(0, 240, 255, 0.08), rgba(99, 102, 241, 0.08));
+    border: 1px solid rgba(0, 240, 255, 0.35);
+    border-radius: var(--radius, 14px);
+    box-shadow: 0 4px 20px rgba(0, 240, 255, 0.05);
+}
+.update-banner-ico {
+    flex: none; width: 42px; height: 42px; border-radius: 10px;
+    display: grid; place-items: center;
+    background: #00f0ff; color: #000;
+}
+.update-banner-ico svg { width: 22px; height: 22px; }
+.update-banner-body { flex: 1; min-width: 260px; }
+.update-banner-title { font-weight: 700; font-size: 15px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+.update-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: rgba(0,240,255,0.15); color: #00f0ff; border: 1px solid rgba(0,240,255,0.3); }
+.update-banner-text { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.update-banner-actions { flex: none; }
+@keyframes spin { 100% { transform: rotate(360deg); } }
+</style>
+<script>
+function triggerSlateUpdate() {
+    var btn = document.getElementById('btn-update-now');
+    if (!btn || btn.disabled) return;
+    if (!confirm('Start automatic update to <?= e($updateInfo['latestRef']) ?> now? (Safe: data and database are preserved)')) return;
+    btn.disabled = true;
+    var spin = btn.querySelector('.btn-spin');
+    var txt = btn.querySelector('.btn-text');
+    if (spin) spin.style.display = 'inline-block';
+    if (txt) txt.textContent = 'Updating...';
+
+    var fd = new FormData();
+    fd.append('action', 'trigger_update');
+
+    fetch(window.location.href, { method: 'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d.ok) {
+                if (txt) txt.textContent = 'Updated!';
+                setTimeout(function() { window.location.reload(); }, 1200);
+            } else {
+                alert(d.message || 'Update failed.');
+                btn.disabled = false;
+                if (spin) spin.style.display = 'none';
+                if (txt) txt.textContent = 'Update now';
+            }
+        })
+        .catch(function(e) {
+            alert('Update error: ' + (e.message || e));
+            btn.disabled = false;
+            if (spin) spin.style.display = 'none';
+            if (txt) txt.textContent = 'Update now';
+        });
+}
+</script>
+<?php endif; ?>
 
 <?php
 /* First-run nudge: email can't be sent until SMTP or OAuth is configured.

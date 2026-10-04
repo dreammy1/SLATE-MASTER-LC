@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { corsPreflight, withCors, CORS_STREAM_HEADERS } from "@/lib/cors";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
@@ -30,31 +31,38 @@ import {
  * Every failure emits { error, failedStage, guide } so the browser can show a
  * clear reason and numbered manual recovery steps. Re-running is safe.
  */
+export async function OPTIONS() {
+  // The activation page runs on the customer's own domain and calls this endpoint
+  // cross-origin, so the browser sends a preflight first. Without this the whole
+  // activation reports "Failed to fetch". See lib/cors.ts.
+  return corsPreflight();
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({} as any));
   const rawKey = String(body.key || "").trim();
   const domain = String(body.domain || "").trim().replace(/\/+$/, "");
-  if (!isValidKeyFormat(rawKey)) return NextResponse.json({ success: false, error: "Invalid key." }, { status: 400 });
+  if (!isValidKeyFormat(rawKey)) return withCors(NextResponse.json({ success: false, error: "Invalid key." }, { status: 400 }));
 
   const lic = await findLicenseByHash(hashLicenseKey(rawKey));
-  if (!lic) return NextResponse.json({ success: false, error: "Unknown key." }, { status: 404 });
+  if (!lic) return withCors(NextResponse.json({ success: false, error: "Unknown key." }, { status: 404 }));
 
   const norm = (u: string) => u.toLowerCase().replace(/\/+$/, "");
   if (norm(lic.domain) !== norm(domain)) {
-    return NextResponse.json({ success: false, error: "This key was issued for a different domain." }, { status: 403 });
+    return withCors(NextResponse.json({ success: false, error: "This key was issued for a different domain." }, { status: 403 }));
   }
   if (lic.status === "revoked" || lic.status === "cancelled") {
-    return NextResponse.json({ success: false, error: `License is ${lic.status}.` }, { status: 403 });
+    return withCors(NextResponse.json({ success: false, error: `License is ${lic.status}.` }, { status: 403 }));
   }
 
   const pkg = await getPackage(lic.package_id);
-  if (!pkg) return NextResponse.json({ success: false, error: "Package missing." }, { status: 500 });
+  if (!pkg) return withCors(NextResponse.json({ success: false, error: "Package missing." }, { status: 500 }));
   const site = lic.siteId ? await getSite(lic.siteId) : null;
   if (!site) {
-    return NextResponse.json(
+    return withCors(NextResponse.json(
       { success: false, error: "Site not registered. Run the setup step (bootstrap) first." },
       { status: 400 }
-    );
+    ));
   }
   const order = lic.orderId ? await getOrder(lic.orderId) : undefined;
 
@@ -247,7 +255,9 @@ export async function POST(req: NextRequest) {
       const inst = await runAppInstall(target, token, {
         admin_email: order.contactEmail,
         admin_name: order.contactName,
-        admin_password: "",
+        // Frictionless default: the billing email IS the first password.
+        // The installer hashes it; customer changes it after first login.
+        admin_password: order.contactEmail,
         plugins: pkg.pluginSet || [],
       });
       if (!inst.ok) { state.percent = 74; return await fail(new Error(inst.message), "INSTALL"); }
@@ -312,6 +322,9 @@ export async function POST(req: NextRequest) {
       "Content-Type": "application/x-ndjson; charset=utf-8",
       "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive",
+      // CORS on the STREAM as well: the customer browser reads this cross-origin,
+      // so without these headers the reader throws before the first event.
+      ...CORS_STREAM_HEADERS,
     },
   });
 }
