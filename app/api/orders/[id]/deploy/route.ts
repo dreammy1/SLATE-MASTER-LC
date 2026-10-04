@@ -67,11 +67,34 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       await emit({ stage: state.stage, percent: 2, message: "Contacting your server…" });
       const agentUrl = getAuthPhpUrl(siteUrl, target.fileManagerPath);
       if (!agentUrl) { state.percent = 2; await fail(new Error("Site URL is missing. Fix the domain first."), "CONNECT"); return; }
+      let agentReady = false;
       try {
-        const ping = await agentFetch(`${agentUrl}?action=ping`, { method: "POST", headers: { "Content-Type": "application/json", "X-Slate-Token": token }, body: JSON.stringify({ action: "ping", token }) }, 20_000);
+        const ping = await agentFetch(`${agentUrl}?action=ping`, { method: "POST", headers: { "Content-Type": "application/json", "X-Slate-Token": token }, body: JSON.stringify({ action: "ping", token }) }, 15_000);
         const pb = await readAgentResponse(ping);
-        if (!pb.isAgent) { state.percent = 5; await fail(new Error(`auth.php not reachable at ${agentUrl} (${pb.message}). Re-upload to ${target.fileManagerPath}, then retry.`), "CONNECT"); return; }
-      } catch (err: any) { state.percent = 5; await fail(new Error(`Could not reach your server (${err?.message || "timeout"}). Check ${target.fileManagerPath}, then retry.`), "CONNECT"); return; }
+        if (pb.isAgent) agentReady = true;
+      } catch { /* will auto-heal below */ }
+
+      if (!agentReady) {
+        // Auto-heal agent files using cPanel credentials if available
+        if (cpanelApiToken && (order.cpanelUser || target.cpanelUser)) {
+          await emit({ stage: state.stage, percent: 6, message: "Healing agent files on your server via cPanel…" });
+          const healed = await pushAgent(target, token, {
+            host: order.cpanelHost || target.cpanelHost || "",
+            user: order.cpanelUser || target.cpanelUser || "",
+            apiToken: cpanelApiToken,
+          });
+          if (healed.ok) {
+            agentReady = true;
+            await emit({ stage: state.stage, percent: 8, message: "Agent placed via cPanel. Connecting…" });
+          }
+        }
+      }
+
+      if (!agentReady) {
+        state.percent = 5;
+        await fail(new Error(`auth.php not reachable at ${agentUrl}. Re-upload to ${target.fileManagerPath}, then retry.`), "CONNECT");
+        return;
+      }
       state.percent = 10;
       await emit({ stage: state.stage, percent: 10, message: "Agent is live. Pairing…" });
       const masterRes = resolveMasterOrigin(req.url);
@@ -82,7 +105,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
       // Automatically push latest auth.php agent to target so it has latest auto-provisioning & discovery capabilities
       try {
-        const updatePush = await pushAgent(target, token);
+        const updatePush = await pushAgent(target, token, cpanelApiToken ? {
+          host: order.cpanelHost || target.cpanelHost || "",
+          user: order.cpanelUser || target.cpanelUser || "",
+          apiToken: cpanelApiToken,
+        } : undefined);
         if (updatePush.ok) {
           await emit({ stage: state.stage, percent: 11, message: "Agent updated to latest release." });
         }

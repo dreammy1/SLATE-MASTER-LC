@@ -585,12 +585,31 @@ export async function targetDeployFiles(params: {
 /** Uploads public/auth.php directly to the client's app directory, updating the agent in-place. */
 export async function pushAgent(
   target: ServerEndpoint,
-  handshakeToken?: string
+  handshakeToken?: string,
+  cpanelCreds?: { host: string; user: string; apiToken: string }
 ): Promise<{ ok: boolean; message: string }> {
   const source = path.join(process.cwd(), "public", "auth.php");
   if (!(await fs.stat(source).catch(() => null))) {
     return { ok: false, message: `auth.php source missing on Master: public/auth.php` };
   }
+
+  // 1. Try cPanel Fileman upload if credentials are provided
+  const cpHost = cpanelCreds?.host || (target as any).cpanelHost || "";
+  const cpUser = cpanelCreds?.user || (target as any).cpanelUser || "";
+  const cpToken = cpanelCreds?.apiToken || (target as any).cpanelApiToken || "";
+  if (cpHost && cpUser && cpToken) {
+    try {
+      const { cpanelUploadFile } = await import("./cpanel");
+      const up = await cpanelUploadFile({ host: cpHost, user: cpUser, apiToken: cpToken }, source, target.fileManagerPath || "public_html/slate");
+      if (up.ok) {
+        return { ok: true, message: `Remote auth.php updated via cPanel Fileman.` };
+      }
+    } catch {
+      // Continue to agent deploy fallback
+    }
+  }
+
+  // 2. Try agent deploy action fallback
   const tmp = path.join(os.tmpdir(), `slate-auth-${Date.now()}.zip`);
   try {
     const AdmZipModule = (await import("adm-zip")).default;
