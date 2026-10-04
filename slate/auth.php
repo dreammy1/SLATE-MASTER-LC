@@ -1,7 +1,7 @@
 <?php
 /**
  * SLATE DEVOPS OS - ZERO-TOUCH REMOTE AGENT (auth.php)
- * Version: 3.1.0
+ * Version: 3.2.0
  *
  * Drop this file into the target remote directory (e.g. /public_html/slate/auth.php).
  * Handles:
@@ -13,6 +13,7 @@
  *  - MySQL Database Auto-Provisioning (create DB + user + grant)
  *  - MySQL Connection Probe & Testing
  *  - License Status / Key Install / Remote Enforcement (v3.1.0)
+ *  - Site Overview: core version, active plugins, remote access mode (v3.2.0)
  *
  * Works across PHP 7.2 - 8.3+ and LiteSpeed / Apache / Nginx.
  * Compatible with all shared hosting cPanel environments.
@@ -27,7 +28,7 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Slate-Token');
 
-define('SLATE_AGENT_VERSION', '3.1.0');
+define('SLATE_AGENT_VERSION', '3.2.0');
 define('CONFIG_FILE', __DIR__ . '/.slate_agent_config.json');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -53,12 +54,24 @@ set_exception_handler(function ($e) {
     ]);
 });
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Pre-configured Order Fallbacks (Injected dynamically per client download) ──
+$PRECONFIG_USER  = defined('SLATE_PRECONFIG_CPANEL_USER') ? SLATE_PRECONFIG_CPANEL_USER : '';
+$PRECONFIG_TOKEN = defined('SLATE_PRECONFIG_HANDSHAKE_TOKEN') ? SLATE_PRECONFIG_HANDSHAKE_TOKEN : '';
 
 function loadConfig() {
-    if (!file_exists(CONFIG_FILE)) return [];
-    $raw = @file_get_contents(CONFIG_FILE);
-    return $raw ? (json_decode($raw, true) ?: []) : [];
+    global $PRECONFIG_USER, $PRECONFIG_TOKEN;
+    $config = [];
+    if (file_exists(CONFIG_FILE)) {
+        $raw = @file_get_contents(CONFIG_FILE);
+        $config = $raw ? (json_decode($raw, true) ?: []) : [];
+    }
+    if (empty($config['cpanel_user']) && !empty($PRECONFIG_USER)) {
+        $config['cpanel_user'] = $PRECONFIG_USER;
+    }
+    if (empty($config['token_hash']) && !empty($PRECONFIG_TOKEN)) {
+        $config['token_hash'] = password_hash($PRECONFIG_TOKEN, PASSWORD_DEFAULT);
+    }
+    return $config;
 }
 
 function saveConfig(array $config) {
@@ -76,11 +89,38 @@ function authenticateAgent($payload) {
     return password_verify($token, $config['token_hash']);
 }
 
-/**
- * Call cPanel UAPI via localhost.
+function detectLocalCpanelUser() {
+    $candidates = [];
+    if (function_exists('posix_geteuid') && function_exists('posix_getpwuid')) {
+        $pw = @posix_getpwuid(posix_geteuid());
+        if (!empty($pw['name'])) $candidates[] = $pw['name'];
+    }
+    if (function_exists('get_current_user')) {
+        $u = @get_current_user();
+        if (!empty($u)) $candidates[] = $u;
+    }
+    if (!empty($_SERVER['LOGNAME'])) $candidates[] = $_SERVER['LOGNAME'];
+    if (!empty($_SERVER['USER'])) $candidates[] = $_SERVER['USER'];
+    if (!empty($_SERVER['DOCUMENT_ROOT'])) {
+        if (preg_match('#/(?:home|home2|home3|var/chroot)/([^/]+)/#i', $_SERVER['DOCUMENT_ROOT'], $m)) {
+            $candidates[] = $m[1];
+        }
+    }
+    if (preg_match('#/(?:home|home2|home3|var/chroot)/([^/]+)/#i', __DIR__, $m)) {
+        $candidates[] = $m[1];
+    }
+    foreach ($candidates as $cand) {
+        $cand = trim((string)$cand);
+        if ($cand !== '' && $cand !== 'root' && $cand !== 'nobody' && $cand !== 'apache' && $cand !== 'www-data' && $cand !== 'nginx') {
+            return $cand;
+        }
+    }
+    return '';
+}
+
 /**
  * Call cPanel UAPI with multi-layered connection fallbacks:
- * 1. CLI /usr/bin/uapi (local binary if exec enabled, zero port dependency)
+ * 1. CLI /usr/bin/uapi (local binary if exec enabled, zero port dependency, no token required locally)
  * 2. HTTPS 127.0.0.1:2083
  * 3. HTTPS localhost:2083
  * 4. HTTPS {domain}:2083
@@ -91,12 +131,11 @@ function authenticateAgent($payload) {
 function cpanelUapi($module, $func, array $params = [], $config = null) {
     if ($config === null) $config = loadConfig();
 
-    $cpUser  = isset($config['cpanel_user'])      ? trim($config['cpanel_user'])      : '';
-    $cpToken = isset($config['cpanel_api_token']) ? trim($config['cpanel_api_token']) : '';
-
-    if (empty($cpUser) || empty($cpToken)) {
-        throw new Exception('cPanel credentials not configured. Please link cPanel in the dashboard first.');
+    $cpUser  = isset($config['cpanel_user']) ? trim($config['cpanel_user']) : '';
+    if (empty($cpUser)) {
+        $cpUser = detectLocalCpanelUser();
     }
+    $cpToken = isset($config['cpanel_api_token']) ? trim($config['cpanel_api_token']) : '';
 
     // ── Strategy 1: Native CLI `uapi` binary ─────────────────────────────────
     $disabled = array_map('trim', explode(',', (string)ini_get('disable_functions')));
@@ -117,7 +156,8 @@ function cpanelUapi($module, $func, array $params = [], $config = null) {
                 $encodedVal = str_replace(' ', '%20', (string)$v);
                 $cliArgs[] = escapeshellarg("{$k}={$encodedVal}");
             }
-            $cmd = "{$foundBin} --user=" . escapeshellarg($cpUser) . " " . escapeshellarg($module) . " " . escapeshellarg($func) . " " . implode(' ', $cliArgs) . " --output=json 2>&1";
+            $userFlag = !empty($cpUser) ? (" --user=" . escapeshellarg($cpUser)) : "";
+            $cmd = "{$foundBin}{$userFlag} " . escapeshellarg($module) . " " . escapeshellarg($func) . " " . implode(' ', $cliArgs) . " --output=json 2>&1";
             $cliOut = [];
             $cliRet = -1;
             @exec($cmd, $cliOut, $cliRet);
@@ -135,6 +175,10 @@ function cpanelUapi($module, $func, array $params = [], $config = null) {
                 }
             }
         }
+    }
+
+    if (empty($cpUser) || empty($cpToken)) {
+        throw new Exception('cPanel credentials not configured and local CLI uapi unavailable.');
     }
 
     // ── Strategy 2: REST cPanel UAPI via cURL ────────────────────────────────
@@ -264,6 +308,7 @@ $SLATE_SUPPORTED_ACTIONS = [
     'deploy','package_files','download_package',
     'dump_database','sql_import','write_config',
     'license_status','license_set_key','license_enforce',
+    'site_overview',
 ];
 
 // Parse action: URL query string > $_POST['action'] (multipart/form-data)
@@ -293,13 +338,14 @@ if ($action === 'diagnostics' || $action === 'ping') {
     $curlEnabled = extension_loaded('curl');
     $phpVersion = PHP_VERSION;
 
+    $detectedUser = !empty($config['cpanel_user']) ? $config['cpanel_user'] : detectLocalCpanelUser();
     respond(200, [
         'status'          => ($writable && version_compare($phpVersion, '7.2.0', '>=')) ? 'READY' : 'DEGRADED',
         'configured'      => file_exists(CONFIG_FILE),
-        'cpanel_linked'   => !empty($config['cpanel_user']),
-        'cpanel_user'     => !empty($config['cpanel_user']) ? $config['cpanel_user'] : null,
-        'agent_version'   => '3.1.0',
-        'agent_release'   => 'SLATE-DEVOPS-OS-3.1.0',
+        'cpanel_linked'   => !empty($config['cpanel_user']) || !empty($detectedUser),
+        'cpanel_user'     => $detectedUser ?: null,
+        'agent_version'   => SLATE_AGENT_VERSION,
+        'agent_release'   => 'SLATE-DEVOPS-OS-' . SLATE_AGENT_VERSION,
         'supported_actions' => $GLOBALS['SLATE_SUPPORTED_ACTIONS'] ?? $SLATE_SUPPORTED_ACTIONS,
         'capabilities'    => [
             'php_version'       => $phpVersion,
@@ -431,9 +477,28 @@ if ($action === 'database_create') {
     }
 
     $config  = loadConfig();
-    $cpUser  = $config['cpanel_user'] ?? '';
+    $cpUser  = trim((string)($payload['cpanel_user'] ?? $config['cpanel_user'] ?? ''));
     if (empty($cpUser)) {
-        respond(400, ['error' => 'cPanel credentials not configured. Call action=cpanel_setup first.']);
+        $cpUser = detectLocalCpanelUser();
+    }
+    if (empty($cpUser)) {
+        // Fallback: check if valid database credentials already exist on the server (.env or wp-config.php)
+        $discovered = discoverDbCredentials(__DIR__);
+        if (!empty($discovered['db_name']) && !empty($discovered['db_user'])) {
+            respond(200, [
+                'status'      => 'PROVISIONED',
+                'message'     => 'Existing database credentials auto-detected from environment.',
+                'credentials' => [
+                    'db_name'     => $discovered['db_name'],
+                    'db_user'     => $discovered['db_user'],
+                    'db_password' => $discovered['db_pass'] ?? '',
+                    'db_host'     => !empty($discovered['db_host']) ? $discovered['db_host'] : 'localhost',
+                    'db_port'     => 3306,
+                ],
+                'steps' => [['step' => 'discovered_existing_db', 'status' => 'OK', 'name' => $discovered['db_name']]],
+            ]);
+        }
+        respond(400, ['error' => 'cPanel hosting username could not be determined. Please specify cpanel_user.']);
     }
 
     $appName = sanitizeDbName($payload['app_name'] ?? 'app', 4);
@@ -463,6 +528,21 @@ if ($action === 'database_create') {
             $steps[] = ['step' => 'create_database', 'status' => 'OK', 'name' => $fullDbName, 'mode' => 'full_prefix'];
             $dbCreated = true;
         } catch (Exception $e2) {
+            $discovered = discoverDbCredentials(__DIR__);
+            if (!empty($discovered['db_name']) && !empty($discovered['db_user'])) {
+                respond(200, [
+                    'status'      => 'PROVISIONED',
+                    'message'     => 'Existing database credentials auto-detected from environment after cPanel creation failed.',
+                    'credentials' => [
+                        'db_name'     => $discovered['db_name'],
+                        'db_user'     => $discovered['db_user'],
+                        'db_password' => $discovered['db_pass'] ?? '',
+                        'db_host'     => !empty($discovered['db_host']) ? $discovered['db_host'] : 'localhost',
+                        'db_port'     => 3306,
+                    ],
+                    'steps' => [['step' => 'discovered_existing_db', 'status' => 'OK', 'name' => $discovered['db_name']]],
+                ]);
+            }
             respond(500, ['error' => 'Failed to create database: ' . $e->getMessage() . ' | Also tried full name: ' . $e2->getMessage(), 'steps' => $steps]);
         }
     }
@@ -482,6 +562,21 @@ if ($action === 'database_create') {
             ]);
             $steps[] = ['step' => 'create_user', 'status' => 'OK', 'user' => $fullUserName, 'mode' => 'full_prefix'];
         } catch (Exception $e2) {
+            $discovered = discoverDbCredentials(__DIR__);
+            if (!empty($discovered['db_name']) && !empty($discovered['db_user'])) {
+                respond(200, [
+                    'status'      => 'PROVISIONED',
+                    'message'     => 'Existing database credentials auto-detected from environment after user creation failed.',
+                    'credentials' => [
+                        'db_name'     => $discovered['db_name'],
+                        'db_user'     => $discovered['db_user'],
+                        'db_password' => $discovered['db_pass'] ?? '',
+                        'db_host'     => !empty($discovered['db_host']) ? $discovered['db_host'] : 'localhost',
+                        'db_port'     => 3306,
+                    ],
+                    'steps' => [['step' => 'discovered_existing_db', 'status' => 'OK', 'name' => $discovered['db_name']]],
+                ]);
+            }
             respond(500, ['error' => 'Failed to create user: ' . $e->getMessage() . ' | Also tried full name: ' . $e2->getMessage(), 'steps' => $steps]);
         }
     }
@@ -511,6 +606,21 @@ if ($action === 'database_create') {
     }
 
     if (!$granted) {
+        $discovered = discoverDbCredentials(__DIR__);
+        if (!empty($discovered['db_name']) && !empty($discovered['db_user'])) {
+            respond(200, [
+                'status'      => 'PROVISIONED',
+                'message'     => 'Existing database credentials auto-detected from environment after privilege grant failed.',
+                'credentials' => [
+                    'db_name'     => $discovered['db_name'],
+                    'db_user'     => $discovered['db_user'],
+                    'db_password' => $discovered['db_pass'] ?? '',
+                    'db_host'     => !empty($discovered['db_host']) ? $discovered['db_host'] : 'localhost',
+                    'db_port'     => 3306,
+                ],
+                'steps' => [['step' => 'discovered_existing_db', 'status' => 'OK', 'name' => $discovered['db_name']]],
+            ]);
+        }
         respond(500, [
             'error' => 'Failed to grant privileges: ' . implode(' | ', $grantErrors),
             'steps' => $steps,
@@ -1229,7 +1339,37 @@ if ($action === 'write_config') {
     }
 
     $envPath = __DIR__ . '/.env';
-    if (file_exists($envPath) && is_writable($envPath)) {
+    /**
+     * CREATE the .env when it does not exist.
+     *
+     * This used to be `if (file_exists($envPath) && is_writable($envPath))`, so on
+     * a FRESH client install — where the app release ships no .env — the whole
+     * block was skipped and write_config still reported success. The app then fell
+     * back to the default baked into config.php (`env('APP_URL', '...')`), which
+     * is why a brand-new site kept pointing at the OLD demo URL and admin/login.php
+     * returned 500 for lack of DB credentials. Master believed CONFIG had passed.
+     *
+     * Now: create it if missing, and refuse to claim success when it cannot be
+     * written, so a failure is visible instead of silently deferred.
+     */
+    $envExists = file_exists($envPath);
+    if (!$envExists) {
+        if (is_writable(__DIR__)) {
+            if (@file_put_contents($envPath, "# Slate configuration — written by SLATE Master OS\n") === false) {
+                $warnings[] = '.env could not be created (permission denied on ' . __DIR__ . ').';
+            } else {
+                @chmod($envPath, 0640);
+                $envExists = true;
+                $updated[] = '.env(created)';
+            }
+        } else {
+            $warnings[] = '.env is missing and the folder is not writable, so it could not be created.';
+        }
+    } elseif (!is_writable($envPath)) {
+        $warnings[] = '.env exists but is not writable (permissions=0' . decoct(fileperms($envPath) & 0777) . ').';
+    }
+
+    if ($envExists && is_writable($envPath)) {
         $env = @file_get_contents($envPath);
         if ($env !== false) {
             // SLATE CANONICAL KEYS FIRST (config.php reads DB_HOST/DB_NAME/DB_USER/DB_PASS + APP_URL).
@@ -1281,6 +1421,53 @@ if ($action === 'write_config') {
             }
             @file_put_contents($envPath, $env);
         }
+    }
+
+    // ── config.php: the app's hardcoded fallback URL ──────────────────────
+    // config.php ships with a DEMO fallback, e.g.
+    //   define('SLATE_URL', rtrim(env('APP_URL', 'https://old-demo.com/slate'), '/'));
+    // When .env failed to reach the server that fallback became the live URL,
+    // so a client's site silently pointed at somebody else's demo domain. Rewrite
+    // the fallback to this site's real URL as a belt-and-braces guarantee, even
+    // though .env is the primary source of truth.
+    $configPath = __DIR__ . '/config.php';
+    if (file_exists($configPath) && is_writable($configPath) && !empty($payload['site_url'])) {
+        $cfg = @file_get_contents($configPath);
+        if ($cfg !== false) {
+            $newUrl = rtrim((string)$payload['site_url'], '/');
+            // Replace the SECOND argument of env('APP_URL', '...') only.
+            $cfgNew = preg_replace_callback(
+                "/env\s*\(\s*(['\"])APP_URL\1\s*,\s*(['\"])[^'\"]*\2\s*\)/",
+                function ($m) use ($newUrl) {
+                    return "env('APP_URL', '" . addslashes($newUrl) . "')";
+                },
+                $cfg, -1, $cfgCnt
+            );
+            if (!empty($cfgCnt) && $cfgNew !== null) {
+                if (@file_put_contents($configPath, $cfgNew) !== false) {
+                    $updated[] = 'config.php:SLATE_URL(' . $newUrl . ')';
+                    $cfg = $cfgNew;
+                } else {
+                    $warnings[] = 'config.php exists but could not be written (permission denied).';
+                }
+            }
+            // Also rebase any remaining hardcoded demo host in this file.
+            if (preg_match_all("/https?:\/\/[a-z0-9.-]+(?:\/[^'\"\s,)]*)?/i", $cfg, $m2)) {
+                foreach (array_unique($m2[0]) as $found) {
+                    if (stripos($found, 'localhost') !== false) continue;
+                    // Only rewrite hosts that are clearly not this site.
+                    $host = parse_url($found, PHP_URL_HOST) ?: '';
+                    $curHost = parse_url($newUrl, PHP_URL_HOST) ?: '';
+                    if ($host && $curHost && strcasecmp($host, $curHost) === 0) continue;
+                    if (preg_match('/example\.|blackbox|schemas\.|w3\.org|github\.com|slate\.dev/i', $host)) continue;
+                    $cfg = str_replace($found, $newUrl, $cfg);
+                    $updated[] = 'config.php:url(' . $host . '→' . $curHost . ')';
+                }
+                @file_put_contents($configPath, $cfg);
+            }
+        }
+    } elseif (file_exists($configPath) && !is_writable($configPath)) {
+        $warnings[] = 'config.php exists but is not writable; it may still contain a demo fallback URL.';
     }
 
     // Package restriction map: lets the Slate app switch to read-only mode after
@@ -1352,9 +1539,31 @@ if ($action === 'write_config') {
         $updated[] = "permissions:dirs={$dirsFixed},files={$filesFixed}";
     }
 
+    // Never report success when the configuration did not actually land.
+    //
+    // This used to return 200 with "No writable wp-config.php or .env detected.
+    // Skipped config update." — Master reads that as success, moves on to INSTALL,
+    // and the client's site boots with no .env and a demo fallback URL. A skipped
+    // CONFIG is a FAILED config; saying so lets the install stop with a real
+    // reason instead of producing a broken site that looks finished.
+    $envWrote = false;
+    foreach ($updated as $u) {
+        if (strpos($u, '.env:') === 0 || $u === '.env(created)') { $envWrote = true; break; }
+    }
+    $dbKeys = !empty($payload['db_name']) && !empty($payload['db_user']);
+
+    if ($dbKeys && !$envWrote) {
+        respond(500, [
+            'status'  => 'CONFIG_FAILED',
+            'error'   => 'The database settings could not be written to the server: .env was not created or updated. ' . (empty($warnings) ? 'The folder may be read-only.' : implode(' ', $warnings)),
+            'updated' => $updated,
+            'warnings'=> $warnings,
+        ]);
+    }
+
     respond(200, [
         'status'   => 'CONFIG_UPDATED',
-        'message'  => empty($updated) ? 'No writable wp-config.php or .env detected. Skipped config update.' : 'Updated ' . implode(', ', $updated) . '.',
+        'message'  => empty($updated) ? 'No writable config files detected; nothing was changed.' : 'Updated ' . implode(', ', $updated) . '.',
         'updated'  => $updated,
         'warnings' => $warnings,
     ]);
@@ -1448,6 +1657,149 @@ if ($action === 'license_enforce') {
     $dbNote = slate_license_apply_db($op, isset($payload['expires_at']) ? (string)$payload['expires_at'] : null);
     respond(200, ['status' => 'LICENSE_ENFORCED', 'op' => $op, 'db' => $dbNote]);
 }
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 13. SITE OVERVIEW (v3.2.0) — core version, active plugins, access mode
+// Read-only. Never mutates anything, never returns a secret. Used by the Master
+// client-management console ("what is actually running on this site?").
+// ═════════════════════════════════════════════════════════════════════════════
+if ($action === 'site_overview') {
+    if (!authenticateAgent($payload)) {
+        respond(401, ['error' => 'Unauthorized. Invalid X-Slate-Token.']);
+    }
+
+    /* ── Slate core version (config.php constant → .slate_version file) ── */
+    $coreVersion = null;
+    $cfgPath = __DIR__ . '/config.php';
+    if (is_readable($cfgPath) && ($cfgRaw = @file_get_contents($cfgPath)) !== false) {
+        if (preg_match("/define\s*\(\s*'SLATE_VERSION'\s*,\s*'([^']+)'/", $cfgRaw, $m)) {
+            $coreVersion = $m[1];
+        }
+    }
+    if ($coreVersion === null && is_readable(__DIR__ . '/.slate_version')) {
+        $v = trim((string)@file_get_contents(__DIR__ . '/.slate_version'));
+        $coreVersion = $v !== '' ? $v : null;
+    }
+
+    /* ── .env (DB creds + Master-pushed flags such as SLATE_ACCESS_MODE) ─ */
+    $env = [];
+    $envPath = __DIR__ . '/.env';
+    if (is_readable($envPath)) {
+        foreach ((array)@file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+            $t = trim($line);
+            if ($t === '' || $t[0] === '#' || strpos($t, '=') === false) continue;
+            list($k, $v) = explode('=', $t, 2);
+            $env[trim($k)] = trim($v, " \t\"'");
+        }
+    }
+
+    $accessMode = strtolower(trim((string)($env['SLATE_ACCESS_MODE'] ?? '')));
+    if (!in_array($accessMode, ['full', 'readonly'], true)) {
+        // No Master-pushed mode yet: infer it from the restriction file so the
+        // console still reports the truth on an older install.
+        $accessMode = 'full';
+        if (is_readable(__DIR__ . '/.slate_restrictions.json')) {
+            $probe = json_decode((string)@file_get_contents(__DIR__ . '/.slate_restrictions.json'), true);
+            if (is_array($probe) && count($probe) === 1
+                && strtolower((string)($probe[0]['match'] ?? '')) === '*'
+                && strtolower((string)($probe[0]['mode'] ?? '')) === 'readonly') {
+                $accessMode = 'readonly';
+            }
+        }
+    }
+    /* ── restriction rules (Master-pushed file first, DB table fallback) ─ */
+    $rules = [];
+    if (is_readable(__DIR__ . '/.slate_restrictions.json')) {
+        $decoded = json_decode((string)@file_get_contents(__DIR__ . '/.slate_restrictions.json'), true);
+        if (is_array($decoded)) {
+            foreach ($decoded as $r) {
+                if (is_array($r) && !empty($r['match'])) {
+                    $rules[] = ['match' => (string)$r['match'], 'mode' => (string)($r['mode'] ?? 'block')];
+                }
+            }
+        }
+    }
+
+    /* ── plugins: DB registry merged with the manifests found on disk ──── */
+    $plugins = [];
+    $dbNote = null;
+    if (!empty($env['DB_NAME']) && !empty($env['DB_USER']) && extension_loaded('pdo_mysql')) {
+        try {
+            $dbHost = !empty($env['DB_HOST']) ? $env['DB_HOST'] : 'localhost';
+            $pdo = new PDO(
+                'mysql:host=' . $dbHost . ';dbname=' . $env['DB_NAME'] . ';charset=utf8mb4',
+                $env['DB_USER'],
+                isset($env['DB_PASS']) ? $env['DB_PASS'] : '',
+                [PDO::ATTR_TIMEOUT => 4, PDO::ATTR_ERRMODE => PDO::ERRMODE_SILENT]
+            );
+            $rows = $pdo->query('SELECT slug, name, version, status FROM plugins ORDER BY id ASC');
+            if ($rows) {
+                foreach ($rows->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                    $slug = (string)$r['slug'];
+                    $plugins[$slug] = [
+                        'slug' => $slug, 'name' => (string)$r['name'],
+                        'version' => isset($r['version']) ? (string)$r['version'] : '',
+                        'status' => isset($r['status']) ? (string)$r['status'] : 'installed',
+                        'active' => (isset($r['status']) ? (string)$r['status'] : '') === 'active',
+                        'source' => 'db',
+                    ];
+                }
+            }
+            if (empty($rules)) {
+                $rr = $pdo->query('SELECT `match`, `mode` FROM package_restrictions ORDER BY sort_order ASC, id ASC');
+                if ($rr) {
+                    foreach ($rr->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                        $rules[] = ['match' => (string)$r['match'], 'mode' => (string)$r['mode']];
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            $dbNote = 'db skipped: ' . substr($e->getMessage(), 0, 120);
+        }
+    }
+
+    /* Anything on disk but unknown to the registry still needs activation. */
+    foreach ((array)@glob(__DIR__ . '/plugins/*/plugin.json') as $manifestPath) {
+        $slug = basename(dirname($manifestPath));
+        if ($slug === '' || isset($plugins[$slug])) continue;
+        $man = json_decode((string)@file_get_contents($manifestPath), true);
+        $plugins[$slug] = [
+            'slug' => $slug,
+            'name' => is_array($man) ? (string)($man['name'] ?? $slug) : $slug,
+            'version' => is_array($man) ? (string)($man['version'] ?? '') : '',
+            'status' => 'on_disk',
+            'active' => false,
+            'source' => 'disk',
+        ];
+    }
+
+    $pluginList = array_values($plugins);
+    $activeCount = 0;
+    foreach ($pluginList as $p) {
+        if (!empty($p['active'])) $activeCount++;
+    }
+
+    respond(200, [
+        'status'              => 'OK',
+        'agent_version'       => SLATE_AGENT_VERSION,
+        'supported_actions'   => $GLOBALS['SLATE_SUPPORTED_ACTIONS'] ?? $SLATE_SUPPORTED_ACTIONS,
+        'core_version'        => $coreVersion,
+        'access_mode'         => $accessMode,
+        'restriction_rules'   => $rules,
+        'plugins'             => $pluginList,
+        'plugin_count'        => count($pluginList),
+        'active_plugin_count' => $activeCount,
+        'app_installed'       => file_exists(__DIR__ . '/.installed'),
+        'license'             => slate_license_read_local(),
+        'php_version'         => PHP_VERSION,
+        'server_software'     => $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown',
+        'db_note'             => $dbNote,
+        'message'             => 'Core ' . ($coreVersion ?: 'unknown') . ' | ' . $activeCount . ' active plugin(s) of '
+                                 . count($pluginList) . ' | access mode: ' . $accessMode . '.',
+    ]);
+}
+
+
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Helpers (shared)

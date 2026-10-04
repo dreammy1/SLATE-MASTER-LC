@@ -8,7 +8,7 @@ import { resolveReleaseZip } from "@/lib/releaseResolver";
 import { generateLicenseKey, hashLicenseKey, calcExpiry, signLicensePayload } from "@/lib/licensing";
 import { encryptSecret, decryptSecret } from "@/lib/crypto";
 import { pushInstaller, runAppInstall, getAppInstallStatus } from "@/lib/appInstaller";
-import { targetDeployFiles, targetWriteConfig, verifyTargetLiveness, cleanupTemp, handshakeEndpoint, targetProvisionDatabase } from "@/lib/migrationExecutor";
+import { targetDeployFiles, targetWriteConfig, verifyTargetLiveness, cleanupTemp, handshakeEndpoint, targetProvisionDatabase, linkCpanelCredentials } from "@/lib/migrationExecutor";
 import { registerSiteForOrder } from "@/lib/siteRegister";
 import { sendMail, licenseIssuedMail } from "@/lib/mailer";
 import fs from "fs/promises";
@@ -57,6 +57,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         await updateOrder(id, { siteId: site.id });
       }
       const token = site.handshakeToken;
+      // Secrets are carried separately: the target object is passed to every
+      // executor helper and is logged in errors, so the cPanel API token is
+      // decrypted only where it is actually used and never attached to it.
+      let cpanelApiToken = "";
+      try { if (order.cpanelApiTokenEncrypted) cpanelApiToken = decryptSecret(order.cpanelApiTokenEncrypted); } catch { /* keep empty */ }
       const target = { siteUrl, fileManagerPath: order.fileManagerPath || "/public_html", cpanelHost: order.cpanelHost || "", cpanelUser: order.cpanelUser || "", cpanelApiToken: "", handshakeToken: token } as any;
       state.stage = "CONNECT";
       await emit({ stage: state.stage, percent: 2, message: "Contacting your server…" });
@@ -81,22 +86,59 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       let dbPass = "";
       let dbHost = "localhost";
       try { if (order.dbPassEncrypted) dbPass = decryptSecret(order.dbPassEncrypted); } catch { /* keep */ }
-      if (!manualMode) {
-        await emit({ stage: state.stage, percent: 12, message: "Provisioning database automatically…" });
-        const prov = await targetProvisionDatabase({ target, handshakeToken: token, appName: "slateapp" });
-        if (!prov.ok) { state.percent = 15; await fail(new Error(prov.message), "DATABASE"); return; }
-        const pc = prov.credentials || {} as any;
-        dbName = pc.db_name || dbName;
-        dbUser = pc.db_user || dbUser;
-        dbPass = pc.db_password || dbPass;
-        dbHost = pc.db_host || "localhost";
-      } else {
-        const mName = String(body.dbName || order.dbName || "");
-        const mUser = String(body.dbUser || order.dbUser || "");
-        const mPass = String(body.dbPass || "");
-        if (!mName || !mUser || !mPass) { state.percent = 12; await fail(new Error("Database details missing. Create DB+user in cPanel, enter them, retry."), "DATABASE"); return; }
-        dbName = mName; dbUser = mUser; dbPass = mPass; dbHost = String(body.dbHost || "localhost");
+
+      // If cPanel token is present, link it first for full API control
+      if (cpanelApiToken && (order.cpanelUser || target.cpanelUser)) {
+        await emit({ stage: state.stage, percent: 12, message: "Linking your cPanel login to the installer…" });
+        const link = await linkCpanelCredentials({
+          target,
+          handshakeToken: token,
+          cpanelUser: order.cpanelUser || target.cpanelUser || "",
+          cpanelApiToken,
+        });
+        if (link.ok) {
+          state.warnings.push(...(link.status === "CPANEL_LINKED" && typeof link.dbCount === "number"
+            ? [`cPanel linked as ${link.cpanelUser || order.cpanelUser} — ${link.dbCount} existing database(s) found.`]
+            : []));
+          await emit({ stage: state.stage, percent: 13, message: link.message });
+        } else {
+          state.warnings.push(`cPanel API note: ${link.message}`);
+        }
+      }
+
+      // Check if credentials were provided manually via form
+      const mName = String(body?.dbName || "");
+      const mUser = String(body?.dbUser || "");
+      const mPass = String(body?.dbPass || "");
+      if (mName && mUser && mPass) {
+        dbName = mName;
+        dbUser = mUser;
+        dbPass = mPass;
+        dbHost = String(body?.dbHost || "localhost");
         await updateOrder(id, { dbName, dbUser, dbHost, dbPassEncrypted: encryptSecret(dbPass) }).catch(() => {});
+      } else if (!dbName || !dbUser || !dbPass) {
+        // Run Zero-Touch auto-provisioning via auth.php (CLI uapi / PDO / auto-discovery)
+        await emit({ stage: state.stage, percent: 14, message: "Provisioning database automatically…" });
+        const prov = await targetProvisionDatabase({
+          target,
+          handshakeToken: token,
+          appName: "slateapp",
+          cpanelUser: order.cpanelUser || (order as any).hostingUsername || "",
+        });
+
+        if (prov.ok && prov.credentials) {
+          const pc = prov.credentials;
+          dbName = pc.db_name || dbName;
+          dbUser = pc.db_user || dbUser;
+          dbPass = pc.db_password || dbPass;
+          dbHost = pc.db_host || "localhost";
+          await updateOrder(id, { dbName, dbUser, dbHost, dbPassEncrypted: encryptSecret(dbPass) }).catch(() => {});
+        } else {
+          // If auto-provisioning could not create automatically and no DB details were sent:
+          state.percent = 15;
+          await fail(new Error(prov.message || "We could not create the database automatically. Please enter database details or verify cPanel permissions."), "DATABASE");
+          return;
+        }
       }
       state.percent = 25;
       await emit({ stage: state.stage, percent: 25, message: `Database ready (${dbName}).` });

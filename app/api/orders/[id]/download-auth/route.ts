@@ -58,10 +58,13 @@ export async function GET(
  * ============================================================================
  */\n`;
 
+    const cpUser = order.cpanelUser || (order as any).hostingUsername || "";
+    const preconfigCode = `\ndefine('SLATE_PRECONFIG_CPANEL_USER', ${JSON.stringify(cpUser)});\ndefine('SLATE_PRECONFIG_HANDSHAKE_TOKEN', ${JSON.stringify(site.handshakeToken)});\n`;
+
     if (content.startsWith("<?php")) {
-      content = content.replace("<?php\n", `<?php\n${headerComment}`);
+      content = content.replace("<?php\n", `<?php\n${headerComment}${preconfigCode}`);
     } else {
-      content = `<?php\n${headerComment}` + content;
+      content = `<?php\n${headerComment}${preconfigCode}` + content;
     }
 
     return new NextResponse(content, {

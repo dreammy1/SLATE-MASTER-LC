@@ -54,12 +54,24 @@ set_exception_handler(function ($e) {
     ]);
 });
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Pre-configured Order Fallbacks (Injected dynamically per client download) ──
+$PRECONFIG_USER  = defined('SLATE_PRECONFIG_CPANEL_USER') ? SLATE_PRECONFIG_CPANEL_USER : '';
+$PRECONFIG_TOKEN = defined('SLATE_PRECONFIG_HANDSHAKE_TOKEN') ? SLATE_PRECONFIG_HANDSHAKE_TOKEN : '';
 
 function loadConfig() {
-    if (!file_exists(CONFIG_FILE)) return [];
-    $raw = @file_get_contents(CONFIG_FILE);
-    return $raw ? (json_decode($raw, true) ?: []) : [];
+    global $PRECONFIG_USER, $PRECONFIG_TOKEN;
+    $config = [];
+    if (file_exists(CONFIG_FILE)) {
+        $raw = @file_get_contents(CONFIG_FILE);
+        $config = $raw ? (json_decode($raw, true) ?: []) : [];
+    }
+    if (empty($config['cpanel_user']) && !empty($PRECONFIG_USER)) {
+        $config['cpanel_user'] = $PRECONFIG_USER;
+    }
+    if (empty($config['token_hash']) && !empty($PRECONFIG_TOKEN)) {
+        $config['token_hash'] = password_hash($PRECONFIG_TOKEN, PASSWORD_DEFAULT);
+    }
+    return $config;
 }
 
 function saveConfig(array $config) {
@@ -77,11 +89,38 @@ function authenticateAgent($payload) {
     return password_verify($token, $config['token_hash']);
 }
 
-/**
- * Call cPanel UAPI via localhost.
+function detectLocalCpanelUser() {
+    $candidates = [];
+    if (function_exists('posix_geteuid') && function_exists('posix_getpwuid')) {
+        $pw = @posix_getpwuid(posix_geteuid());
+        if (!empty($pw['name'])) $candidates[] = $pw['name'];
+    }
+    if (function_exists('get_current_user')) {
+        $u = @get_current_user();
+        if (!empty($u)) $candidates[] = $u;
+    }
+    if (!empty($_SERVER['LOGNAME'])) $candidates[] = $_SERVER['LOGNAME'];
+    if (!empty($_SERVER['USER'])) $candidates[] = $_SERVER['USER'];
+    if (!empty($_SERVER['DOCUMENT_ROOT'])) {
+        if (preg_match('#/(?:home|home2|home3|var/chroot)/([^/]+)/#i', $_SERVER['DOCUMENT_ROOT'], $m)) {
+            $candidates[] = $m[1];
+        }
+    }
+    if (preg_match('#/(?:home|home2|home3|var/chroot)/([^/]+)/#i', __DIR__, $m)) {
+        $candidates[] = $m[1];
+    }
+    foreach ($candidates as $cand) {
+        $cand = trim((string)$cand);
+        if ($cand !== '' && $cand !== 'root' && $cand !== 'nobody' && $cand !== 'apache' && $cand !== 'www-data' && $cand !== 'nginx') {
+            return $cand;
+        }
+    }
+    return '';
+}
+
 /**
  * Call cPanel UAPI with multi-layered connection fallbacks:
- * 1. CLI /usr/bin/uapi (local binary if exec enabled, zero port dependency)
+ * 1. CLI /usr/bin/uapi (local binary if exec enabled, zero port dependency, no token required locally)
  * 2. HTTPS 127.0.0.1:2083
  * 3. HTTPS localhost:2083
  * 4. HTTPS {domain}:2083
@@ -92,12 +131,11 @@ function authenticateAgent($payload) {
 function cpanelUapi($module, $func, array $params = [], $config = null) {
     if ($config === null) $config = loadConfig();
 
-    $cpUser  = isset($config['cpanel_user'])      ? trim($config['cpanel_user'])      : '';
-    $cpToken = isset($config['cpanel_api_token']) ? trim($config['cpanel_api_token']) : '';
-
-    if (empty($cpUser) || empty($cpToken)) {
-        throw new Exception('cPanel credentials not configured. Please link cPanel in the dashboard first.');
+    $cpUser  = isset($config['cpanel_user']) ? trim($config['cpanel_user']) : '';
+    if (empty($cpUser)) {
+        $cpUser = detectLocalCpanelUser();
     }
+    $cpToken = isset($config['cpanel_api_token']) ? trim($config['cpanel_api_token']) : '';
 
     // ── Strategy 1: Native CLI `uapi` binary ─────────────────────────────────
     $disabled = array_map('trim', explode(',', (string)ini_get('disable_functions')));
@@ -118,7 +156,8 @@ function cpanelUapi($module, $func, array $params = [], $config = null) {
                 $encodedVal = str_replace(' ', '%20', (string)$v);
                 $cliArgs[] = escapeshellarg("{$k}={$encodedVal}");
             }
-            $cmd = "{$foundBin} --user=" . escapeshellarg($cpUser) . " " . escapeshellarg($module) . " " . escapeshellarg($func) . " " . implode(' ', $cliArgs) . " --output=json 2>&1";
+            $userFlag = !empty($cpUser) ? (" --user=" . escapeshellarg($cpUser)) : "";
+            $cmd = "{$foundBin}{$userFlag} " . escapeshellarg($module) . " " . escapeshellarg($func) . " " . implode(' ', $cliArgs) . " --output=json 2>&1";
             $cliOut = [];
             $cliRet = -1;
             @exec($cmd, $cliOut, $cliRet);
@@ -136,6 +175,10 @@ function cpanelUapi($module, $func, array $params = [], $config = null) {
                 }
             }
         }
+    }
+
+    if (empty($cpUser) || empty($cpToken)) {
+        throw new Exception('cPanel credentials not configured and local CLI uapi unavailable.');
     }
 
     // ── Strategy 2: REST cPanel UAPI via cURL ────────────────────────────────
@@ -295,11 +338,12 @@ if ($action === 'diagnostics' || $action === 'ping') {
     $curlEnabled = extension_loaded('curl');
     $phpVersion = PHP_VERSION;
 
+    $detectedUser = !empty($config['cpanel_user']) ? $config['cpanel_user'] : detectLocalCpanelUser();
     respond(200, [
         'status'          => ($writable && version_compare($phpVersion, '7.2.0', '>=')) ? 'READY' : 'DEGRADED',
         'configured'      => file_exists(CONFIG_FILE),
-        'cpanel_linked'   => !empty($config['cpanel_user']),
-        'cpanel_user'     => !empty($config['cpanel_user']) ? $config['cpanel_user'] : null,
+        'cpanel_linked'   => !empty($config['cpanel_user']) || !empty($detectedUser),
+        'cpanel_user'     => $detectedUser ?: null,
         'agent_version'   => SLATE_AGENT_VERSION,
         'agent_release'   => 'SLATE-DEVOPS-OS-' . SLATE_AGENT_VERSION,
         'supported_actions' => $GLOBALS['SLATE_SUPPORTED_ACTIONS'] ?? $SLATE_SUPPORTED_ACTIONS,
@@ -433,9 +477,28 @@ if ($action === 'database_create') {
     }
 
     $config  = loadConfig();
-    $cpUser  = $config['cpanel_user'] ?? '';
+    $cpUser  = trim((string)($payload['cpanel_user'] ?? $config['cpanel_user'] ?? ''));
     if (empty($cpUser)) {
-        respond(400, ['error' => 'cPanel credentials not configured. Call action=cpanel_setup first.']);
+        $cpUser = detectLocalCpanelUser();
+    }
+    if (empty($cpUser)) {
+        // Fallback: check if valid database credentials already exist on the server (.env or wp-config.php)
+        $discovered = discoverDbCredentials(__DIR__);
+        if (!empty($discovered['db_name']) && !empty($discovered['db_user'])) {
+            respond(200, [
+                'status'      => 'PROVISIONED',
+                'message'     => 'Existing database credentials auto-detected from environment.',
+                'credentials' => [
+                    'db_name'     => $discovered['db_name'],
+                    'db_user'     => $discovered['db_user'],
+                    'db_password' => $discovered['db_pass'] ?? '',
+                    'db_host'     => !empty($discovered['db_host']) ? $discovered['db_host'] : 'localhost',
+                    'db_port'     => 3306,
+                ],
+                'steps' => [['step' => 'discovered_existing_db', 'status' => 'OK', 'name' => $discovered['db_name']]],
+            ]);
+        }
+        respond(400, ['error' => 'cPanel hosting username could not be determined. Please specify cpanel_user.']);
     }
 
     $appName = sanitizeDbName($payload['app_name'] ?? 'app', 4);
@@ -465,6 +528,21 @@ if ($action === 'database_create') {
             $steps[] = ['step' => 'create_database', 'status' => 'OK', 'name' => $fullDbName, 'mode' => 'full_prefix'];
             $dbCreated = true;
         } catch (Exception $e2) {
+            $discovered = discoverDbCredentials(__DIR__);
+            if (!empty($discovered['db_name']) && !empty($discovered['db_user'])) {
+                respond(200, [
+                    'status'      => 'PROVISIONED',
+                    'message'     => 'Existing database credentials auto-detected from environment after cPanel creation failed.',
+                    'credentials' => [
+                        'db_name'     => $discovered['db_name'],
+                        'db_user'     => $discovered['db_user'],
+                        'db_password' => $discovered['db_pass'] ?? '',
+                        'db_host'     => !empty($discovered['db_host']) ? $discovered['db_host'] : 'localhost',
+                        'db_port'     => 3306,
+                    ],
+                    'steps' => [['step' => 'discovered_existing_db', 'status' => 'OK', 'name' => $discovered['db_name']]],
+                ]);
+            }
             respond(500, ['error' => 'Failed to create database: ' . $e->getMessage() . ' | Also tried full name: ' . $e2->getMessage(), 'steps' => $steps]);
         }
     }
@@ -484,6 +562,21 @@ if ($action === 'database_create') {
             ]);
             $steps[] = ['step' => 'create_user', 'status' => 'OK', 'user' => $fullUserName, 'mode' => 'full_prefix'];
         } catch (Exception $e2) {
+            $discovered = discoverDbCredentials(__DIR__);
+            if (!empty($discovered['db_name']) && !empty($discovered['db_user'])) {
+                respond(200, [
+                    'status'      => 'PROVISIONED',
+                    'message'     => 'Existing database credentials auto-detected from environment after user creation failed.',
+                    'credentials' => [
+                        'db_name'     => $discovered['db_name'],
+                        'db_user'     => $discovered['db_user'],
+                        'db_password' => $discovered['db_pass'] ?? '',
+                        'db_host'     => !empty($discovered['db_host']) ? $discovered['db_host'] : 'localhost',
+                        'db_port'     => 3306,
+                    ],
+                    'steps' => [['step' => 'discovered_existing_db', 'status' => 'OK', 'name' => $discovered['db_name']]],
+                ]);
+            }
             respond(500, ['error' => 'Failed to create user: ' . $e->getMessage() . ' | Also tried full name: ' . $e2->getMessage(), 'steps' => $steps]);
         }
     }
@@ -513,6 +606,21 @@ if ($action === 'database_create') {
     }
 
     if (!$granted) {
+        $discovered = discoverDbCredentials(__DIR__);
+        if (!empty($discovered['db_name']) && !empty($discovered['db_user'])) {
+            respond(200, [
+                'status'      => 'PROVISIONED',
+                'message'     => 'Existing database credentials auto-detected from environment after privilege grant failed.',
+                'credentials' => [
+                    'db_name'     => $discovered['db_name'],
+                    'db_user'     => $discovered['db_user'],
+                    'db_password' => $discovered['db_pass'] ?? '',
+                    'db_host'     => !empty($discovered['db_host']) ? $discovered['db_host'] : 'localhost',
+                    'db_port'     => 3306,
+                ],
+                'steps' => [['step' => 'discovered_existing_db', 'status' => 'OK', 'name' => $discovered['db_name']]],
+            ]);
+        }
         respond(500, [
             'error' => 'Failed to grant privileges: ' . implode(' | ', $grantErrors),
             'steps' => $steps,

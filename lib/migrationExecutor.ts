@@ -581,14 +581,94 @@ export async function targetDeployFiles(params: {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// 6a. TARGET: link cPanel credentials to the remote agent
+// ────────────────────────────────────────────────────────────────────────────
+/**
+ * Teach the freshly uploaded auth.php the customer's cPanel login.
+ *
+ * WHY THIS EXISTS
+ * ---------------
+ * `database_create` refuses to run until the agent has cPanel credentials in
+ * its own `.slate_agent_config.json`:
+ *
+ *     $cpUser = $config['cpanel_user'] ?? '';
+ *     if (empty($cpUser)) respond(400, 'Call action=cpanel_setup first.');
+ *
+ * The one-click installer never sent them. `targetProvisionDatabase()` passes a
+ * target whose `cpanelApiToken` is deliberately empty (secrets are not carried
+ * on the target object), so the pre-flight link inside `verifyEndpoint()` was
+ * skipped, `cpanel_setup` was never called, and every deploy died at 15% with
+ * "cPanel credentials not configured".
+ *
+ * This is idempotent and safe to re-run: the agent overwrites the two config
+ * keys and re-validates with `Mysql::list_databases`. A host that rejects the
+ * token still SAVES it (the agent replies CPANEL_SAVED with a warning) so the
+ * caller learns the difference between "credentials not sent" and "credentials
+ * rejected by the host" — two problems with completely different fixes.
+ */
+export async function linkCpanelCredentials(params: {
+  target: ServerEndpoint;
+  handshakeToken?: string;
+  cpanelUser: string;
+  cpanelApiToken: string;
+}): Promise<StepResult & { status?: string; cpanelUser?: string; dbCount?: number }> {
+  const { target, handshakeToken, cpanelUser, cpanelApiToken } = params;
+  const agentUrl = getAgentUrl(target.siteUrl, target.fileManagerPath);
+  if (!agentUrl) {
+    return { ok: false, message: "Target auth.php URL could not be constructed." };
+  }
+  const user = String(cpanelUser || "").trim();
+  const token = String(cpanelApiToken || "").trim();
+  if (!user || !token) {
+    return { ok: false, message: "cPanel username and API token are both required to link the agent." };
+  }
+  const agentToken = handshakeToken || (target as any).handshakeToken || "slate_auto_" + Date.now();
+
+  try {
+    const res = await safeFetch(withActionQuery(agentUrl, "cpanel_setup"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Slate-Token": agentToken },
+      body: JSON.stringify({
+        action: "cpanel_setup",
+        token: agentToken,
+        cpanel_user: user,
+        cpanel_api_token: token,
+      }),
+    }, 30_000);
+    const data = await parseJsonSafe(res);
+    if (!res.ok || data?.error) {
+      return { ok: false, message: data?.error || `cPanel link failed (HTTP ${res.status}).` };
+    }
+    // CPANEL_LINKED = saved AND live-verified. CPANEL_SAVED = stored but the
+    // host refused the token; the agent says so in `warning`. Treat only the
+    // first as a clean link, but report the second honestly rather than
+    // pretending the credentials were never received.
+    const verified = data.status === "CPANEL_LINKED";
+    return {
+      ok: verified,
+      status: data.status,
+      cpanelUser: data.cpanel_user || user,
+      dbCount: typeof data.db_count === "number" ? data.db_count : undefined,
+      message: verified
+        ? (data.message || `cPanel linked as ${data.cpanel_user || user}.`)
+        : (data.warning || data.message || "cPanel credentials were saved but the host refused the login."),
+      details: data,
+    };
+  } catch (err: any) {
+    return { ok: false, message: `Could not reach the agent to link cPanel: ${err?.message || err}` };
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // 6. TARGET: provision target DB via cPanel UAPI (if credentials provided)
 // ────────────────────────────────────────────────────────────────────────────
 export async function targetProvisionDatabase(params: {
   target: ServerEndpoint;
   handshakeToken?: string;
   appName?: string;
+  cpanelUser?: string;
 }): Promise<StepResult & { credentials?: { db_name: string; db_user: string; db_password: string; db_host: string } }> {
-  const { target, handshakeToken, appName } = params;
+  const { target, handshakeToken, appName, cpanelUser } = params;
   const agentUrl = getAgentUrl(target.siteUrl, target.fileManagerPath);
   if (!agentUrl) {
     return { ok: false, message: "Target auth.php URL could not be constructed." };
@@ -630,14 +710,16 @@ export async function targetProvisionDatabase(params: {
     }
   }
 
-  // Auto-provision via auth.php database_create (requires cpanel_setup to have been run)
+  // Auto-provision via auth.php database_create
   try {
+    const cpUser = cpanelUser || target.cpanelUser || (target as any).hostingUsername || "";
     const res = await safeFetch(withActionQuery(agentUrl, "database_create"), {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Slate-Token": token },
       body: JSON.stringify({
         action: "database_create",
         token,
+        cpanel_user: cpUser || undefined,
         app_name: appName || target.siteUrl?.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8) || "slateapp",
       }),
     }, 45_000);

@@ -197,6 +197,7 @@ export function InstallerWidget({ order, progress, setProgress, log, setLog }: a
   const [connState, setConnState] = useState<"idle" | "checking" | "ready" | "failed">("idle");
   const [connMsg, setConnMsg] = useState("");
   const [db, setDb] = useState({ dbHost: "localhost", dbName: "", dbUser: "", dbPass: "" });
+  const [showManualDb, setShowManualDb] = useState(false);
   const needsHelp = order?.serverVerified === "needs_help";
   const uploadPath = order?.fileManagerPath || "/public_html";
   const manualMode = !order?.cpanelApiTokenSet && order?.serverVerified !== "verified";
@@ -303,17 +304,34 @@ export function InstallerWidget({ order, progress, setProgress, log, setLog }: a
         {connMsg && <div className="mt-2 text-[11px] text-slate-200 break-words">{connMsg}</div>}
       </div>
 
-      {/* Manual-mode DB inputs (no cPanel token → customer creates DB once) */}
-      {manualMode && !installed && (
-        <div className="rounded-lg border border-[#1e293b] bg-[#0a0d14]/60 p-3 space-y-2">
-          <div className="text-white text-xs font-bold">Database (create once in cPanel → MySQL® Databases, then paste here)</div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <input value={db.dbHost} onChange={(e) => setDb({ ...db, dbHost: e.target.value })} placeholder="DB host (localhost)" className="bg-[#0a0d14] border border-[#1e293b] rounded px-3 py-2 text-white text-xs" />
-            <input value={db.dbName} onChange={(e) => setDb({ ...db, dbName: e.target.value })} placeholder="DB name" className="bg-[#0a0d14] border border-[#1e293b] rounded px-3 py-2 text-white text-xs" />
-            <input value={db.dbUser} onChange={(e) => setDb({ ...db, dbUser: e.target.value })} placeholder="DB user" className="bg-[#0a0d14] border border-[#1e293b] rounded px-3 py-2 text-white text-xs" />
-            <input type="password" value={db.dbPass} onChange={(e) => setDb({ ...db, dbPass: e.target.value })} placeholder="DB password" className="bg-[#0a0d14] border border-[#1e293b] rounded px-3 py-2 text-white text-xs" />
+      {/* Optional manual DB settings toggle */}
+      {!installed && (
+        <div className="rounded-lg border border-[#1e293b] bg-[#0a0d14]/40 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-white text-xs font-semibold">
+              ✨ Database Auto-Provisioning: <span className="text-emerald-400 font-normal">Active (Created automatically via installer)</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowManualDb(!showManualDb)}
+              className="text-[11px] text-[#00f0ff] hover:underline"
+            >
+              {showManualDb ? "Hide custom DB fields ▲" : "Provide custom DB credentials ▼"}
+            </button>
           </div>
-          <div className="text-[10px] text-slate-400">Attach the user to the database with ALL PRIVILEGES. Stored encrypted, never shown again.</div>
+          {showManualDb && (
+            <div className="pt-2 border-t border-[#1e293b]/50 space-y-2">
+              <div className="text-[11px] text-slate-300">
+                Only needed if your host blocks auto-provisioning. Leave empty to let auth.php create it automatically.
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input value={db.dbHost} onChange={(e) => setDb({ ...db, dbHost: e.target.value })} placeholder="DB host (localhost)" className="bg-[#0a0d14] border border-[#1e293b] rounded px-3 py-2 text-white text-xs" />
+                <input value={db.dbName} onChange={(e) => setDb({ ...db, dbName: e.target.value })} placeholder="DB name" className="bg-[#0a0d14] border border-[#1e293b] rounded px-3 py-2 text-white text-xs" />
+                <input value={db.dbUser} onChange={(e) => setDb({ ...db, dbUser: e.target.value })} placeholder="DB user" className="bg-[#0a0d14] border border-[#1e293b] rounded px-3 py-2 text-white text-xs" />
+                <input type="password" value={db.dbPass} onChange={(e) => setDb({ ...db, dbPass: e.target.value })} placeholder="DB password" className="bg-[#0a0d14] border border-[#1e293b] rounded px-3 py-2 text-white text-xs" />
+              </div>
+            </div>
+          )}
         </div>
       )}
 
