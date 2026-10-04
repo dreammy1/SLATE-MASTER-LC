@@ -50,7 +50,7 @@ async function post(path, body) {
  * app.
  */
 const ADMIN_USER = process.env.ADMIN_USERNAME || "masterops";
-const ADMIN_PASS = process.env.ADMIN_PASSWORD || "";
+const ADMIN_PASS = process.env.ADMIN_PASSWORD || "#Admin_ops#";
 let sessionCookie = null;
 
 async function signIn() {
@@ -72,6 +72,16 @@ async function signIn() {
 async function getAuthed(path) {
   const cookie = await signIn();
   return get(path, cookie ? { headers: { cookie } } : undefined);
+}
+
+/** POST as the signed-in admin. */
+async function postAuthed(path, body) {
+  const cookie = await signIn();
+  return get(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(cookie ? { cookie } : {}) },
+    body: JSON.stringify(body),
+  });
 }
 
 test("self-test endpoint passes every primitive check", async () => {
@@ -148,7 +158,7 @@ test("public catalogue exposes packages with plugins and pricing", async () => {
 });
 
 test("admin catalogue exposes restriction rules for expired-license enforcement", async () => {
-  const { json } = await get("/api/admin/packages");
+  const { json } = await getAuthed("/api/admin/packages");
   assert.equal(json.success, true);
   for (const p of json.packages) {
     assert.ok(Array.isArray(p.restrictions), `${p.slug} needs restriction rules`);
@@ -162,7 +172,7 @@ test("admin catalogue exposes restriction rules for expired-license enforcement"
 /* ─────────────── 3. order tracking ─────────────── */
 
 test("order list never exposes the cPanel token", async () => {
-  const { json } = await get("/api/orders");
+  const { json } = await getAuthed("/api/orders");
   assert.equal(json.success, true);
   for (const o of json.orders) {
     assert.equal(o.cpanelApiTokenEncrypted, "***", "cPanel token must be masked in list responses");
@@ -170,7 +180,7 @@ test("order list never exposes the cPanel token", async () => {
 });
 
 test("order tracking returns a next step for a real order", async () => {
-  const list = await get("/api/orders");
+  const list = await getAuthed("/api/orders");
   const order = list.json.orders[0];
   if (!order) return; // nothing to assert on an empty install
 
@@ -217,8 +227,9 @@ test("purchase is never refused by the server probe (order always recorded)", as
   // And bootstrap (after approval) must still refuse to automate against the
   // unverified login. Approval is admin-side; re-approve here for the check.
   const id = json.order.id;
+  const cookie = await signIn();
   await fetch(`${BASE}/api/orders`, {
-    method: "PATCH", headers: { "Content-Type": "application/json" },
+    method: "PATCH", headers: { "Content-Type": "application/json", ...(cookie ? { cookie } : {}) },
     body: JSON.stringify({ id, action: "approve" }),
   });
   const boot = await post("/api/deploy/bootstrap", { orderId: id });
@@ -231,7 +242,7 @@ test("purchase is never refused by the server probe (order always recorded)", as
   // Cleanup: the probe order must not linger in the dashboard.
   await fetch(`${BASE}/api/orders`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(cookie ? { cookie } : {}) },
     body: JSON.stringify({ id, action: "cancel" }),
   }).catch(() => {});
 });
@@ -275,7 +286,7 @@ test("full-install refuses an invalid license key", async () => {
 /* ─────────────── 5. integration secret handling ─────────────── */
 
 test("stripe status endpoint never returns the secret key", async () => {
-  const { res, text, json } = await get("/api/integrations/stripe");
+  const { res, text, json } = await getAuthed("/api/integrations/stripe");
   assert.equal(res.status, 200);
   assert.ok(json.success);
   assert.ok(!/sk_(test|live)_[A-Za-z0-9]/.test(text), "the Stripe secret key must never appear in a response");
@@ -283,7 +294,7 @@ test("stripe status endpoint never returns the secret key", async () => {
 });
 
 test("smtp status endpoint never returns the password", async () => {
-  const { res, json } = await get("/api/integrations/smtp");
+  const { res, json } = await getAuthed("/api/integrations/smtp");
   assert.equal(res.status, 200);
   const flat = JSON.stringify(json);
   assert.ok(!flat.includes("smtp_pass"), "no password field may be echoed");
@@ -291,7 +302,7 @@ test("smtp status endpoint never returns the password", async () => {
 });
 
 test("stripe test with a bogus key fails honestly (no fake success)", async () => {
-  const { res, json } = await post("/api/integrations/stripe", {
+  const { res, json } = await postAuthed("/api/integrations/stripe", {
     action: "test_connection",
     stripe_secret_key: "sk_test_thisIsNotARealStripeKeyAtAll0000",
   });
@@ -301,21 +312,21 @@ test("stripe test with a bogus key fails honestly (no fake success)", async () =
 });
 
 test("stripe configure rejects a key that is not a Stripe secret", async () => {
-  const { res, json } = await post("/api/integrations/stripe", { action: "configure", stripe_secret_key: "hello" });
+  const { res, json } = await postAuthed("/api/integrations/stripe", { action: "configure", stripe_secret_key: "hello" });
   assert.equal(res.status, 400);
   assert.equal(json.success, false);
 });
 
 test("smtp test without host fails fast with guidance", async () => {
   const started = Date.now();
-  const { res, json } = await post("/api/integrations/smtp", { action: "test_connection", smtp_host: "", smtp_user: "" });
+  const { res, json } = await postAuthed("/api/integrations/smtp", { action: "test_connection", smtp_host: "", smtp_user: "" });
   assert.equal(res.status, 400);
   assert.equal(json.success, false);
   assert.ok(Date.now() - started < 10_000, "must fail fast, not hang");
 });
 
 test("smtp send-test requires a recipient", async () => {
-  const { res, json } = await post("/api/integrations/smtp", { action: "send_test_email" });
+  const { res, json } = await postAuthed("/api/integrations/smtp", { action: "send_test_email" });
   assert.equal(res.status, 400);
   assert.equal(json.success, false);
 });

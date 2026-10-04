@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateAdmin, createToken, createSessionCookie } from "@/lib/auth";
-import { checkRateLimit } from "@/lib/rateLimit";
+import { loginLimits } from "@/lib/rateLimit";
 
 /**
  * POST /api/admin/login
@@ -9,14 +9,13 @@ import { checkRateLimit } from "@/lib/rateLimit";
  */
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for") || req.ip || "unknown-ip";
-    const rl = checkRateLimit(ip, 10, 60);
+    const body = await req.json().catch(() => ({}));
+    const { username, password } = body;
+
+    const rl = loginLimits("admin", req, String(username || ""));
     if (!rl.success) {
       return NextResponse.json({ success: false, error: rl.error }, { status: 429 });
     }
-
-    const body = await req.json().catch(() => ({}));
-    const { username, password } = body;
 
     if (!username || !password) {
       return NextResponse.json(

@@ -1,5 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSites, getDatabases, updateSite, addDeployment } from "@/lib/storage";
+import { getSites, getDatabases } from "@/lib/storage";
+
+/**
+ * Master console command runtime (admin only — enforced by middleware via
+ * lib/apiPolicy.ts; this route is not in the public allow-list).
+ *
+ * This is NOT a shell. Input is tokenised and matched against a fixed set of
+ * `slate ...` commands; nothing is ever passed to a subprocess, so there is no
+ * command-injection surface. Every command that reports a result now reports a
+ * REAL result: `ping` and `deploy` delegate to the same endpoints the Sites page
+ * uses, instead of fabricating latency / writing a fake SUCCESS deployment.
+ */
+
+/** Call one of our own admin endpoints, forwarding the caller's session. */
+async function callInternal(req: NextRequest, path: string, timeoutMs: number) {
+  const res = await fetch(`${req.nextUrl.origin}${path}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      cookie: req.headers.get("cookie") || "",
+    },
+    body: "{}",
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  const json: any = await res.json().catch(() => null);
+  return { res, json };
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,11 +49,10 @@ export async function POST(req: NextRequest) {
           "SLATE DEVOPS OS COMMAND RUNTIME v2.4.0",
           "Available Commands:",
           "  slate sites                - List all registered target environments and statuses",
-          "  slate deploy <id|domain>   - Trigger continuous deployment pipeline for target",
-          "  slate ping <id|domain>     - Perform live HTTP latency diagnostic on target",
+          "  slate deploy <id|domain>   - Redeploy a target (runs the real deployment pipeline)",
+          "  slate ping <id|domain>     - Perform a live HTTP/agent probe on a target",
           "  slate db:list              - List all active managed databases",
-          "  slate db:sync <id>         - Verify and synchronize database privileges",
-          "  slate status               - Show cluster diagnostics and system agent health",
+          "  slate status               - Show registry counts and Master process health",
           "  clear                      - Clear the console screen",
         ],
       });
@@ -58,16 +83,17 @@ export async function POST(req: NextRequest) {
         const sites = await getSites();
         const dbs = await getDatabases();
         const onlineCount = sites.filter((s) => s.status === "ONLINE").length;
+        const mem = process.memoryUsage();
+        const mb = (n: number) => `${(n / 1048576).toFixed(0)}MB`;
         return NextResponse.json({
           success: true,
           output: [
-            `[${time}] SLATE CLUSTER HEALTH REPORT:`,
-            `  Master Host:     ONLINE [100% OK]`,
-            `  Active Targets:  ${onlineCount}/${sites.length} ONLINE`,
-            `  Databases:       ${dbs.length} ACTIVE`,
-            `  Cluster Latency: ~34ms (AVG)`,
-            `  Memory Footprint: 1.8GB / 16GB`,
-            `  Agent Protocol:  auth.php v2.4.0 (AES-256 Auth)`,
+            `[${time}] SLATE MASTER STATUS (measured, last-known values from the registry):`,
+            `  Registered Sites: ${sites.length} (${onlineCount} last seen ONLINE)`,
+            `  Databases:        ${dbs.length} registered`,
+            `  Master Uptime:    ${Math.floor(process.uptime() / 60)} min`,
+            `  Master Memory:    ${mb(mem.rss)} RSS / ${mb(mem.heapUsed)} heap used`,
+            `  Tip: 'slate ping <id|domain>' re-probes a site; site status above is the last probe result.`,
           ],
         });
       }
@@ -88,38 +114,11 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, output: lines });
       }
 
-      if (subCmd === "ping") {
+      if (subCmd === "ping" || subCmd === "deploy") {
         if (!arg) {
           return NextResponse.json({
             success: true,
-            output: [`[${time}] Error: Missing target identifier. Usage: slate ping <id|domain>`],
-          });
-        }
-        const sites = await getSites();
-        const site = sites.find((s) => s.id === arg || s.domain.toLowerCase().includes(arg.toLowerCase()));
-        if (!site) {
-          return NextResponse.json({
-            success: true,
-            output: [`[${time}] Error: Target '${arg}' not found. Run 'slate sites' to view list.`],
-          });
-        }
-        const latency = `${Math.floor(Math.random() * 25 + 18)}ms`;
-        await updateSite(site.id, { latency, status: "ONLINE" });
-        return NextResponse.json({
-          success: true,
-          output: [
-            `[${time}] PING ${site.domain} via edge probe...`,
-            `[${time}] 64 bytes from target: icmp_seq=1 ttl=56 time=${latency}`,
-            `[${time}] HTTP/2 200 OK | Handshake agent responsive. Status: ONLINE`,
-          ],
-        });
-      }
-
-      if (subCmd === "deploy") {
-        if (!arg) {
-          return NextResponse.json({
-            success: true,
-            output: [`[${time}] Error: Missing target identifier. Usage: slate deploy <id|domain>`],
+            output: [`[${time}] Error: Missing target identifier. Usage: slate ${subCmd} <id|domain>`],
           });
         }
         const sites = await getSites();
@@ -131,39 +130,35 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        const sha = Math.random().toString(16).substring(2, 9);
-        const dep = await addDeployment({
-          siteId: site.id,
-          domain: site.domain,
-          repo: site.repo,
-          commitSha: sha,
-          actor: "terminal-cli",
-          status: "SUCCESS",
-          duration: "2.8s",
-          logs: [
-            `[${time}] CLI DISPATCH TRIGGERED FOR ${site.domain}`,
-            `[${time}] Remote tree checkout: ${site.repo} (${sha})`,
-            `[${time}] Pushed payload to ${site.path} via auth.php`,
-            `[${time}] DEPLOYMENT SUCCEEDED. Target ONLINE.`,
-          ],
-        });
+        if (subCmd === "ping") {
+          const { json } = await callInternal(req, `/api/sites/${encodeURIComponent(site.id)}/ping`, 30_000);
+          if (!json?.success) {
+            return NextResponse.json({
+              success: true,
+              output: [`[${time}] PING ${site.domain} FAILED: ${json?.error || "probe did not complete"}`],
+            });
+          }
+          return NextResponse.json({
+            success: true,
+            output: [
+              `[${time}] PROBE ${site.domain}: ${json.status} (${json.latency})`,
+              ...(Array.isArray(json.notes) ? json.notes.map((n: string) => `[${time}]   ${n}`) : []),
+            ],
+          });
+        }
 
-        await updateSite(site.id, {
-          status: "ONLINE",
-          lastCommit: sha,
-          lastDeployedAt: new Date().toISOString(),
-        });
-
-        return NextResponse.json({
-          success: true,
-          output: [
-            `[${time}] INITIATING DEPLOYMENT FOR ${site.domain}...`,
-            `[${time}] Checking out commit: ${sha} from ${site.repo}...`,
-            `[${time}] Dispatching build payload to ${site.path}...`,
-            `[${time}] Verifying application state... HTTP 200 OK!`,
-            `[${time}] SUCCESS: ${site.domain} redeployed and online (Deployment ID: ${dep.id})`,
-          ],
-        });
+        // deploy: the real pipeline. It records its own deployment entry (SUCCESS
+        // or FAILED) and updates the site, so the console must not write another.
+        const out: string[] = [`[${time}] REDEPLOY ${site.domain} — running the real deployment pipeline...`];
+        const { res, json } = await callInternal(req, `/api/sites/${encodeURIComponent(site.id)}/redeploy`, 5 * 60_000);
+        const logs: string[] = Array.isArray(json?.deployment?.logs) ? json.deployment.logs : [];
+        out.push(...logs.slice(-12).map((l: string) => `  ${l}`));
+        if (json?.success) {
+          out.push(`[${time}] SUCCESS: ${site.domain} redeployed (${json.filesWritten ?? 0} files written, Deployment ID: ${json.deployment?.id || "n/a"})`);
+        } else {
+          out.push(`[${time}] FAILED (HTTP ${res.status}): ${json?.error || "see deployment logs for the failing step"}`);
+        }
+        return NextResponse.json({ success: true, output: out });
       }
     }
 

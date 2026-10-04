@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { extractSession, isAdmin, isClient } from "@/lib/auth";
+import { decideApiAccess } from "@/lib/apiPolicy";
 
 /*
  * NOTE: there is deliberately NO `export const runtime = "nodejs"` here.
@@ -16,7 +17,7 @@ import { extractSession, isAdmin, isClient } from "@/lib/auth";
  */
 
 /**
- * Next.js Middleware — route guard for admin & client areas.
+ * Next.js Middleware — route guard for admin & client areas AND the API.
  *
  *   /admin/*         → requires admin session (else redirect to /admin/login)
  *   /licenses, /sites, /packages, /migrations,
@@ -24,12 +25,42 @@ import { extractSession, isAdmin, isClient } from "@/lib/auth";
  *
  *   /client/*        → requires client session (else redirect to /client/login)
  *
+ *   /api/*           → decided by lib/apiPolicy.ts, DENY BY DEFAULT: admin
+ *                      session unless the route is explicitly public (checkout,
+ *                      order tracking, license heartbeat, webhooks, login) or a
+ *                      client reading its own record. Rejections are JSON
+ *                      401/403 rather than redirects.
+ *
  * Public routes (no session needed):
  *   /, /pricing, /admin/login, /client/login, /_next/*, /favicon.ico,
- *   /api/* (API routes handle their own auth in handlers)
+ *   and the /api routes listed as public in lib/apiPolicy.ts.
  */
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  /* ── API: enforced centrally, never left to individual handlers ── */
+  if (pathname.startsWith("/api/") || pathname === "/api") {
+    const decision = decideApiAccess(req.method, pathname, {
+      devOnlyOpen: process.env.NODE_ENV !== "production",
+    });
+    if (decision.access === "public") return NextResponse.next();
+
+    const session = extractSession(req);
+    if (isAdmin(session)) return NextResponse.next();
+
+    if (decision.access === "client-own" && isClient(session)) {
+      const owns =
+        !!decision.ownerId &&
+        (decision.ownerId === session?.clientId || decision.ownerId === session?.licenseId);
+      if (owns) return NextResponse.next();
+      return NextResponse.json({ success: false, error: "Forbidden." }, { status: 403 });
+    }
+
+    return NextResponse.json(
+      { success: false, error: "Authentication required." },
+      { status: session ? 403 : 401 }
+    );
+  }
 
   /* ── Public / static / login pages ── */
   if (
@@ -38,8 +69,7 @@ export function middleware(req: NextRequest) {
     pathname === "/" ||
     pathname === "/pricing" ||
     pathname === "/admin/login" ||
-    pathname === "/client/login" ||
-    pathname.startsWith("/api/")  /* API routes secure themselves per-handler */
+    pathname === "/client/login"
   ) {
     return NextResponse.next();
   }
@@ -76,9 +106,10 @@ export function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Match all paths EXCEPT static assets, public pages, and API routes.
+     * Match all paths EXCEPT static assets and public pages. API routes ARE
+     * matched now: they are authorised centrally by lib/apiPolicy.ts.
      * Next.js middleware runs on the Edge runtime — keep it lightweight.
      */
-    "/((?!_next|favicon.ico|api/|pricing|$).*)",
+    "/((?!_next|favicon.ico|pricing|$).*)",
   ],
 };

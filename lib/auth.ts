@@ -77,12 +77,21 @@ const MIDDLEWARE_SECRET_VAR = "SLATE_JWT_SECRET";
  * need to agree when they are asked to verify the SAME token. They do not, as it
  * happens — see the crypto note below for what was really going wrong.
  */
+/**
+ * The development-only literals. They are in a public repository, so they are
+ * worthless as secrets: anyone can forge an admin session token signed with the
+ * fallback key, or log in with the default password. Production therefore
+ * REFUSES to operate on them (see isInsecureProductionConfig).
+ */
+const FALLBACK_JWT_SECRET = "slate-devops-auth-fallback-2026";
+const DEFAULT_ADMIN_PASSWORD = "#Admin_ops#";
+
 function resolveJwtSecret(): string {
   return (
     process.env[MIDDLEWARE_SECRET_VAR] ||
     process.env.JWT_SECRET ||
     process.env.ENCRYPTION_SECRET ||
-    "slate-devops-auth-fallback-2026"
+    FALLBACK_JWT_SECRET
   );
 }
 
@@ -92,6 +101,16 @@ function resolveJwtSecret(): string {
  * on when it happens.
  */
 const JWT_SECRET = resolveJwtSecret();
+
+/**
+ * True when running a production build on the public development fallbacks.
+ * Evaluated lazily (not at import) so `next build` — which runs with
+ * NODE_ENV=production but no secrets — is not broken; the check bites at the
+ * moment a token is signed or verified.
+ */
+export function isInsecureProductionConfig(): boolean {
+  return process.env.NODE_ENV === "production" && JWT_SECRET === FALLBACK_JWT_SECRET;
+}
 
 /**
  * Derive the raw HMAC key bytes from the resolved secret.
@@ -317,6 +336,11 @@ function signSegments(header: string, body: string): string {
 }
 
 export function createToken(payload: SessionPayload): string {
+  if (isInsecureProductionConfig()) {
+    throw new Error(
+      "Refusing to issue a session: JWT_SECRET (or ENCRYPTION_SECRET) is not set. Production will not sign sessions with the public development key."
+    );
+  }
   const header = bytesToBase64Url(utf8ToBytes(JSON.stringify({ alg: "HS256", typ: "JWT" })));
   const body = bytesToBase64Url(utf8ToBytes(JSON.stringify(payload)));
   return `${header}.${body}.${signSegments(header, body)}`;
@@ -324,6 +348,8 @@ export function createToken(payload: SessionPayload): string {
 
 export function verifyToken(token: string): SessionPayload | null {
   try {
+    // Fail closed: tokens signed with the public fallback key are forgeable.
+    if (isInsecureProductionConfig()) return null;
     const parts = token.split(".");
     if (parts.length !== 3) return null;
 
@@ -344,9 +370,18 @@ export function verifyToken(token: string): SessionPayload | null {
 /* ── Admin sign-in ── */
 export function authenticateAdmin(username: string, password: string): boolean {
   const cfg = getAdminConfig();
-  // Use timing-safe comparison to prevent timing attacks
-  const userMatch = crypto.timingSafeEqual(Buffer.from(username, "utf8"), Buffer.from(cfg.username, "utf8"));
-  const passMatch = crypto.timingSafeEqual(Buffer.from(password, "utf8"), Buffer.from(cfg.password, "utf8"));
+  // Production never accepts the published default password (or an unset one).
+  if (process.env.NODE_ENV === "production" && (!process.env.ADMIN_PASSWORD || cfg.password === DEFAULT_ADMIN_PASSWORD)) {
+    return false;
+  }
+  // Compare SHA-256 digests, not the raw strings: crypto.timingSafeEqual THROWS
+  // when the two buffers differ in length, which made a wrong-length username
+  // answer 500 ("Input buffers must have the same byte length") while a
+  // same-length one answered 401 — an account-name oracle. Digests are always
+  // 32 bytes, so the comparison is constant-time and never throws.
+  const digest = (s: string) => crypto.createHash("sha256").update(String(s), "utf8").digest();
+  const userMatch = crypto.timingSafeEqual(digest(username), digest(cfg.username));
+  const passMatch = crypto.timingSafeEqual(digest(password), digest(cfg.password));
   return userMatch && passMatch;
 }
 

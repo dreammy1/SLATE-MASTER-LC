@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createToken, authenticateClient, createSessionCookie } from "@/lib/auth";
-import { checkRateLimit } from "@/lib/rateLimit";
+import { loginLimits } from "@/lib/rateLimit";
 
 /**
  * POST /api/client/login
@@ -9,14 +9,13 @@ import { checkRateLimit } from "@/lib/rateLimit";
  */
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for") || req.ip || "unknown-ip";
-    const rl = checkRateLimit(ip, 10, 60);
+    const body = await req.json().catch(() => ({}));
+    const { license_key, email } = body;
+
+    const rl = loginLimits("client", req, String(email || ""));
     if (!rl.success) {
       return NextResponse.json({ success: false, error: rl.error }, { status: 429 });
     }
-
-    const body = await req.json().catch(() => ({}));
-    const { license_key, email } = body;
 
     if (!license_key || !email) {
       return NextResponse.json(

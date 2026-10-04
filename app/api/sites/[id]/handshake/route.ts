@@ -8,7 +8,7 @@ export async function POST(
   req: NextRequest,
   { params: p }: { params: Promise<{ id: string }> }
 ) {
-const params = await p;
+  const params = await p;
 
   try {
     const site = await getSite(params.id);
@@ -48,11 +48,18 @@ const params = await p;
       );
     }
 
+    const LATEST_AGENT_VERSION = "3.2.0";
+    const remoteVersion = data.version || "1.0.0";
+    const updateAvailable = Boolean(data.version && data.version !== LATEST_AGENT_VERSION);
+
     return NextResponse.json({
       success: true,
       status: data.status || "REGISTERED",
       message: data.message || "Handshake verified successfully with remote agent.",
       agentUrl,
+      remoteVersion,
+      latestVersion: LATEST_AGENT_VERSION,
+      updateAvailable,
     });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
