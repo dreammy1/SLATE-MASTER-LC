@@ -67,11 +67,11 @@ export function loginLimits(
 // Cleanup interval to avoid memory leaks
 const cleanup = setInterval(() => {
   const now = Date.now();
-  for (const [ip, record] of rateLimitStore.entries()) {
+  rateLimitStore.forEach((record, ip) => {
     if (now > record.expiresAt) {
       rateLimitStore.delete(ip);
     }
-  }
+  });
 }, 60000);
 // Do not let this timer keep the process (or a test run) alive on its own.
 (cleanup as any).unref?.();

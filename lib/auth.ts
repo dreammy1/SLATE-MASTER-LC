@@ -1,5 +1,3 @@
-import crypto from "crypto";
-
 /* ─────────────────────────────────────────────────────────────────────────
  * SLATE DevOps OS — Authentication & Session Layer
  *
@@ -379,9 +377,9 @@ export function authenticateAdmin(username: string, password: string): boolean {
   // answer 500 ("Input buffers must have the same byte length") while a
   // same-length one answered 401 — an account-name oracle. Digests are always
   // 32 bytes, so the comparison is constant-time and never throws.
-  const digest = (s: string) => crypto.createHash("sha256").update(String(s), "utf8").digest();
-  const userMatch = crypto.timingSafeEqual(digest(username), digest(cfg.username));
-  const passMatch = crypto.timingSafeEqual(digest(password), digest(cfg.password));
+  const digest = (s: string) => sha256(utf8ToBytes(String(s)));
+  const userMatch = bytesEqual(digest(username), digest(cfg.username));
+  const passMatch = bytesEqual(digest(password), digest(cfg.password));
   return userMatch && passMatch;
 }
 

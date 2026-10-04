@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getOrder, updateOrder } from "@/lib/storage";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2023-10-16" as any,
-});
+function getStripe() {
+  const key = process.env.STRIPE_SECRET_KEY || "dummy_key_for_webhook_signature";
+  return new Stripe(key, { apiVersion: "2023-10-16" as any });
+}
 
 /** Stripe webhook: Verifies signature, avoids replay attacks, and marks matching order paid. */
 export async function POST(req: NextRequest) {
@@ -16,6 +17,7 @@ export async function POST(req: NextRequest) {
 
     if (secret && sig) {
       try {
+        const stripe = getStripe();
         event = stripe.webhooks.constructEvent(raw, sig, secret);
       } catch (err: any) {
         return NextResponse.json({ success: false, error: `Webhook signature verification failed: ${err.message}` }, { status: 400 });
