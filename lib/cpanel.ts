@@ -113,80 +113,78 @@ async function uapiOnce(
   const errors: string[] = [];
   let sawAuthRejection = false;
 
+  const authHeaders = [
+    `cpanel ${creds.user}:${creds.apiToken}`,
+    `Basic ${Buffer.from(`${creds.user}:${creds.apiToken}`).toString("base64")}`,
+  ];
+
   for (const base of baseUrls(creds.host)) {
     const url = `${base}/execute/${module}/${func}${query ? `?${query}` : ""}`;
-    try {
-      const res = await fetch(url, {
-        method: formData ? "POST" : method,
-        headers: {
-          // The documented UAPI auth header. Sending the EXACT account username
-          // is what makes cPanel treat the request as an API call at all.
-          Authorization: `cpanel ${creds.user}:${creds.apiToken}`,
-          Accept: "application/json",
-        },
-        body: formData as any,
-        signal: AbortSignal.timeout(60_000),
-      });
+    for (const authHeader of authHeaders) {
+      try {
+        const res = await fetch(url, {
+          method: formData ? "POST" : method,
+          headers: {
+            Authorization: authHeader,
+            Accept: "application/json",
+          },
+          body: formData as any,
+          signal: AbortSignal.timeout(30_000),
+        });
 
-      const text = await res.text();
+        const text = await res.text();
+        const trimmed = text.trim();
+        const looksHtml = /^<(!doctype\s+html|html[\s>])/i.test(trimmed.slice(0, 200));
+        const looksJson = /^\s*[[{]/.test(trimmed);
 
-      /* ── Classify the reply ────────────────────────────────────────────
-       * cPanel answers a REJECTED token with its HTML login page and HTTP 200
-       * — a 200 that is not JSON is never a successful API call. Treating it as
-       * "unreachable" mixed a bad credential together with a dead host and sent
-       * the customer to the wrong fix, so each case is now named.
-       */
-      const trimmed = text.trim();
-      const looksHtml = /^<(!doctype\s+html|html[\s>])/i.test(trimmed.slice(0, 200));
-      const looksJson = /^\s*[[{]/.test(trimmed);
+        if (!trimmed) {
+          errors.push(`${base}: empty reply HTTP ${res.status}`);
+          continue;
+        }
+        if (looksHtml || (!looksJson && !/^<\?xml/i.test(trimmed))) {
+          sawAuthRejection = true;
+          const title = (trimmed.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "").replace(/\s+/g, " ").trim();
+          errors.push(
+            `${base}: HTTP ${res.status} returned cPanel's HTML login page instead of API data` +
+            (title ? ` ("${title}")` : "") +
+            ` — the username/API token pair was not accepted.`
+          );
+          continue;
+        }
 
-      if (!trimmed) {
-        errors.push(`${base}: empty reply HTTP ${res.status}`);
-        continue;
+        let data: any = null;
+        try { data = JSON.parse(trimmed); } catch {
+          errors.push(`${base}: non-JSON reply HTTP ${res.status} (${trimmed.slice(0, 120).replace(/\s+/g, " ")})`);
+          continue;
+        }
+
+        if (!res.ok) {
+          const msg = data?.errors?.join?.("; ") || data?.result?.errors?.join?.("; ") || `HTTP ${res.status}`;
+          errors.push(`${base}: ${msg}`);
+          continue;
+        }
+
+        const topStatus = data?.status;
+        const nestedStatus = data?.result?.status;
+        const effective = typeof topStatus === "number" ? topStatus : typeof nestedStatus === "number" ? nestedStatus : undefined;
+
+        if (effective === 0) {
+          const msg =
+            (Array.isArray(data?.errors) && data.errors.join("; ")) ||
+            (Array.isArray(data?.result?.errors) && data.result.errors.join("; ")) ||
+            "UAPI error";
+          errors.push(`${base}: ${msg}`);
+          continue;
+        }
+        if (effective === undefined) {
+          errors.push(`${base}: unexpected UAPI reply (no status field)`);
+          continue;
+        }
+        return { ok: true as const, data };
+      } catch (err: any) {
+        errors.push(`${base}: ${err?.message || err}`);
+        break; // Network/transport failure, try next base URL
       }
-      if (looksHtml || (!looksJson && !/^<\?xml/i.test(trimmed))) {
-        sawAuthRejection = true;
-        const title = (trimmed.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "").replace(/\s+/g, " ").trim();
-        errors.push(
-          `${base}: HTTP ${res.status} returned cPanel's HTML login page instead of API data` +
-          (title ? ` ("${title}")` : "") +
-          ` — the username/API token pair was not accepted.`
-        );
-        continue;
-      }
-
-      let data: any = null;
-      try { data = JSON.parse(trimmed); } catch {
-        errors.push(`${base}: non-JSON reply HTTP ${res.status} (${trimmed.slice(0, 120).replace(/\s+/g, " ")})`);
-        continue;
-      }
-
-      if (!res.ok) {
-        const msg = data?.errors?.join?.("; ") || data?.result?.errors?.join?.("; ") || `HTTP ${res.status}`;
-        errors.push(`${base}: ${msg}`);
-        continue;
-      }
-
-      const topStatus = data?.status;
-      const nestedStatus = data?.result?.status;
-      const effective = typeof topStatus === "number" ? topStatus : typeof nestedStatus === "number" ? nestedStatus : undefined;
-
-      if (effective === 0) {
-        const msg =
-          (Array.isArray(data?.errors) && data.errors.join("; ")) ||
-          (Array.isArray(data?.result?.errors) && data.result.errors.join("; ")) ||
-          "UAPI error";
-        errors.push(`${base}: ${msg}`);
-        continue;
-      }
-      if (effective === undefined) {
-        errors.push(`${base}: unexpected UAPI reply (no status field)`);
-        continue;
-      }
-      return { ok: true as const, data };
-    } catch (err: any) {
-      // A transport failure (DNS, refused, TLS) says nothing about the token.
-      errors.push(`${base}: ${err?.message || err}`);
     }
   }
 
@@ -276,20 +274,7 @@ export async function cpanelTestConnection(creds: CpanelCreds): Promise<{ ok: bo
   const cleanUser = String(creds.user || "").trim();
   const cleanToken = String(creds.apiToken || "").trim();
   if (!cleanHost || !cleanUser || !cleanToken) {
-    return { ok: false, message: "cPanel host, username and API token are all required." };
-  }
-
-  // Catch an obviously-wrong token BEFORE spending a round trip, and say what
-  // a real token looks like. cPanel's own reply is an HTML login page, which
-  // tells the customer nothing about what they actually pasted.
-  if (!looksLikeCpanelToken(cleanToken)) {
-    return {
-      ok: false,
-      message:
-        `"${cleanToken.slice(0, 6)}${cleanToken.length > 6 ? "…" : ""}" does not look like a cPanel API token. ` +
-        `A token is a single block of letters and digits (example: U7HMR63FGY292DQZ4H5BFH16JLYMO01M) — ` +
-        `not your cPanel password and not your login. Create one in cPanel -> Security -> Manage API Tokens.`,
-    };
+    return { ok: false, message: "cPanel host, username and API token or password are all required." };
   }
 
   try {
@@ -297,16 +282,14 @@ export async function cpanelTestConnection(creds: CpanelCreds): Promise<{ ok: bo
     return { ok: true, message: `cPanel connected as ${cleanUser}@${cleanHost}.` };
   } catch (err: any) {
     const raw = err?.message || "cPanel connection failed.";
-    // Name the likely cause instead of dumping three raw port errors at someone
-    // who just needs to know whether it is the login or the host.
+    // Name the likely cause instead of dumping three raw port errors
     if (/login page instead of API data/i.test(raw)) {
       return {
         ok: false,
         message:
-          `The host ${cleanHost} did not accept the login "${cleanUser}" with that API token, so cPanel ` +
-          `answered with its sign-in page instead of API data. This is a credential problem, not a hosting ` +
-          `outage. Use the SHORT cPanel account username (example: uk701user, not your email) and a freshly ` +
-          `created, non-expiring token from cPanel -> Security -> Manage API Tokens.`,
+          `The host ${cleanHost} did not accept the login "${cleanUser}" with that credential. ` +
+          `Use the SHORT cPanel account username (example: uk701user, not your email) and check your password ` +
+          `or generate an API token in cPanel -> Security -> Manage API Tokens.`,
       };
     }
     if (/fetch failed|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|certificate|self.signed/i.test(raw)) {

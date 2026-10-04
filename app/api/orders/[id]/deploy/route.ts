@@ -8,7 +8,7 @@ import { resolveReleaseZip } from "@/lib/releaseResolver";
 import { generateLicenseKey, hashLicenseKey, calcExpiry, signLicensePayload } from "@/lib/licensing";
 import { encryptSecret, decryptSecret } from "@/lib/crypto";
 import { pushInstaller, runAppInstall, getAppInstallStatus } from "@/lib/appInstaller";
-import { targetDeployFiles, targetWriteConfig, verifyTargetLiveness, cleanupTemp, handshakeEndpoint, targetProvisionDatabase, linkCpanelCredentials } from "@/lib/migrationExecutor";
+import { targetDeployFiles, targetWriteConfig, verifyTargetLiveness, cleanupTemp, handshakeEndpoint, targetProvisionDatabase, linkCpanelCredentials, pushAgent } from "@/lib/migrationExecutor";
 import { registerSiteForOrder } from "@/lib/siteRegister";
 import { sendMail, licenseIssuedMail } from "@/lib/mailer";
 import fs from "fs/promises";
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     await updateOrder(id, { status: "failed", progressPercent: state.percent, progressStage: sn, error: err.message }).catch(() => {});
     await emit({ error: err.message, failedStage: sn, percent: state.percent, guide: guideForStage(sn, err.message), warnings: state.warnings });
   };
-  void updateOrder(id, { status: "install_running", progressPercent: 1, progressStage: "CONNECT" }).catch(() => {});
+  void updateOrder(id, { status: "install_running", progressPercent: 1, progressStage: "CONNECT", error: "" }).catch(() => {});
   (async () => {
     const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "slate-install-"));
     const zipPath = path.join(tmpRoot, "release.zip");
@@ -79,6 +79,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         const hs = await handshakeEndpoint(target, token, masterRes.origin);
         if (!hs.ok) state.warnings.push(`Pairing note: ${hs.message}`);
       }
+
+      // Automatically push latest auth.php agent to target so it has latest auto-provisioning & discovery capabilities
+      try {
+        const updatePush = await pushAgent(target, token);
+        if (updatePush.ok) {
+          await emit({ stage: state.stage, percent: 11, message: "Agent updated to latest release." });
+        }
+      } catch { /* if update push fails, continue with existing auth.php */ }
 
       state.stage = "DATABASE";
       let dbName = order.dbName || "";

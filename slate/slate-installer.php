@@ -258,37 +258,44 @@ try {
     ]);
 }
 
-/* 2 ─ first admin user (only if no users exist) */
+/* 2 ─ first admin user (guarantee customer admin account exists and password is set) */
 try {
     $userCount = (int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
-    if ($userCount === 0) {
-        if ($adminEmail === '' || !filter_var($adminEmail, FILTER_VALIDATE_EMAIL)) {
-            installerRespond(400, [
-                'error'   => 'A valid admin email is required to create the first administrator.',
-                'hint'    => 'Set the contact email on the order in Master, then press Retry automation.',
-                'partial' => $report,
-            ]);
-        }
-        $generated = false;
-        if ($adminPassword === '') {
-            $adminPassword = bin2hex(random_bytes(6));
-            $generated     = true;
-            $warnings[]    = 'No admin password was supplied — a temporary one was generated. Use "Forgot password" on the login page to set your own.';
-        }
+    if ($adminEmail === '' || !filter_var($adminEmail, FILTER_VALIDATE_EMAIL)) {
+        installerRespond(400, [
+            'error'   => 'A valid admin email is required to configure the administrator account.',
+            'hint'    => 'Set the contact email on the order in Master, then press Retry automation.',
+            'partial' => $report,
+        ]);
+    }
+    $generated = false;
+    if ($adminPassword === '') {
+        $adminPassword = bin2hex(random_bytes(6));
+        $generated     = true;
+        $warnings[]    = 'No admin password was supplied — a temporary one was generated. Use "Forgot password" on the login page to set your own.';
+    }
+
+    $existingAdmin = $pdo->prepare('SELECT id FROM users WHERE email = ? LIMIT 1');
+    $existingAdmin->execute([$adminEmail]);
+    $foundId = $existingAdmin->fetchColumn();
+    if ($foundId) {
+        $updateStmt = $pdo->prepare('UPDATE users SET password_hash = ?, status = "active", role_id = 1 WHERE id = ?');
+        $updateStmt->execute([password_hash($adminPassword, PASSWORD_DEFAULT), $foundId]);
+        $report['steps'][]    = 'admin_updated';
+        $report['admin_user'] = $adminEmail;
+    } else {
         \Slate\Data\Database::insert('users', [
             'tenant_id'     => 1,
             'email'         => $adminEmail,
             'password_hash' => password_hash($adminPassword, PASSWORD_DEFAULT),
-            'name'          => $adminName !== '' ? $adminName : 'Site Owner',
+            'name'          => $adminName !== '' ? $adminName : 'admin',
             'role_id'       => 1,
             'status'        => 'active',
         ]);
-        $report['steps'][]     = 'admin_created';
-        $report['admin_user']  = $adminEmail;
-        $report['admin_temp']  = $generated ? $adminPassword : null;
-    } else {
-        $report['steps'][] = 'admin_exists(' . $userCount . ')';
+        $report['steps'][]    = 'admin_created';
+        $report['admin_user'] = $adminEmail;
     }
+    $report['admin_temp'] = $generated ? $adminPassword : null;
 } catch (\Throwable $e) {
     installerRespond(500, [
         'error'   => 'Creating the administrator account failed: ' . $e->getMessage(),

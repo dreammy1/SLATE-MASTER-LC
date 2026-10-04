@@ -129,7 +129,7 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
         <div className="rounded-xl border border-[#1e293b] bg-[#111625] p-5 space-y-3">
           <div className="font-bold text-white">{next.title}</div>
           {next.description && <div className="text-xs text-slate-300">{next.description}</div>}
-          {o.error && (
+          {o.error && o.status === "failed" && (
             <div className="text-xs text-rose-300 rounded border border-rose-500/40 bg-rose-500/10 p-3">
               Last error: {o.error}
             </div>

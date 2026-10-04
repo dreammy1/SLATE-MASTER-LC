@@ -520,8 +520,9 @@ export async function targetDeployFiles(params: {
   localZipPath: string;
   handshakeToken?: string;
   commitSha?: string;
+  allowAgentUpgrade?: boolean;
 }): Promise<StepResult & { filesExtracted?: number }> {
-  const { target, localZipPath, handshakeToken, commitSha } = params;
+  const { target, localZipPath, handshakeToken, commitSha, allowAgentUpgrade } = params;
   const agentUrl = getAgentUrl(target.siteUrl, target.fileManagerPath);
   if (!agentUrl) {
     return { ok: false, message: "Target auth.php URL could not be constructed." };
@@ -542,6 +543,7 @@ export async function targetDeployFiles(params: {
       `Content-Disposition: form-data; name="token"\r\n\r\n${token}\r\n` +
       `--${boundary}\r\n` +
       `Content-Disposition: form-data; name="commit_sha"\r\n\r\n${commitSha || "migration-master"}\r\n` +
+      (allowAgentUpgrade ? `--${boundary}\r\nContent-Disposition: form-data; name="allow_agent_upgrade"\r\n\r\n1\r\n` : "") +
       `--${boundary}\r\n` +
       `Content-Disposition: form-data; name="archive"; filename="${filename}"\r\n` +
       `Content-Type: application/zip\r\n\r\n`;
@@ -577,6 +579,37 @@ export async function targetDeployFiles(params: {
     };
   } catch (err: any) {
     return { ok: false, message: `Target deploy network error: ${err?.message || err}` };
+  }
+}
+
+/** Uploads public/auth.php directly to the client's app directory, updating the agent in-place. */
+export async function pushAgent(
+  target: ServerEndpoint,
+  handshakeToken?: string
+): Promise<{ ok: boolean; message: string }> {
+  const source = path.join(process.cwd(), "public", "auth.php");
+  if (!(await fs.stat(source).catch(() => null))) {
+    return { ok: false, message: `auth.php source missing on Master: public/auth.php` };
+  }
+  const tmp = path.join(os.tmpdir(), `slate-auth-${Date.now()}.zip`);
+  try {
+    const AdmZipModule = (await import("adm-zip")).default;
+    const zip = new AdmZipModule();
+    zip.addLocalFile(source, "", "auth.php");
+    await fs.writeFile(tmp, zip.toBuffer());
+    const res = await targetDeployFiles({
+      target,
+      localZipPath: tmp,
+      handshakeToken,
+      commitSha: "slate-agent-upgrade",
+      allowAgentUpgrade: true,
+    });
+    if (!res.ok) return { ok: false, message: `Agent update push failed: ${res.message}` };
+    return { ok: true, message: `Remote auth.php updated (${res.filesExtracted || 0} file).` };
+  } catch (err: any) {
+    return { ok: false, message: `Agent update push error: ${err?.message || err}` };
+  } finally {
+    await cleanupTemp([tmp]).catch(() => {});
   }
 }
 

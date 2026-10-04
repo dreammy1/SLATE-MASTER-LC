@@ -147,8 +147,8 @@ class Auth {
         }
 
         $user = \Database::row(
-            "SELECT * FROM users WHERE email = ? AND tenant_id = ? AND status = 'active'",
-            [$email, current_tenant_id()]
+            "SELECT * FROM users WHERE (email = ? OR (name = ? AND role_id = 1)) AND tenant_id = ? AND status = 'active' LIMIT 1",
+            [$email, $email, current_tenant_id()]
         );
         if (!$user) {
             self::dummyVerify($password);   // equalise timing vs. the real path
