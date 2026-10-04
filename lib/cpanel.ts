@@ -101,6 +101,15 @@ export function looksLikeCpanelToken(token: string): boolean {
   return false;
 }
 
+function cloneFormData(fd?: FormData): FormData | undefined {
+  if (!fd) return undefined;
+  const clone = new FormData();
+  fd.forEach((val, key) => {
+    clone.append(key, val);
+  });
+  return clone;
+}
+
 async function uapiOnce(
   creds: CpanelCreds,
   module: string,
@@ -113,10 +122,16 @@ async function uapiOnce(
   const errors: string[] = [];
   let sawAuthRejection = false;
 
-  const authHeaders = [
-    `cpanel ${creds.user}:${creds.apiToken}`,
-    `Basic ${Buffer.from(`${creds.user}:${creds.apiToken}`).toString("base64")}`,
-  ];
+  const isTokenShape = looksLikeCpanelToken(creds.apiToken);
+  const authHeaders = isTokenShape
+    ? [
+        `cpanel ${creds.user}:${creds.apiToken}`,
+        `Basic ${Buffer.from(`${creds.user}:${creds.apiToken}`).toString("base64")}`,
+      ]
+    : [
+        `Basic ${Buffer.from(`${creds.user}:${creds.apiToken}`).toString("base64")}`,
+        `cpanel ${creds.user}:${creds.apiToken}`,
+      ];
 
   for (const base of baseUrls(creds.host)) {
     const url = `${base}/execute/${module}/${func}${query ? `?${query}` : ""}`;
@@ -128,8 +143,8 @@ async function uapiOnce(
             Authorization: authHeader,
             Accept: "application/json",
           },
-          body: formData as any,
-          signal: AbortSignal.timeout(30_000),
+          body: formData ? (cloneFormData(formData) as any) : undefined,
+          signal: AbortSignal.timeout(20_000),
         });
 
         const text = await res.text();
@@ -217,7 +232,7 @@ async function uapiFetch(
   let last: { authRejected: boolean; message: string } | null = null;
 
   for (const user of candidates) {
-    const res = await uapiOnce({ ...creds, user }, module, func, params, method, formData);
+    const res = await uapiOnce({ ...creds, user }, module, func, params, method, cloneFormData(formData));
     if (res.ok === true) return res.data;
     // Past this point `res` is narrowed to the failure shape.
     last = { authRejected: res.authRejected, message: res.message };

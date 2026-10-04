@@ -597,15 +597,18 @@ export async function pushAgent(
   const cpHost = cpanelCreds?.host || (target as any).cpanelHost || "";
   const cpUser = cpanelCreds?.user || (target as any).cpanelUser || "";
   const cpToken = cpanelCreds?.apiToken || (target as any).cpanelApiToken || "";
+  let cpanelError = "";
   if (cpHost && cpUser && cpToken) {
     try {
-      const { cpanelUploadFile } = await import("./cpanel");
+      const { cpanelUploadFile, cpanelEnsureDir } = await import("./cpanel");
+      await cpanelEnsureDir({ host: cpHost, user: cpUser, apiToken: cpToken }, target.fileManagerPath || "public_html/slate").catch(() => null);
       const up = await cpanelUploadFile({ host: cpHost, user: cpUser, apiToken: cpToken }, source, target.fileManagerPath || "public_html/slate");
       if (up.ok) {
         return { ok: true, message: `Remote auth.php updated via cPanel Fileman.` };
       }
-    } catch {
-      // Continue to agent deploy fallback
+      cpanelError = up.message;
+    } catch (err: any) {
+      cpanelError = err?.message || String(err);
     }
   }
 
@@ -623,10 +626,18 @@ export async function pushAgent(
       commitSha: "slate-agent-upgrade",
       allowAgentUpgrade: true,
     });
-    if (!res.ok) return { ok: false, message: `Agent update push failed: ${res.message}` };
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: `Agent update push failed: ${res.message}${cpanelError ? ` (cPanel upload: ${cpanelError})` : ""}`,
+      };
+    }
     return { ok: true, message: `Remote auth.php updated (${res.filesExtracted || 0} file).` };
   } catch (err: any) {
-    return { ok: false, message: `Agent update push error: ${err?.message || err}` };
+    return {
+      ok: false,
+      message: `Agent update push error: ${err?.message || err}${cpanelError ? ` (cPanel upload: ${cpanelError})` : ""}`,
+    };
   } finally {
     await cleanupTemp([tmp]).catch(() => {});
   }
@@ -719,8 +730,9 @@ export async function targetProvisionDatabase(params: {
   handshakeToken?: string;
   appName?: string;
   cpanelUser?: string;
+  cpanelApiToken?: string;
 }): Promise<StepResult & { credentials?: { db_name: string; db_user: string; db_password: string; db_host: string } }> {
-  const { target, handshakeToken, appName, cpanelUser } = params;
+  const { target, handshakeToken, appName, cpanelUser, cpanelApiToken } = params;
   const agentUrl = getAgentUrl(target.siteUrl, target.fileManagerPath);
   if (!agentUrl) {
     return { ok: false, message: "Target auth.php URL could not be constructed." };
@@ -765,6 +777,7 @@ export async function targetProvisionDatabase(params: {
   // Auto-provision via auth.php database_create
   try {
     const cpUser = cpanelUser || target.cpanelUser || (target as any).hostingUsername || "";
+    const cpToken = cpanelApiToken || (target as any).cpanelApiToken || "";
     const res = await safeFetch(withActionQuery(agentUrl, "database_create"), {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Slate-Token": token },
@@ -772,6 +785,7 @@ export async function targetProvisionDatabase(params: {
         action: "database_create",
         token,
         cpanel_user: cpUser || undefined,
+        cpanel_api_token: cpToken || undefined,
         app_name: appName || target.siteUrl?.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8) || "slateapp",
       }),
     }, 45_000);

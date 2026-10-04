@@ -7,6 +7,7 @@ import { resolveMasterOrigin } from "@/lib/masterOrigin";
 import { resolveReleaseZip } from "@/lib/releaseResolver";
 import { generateLicenseKey, hashLicenseKey, calcExpiry, signLicensePayload } from "@/lib/licensing";
 import { encryptSecret, decryptSecret } from "@/lib/crypto";
+import { decryptCpanelToken } from "@/lib/cpanel";
 import { pushInstaller, runAppInstall, getAppInstallStatus } from "@/lib/appInstaller";
 import { targetDeployFiles, targetWriteConfig, verifyTargetLiveness, cleanupTemp, handshakeEndpoint, targetProvisionDatabase, linkCpanelCredentials, pushAgent } from "@/lib/migrationExecutor";
 import { registerSiteForOrder } from "@/lib/siteRegister";
@@ -60,8 +61,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       // Secrets are carried separately: the target object is passed to every
       // executor helper and is logged in errors, so the cPanel API token is
       // decrypted only where it is actually used and never attached to it.
-      let cpanelApiToken = "";
-      try { if (order.cpanelApiTokenEncrypted) cpanelApiToken = decryptSecret(order.cpanelApiTokenEncrypted); } catch { /* keep empty */ }
+      const cpanelApiToken = String(body?.cpanelApiToken || "").trim() || decryptCpanelToken(order.cpanelApiTokenEncrypted || "");
       const target = { siteUrl, fileManagerPath: order.fileManagerPath || "/public_html", cpanelHost: order.cpanelHost || "", cpanelUser: order.cpanelUser || "", cpanelApiToken: "", handshakeToken: token } as any;
       state.stage = "CONNECT";
       await emit({ stage: state.stage, percent: 2, message: "Contacting your server…" });
@@ -74,6 +74,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         if (pb.isAgent) agentReady = true;
       } catch { /* will auto-heal below */ }
 
+      let healedMessage = "";
       if (!agentReady) {
         // Auto-heal agent files using cPanel credentials if available
         if (cpanelApiToken && (order.cpanelUser || target.cpanelUser)) {
@@ -83,16 +84,20 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
             user: order.cpanelUser || target.cpanelUser || "",
             apiToken: cpanelApiToken,
           });
+          healedMessage = healed.message;
           if (healed.ok) {
             agentReady = true;
             await emit({ stage: state.stage, percent: 8, message: "Agent placed via cPanel. Connecting…" });
+          } else {
+            state.warnings.push(`Auto-heal notice: ${healed.message}`);
           }
         }
       }
 
       if (!agentReady) {
         state.percent = 5;
-        await fail(new Error(`auth.php not reachable at ${agentUrl}. Re-upload to ${target.fileManagerPath}, then retry.`), "CONNECT");
+        const healExtra = healedMessage ? ` (cPanel upload: ${healedMessage})` : "";
+        await fail(new Error(`auth.php not reachable at ${agentUrl}.${healExtra} Re-upload to ${target.fileManagerPath}, then retry.`), "CONNECT");
         return;
       }
       state.percent = 10;
@@ -159,6 +164,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
           handshakeToken: token,
           appName: "slateapp",
           cpanelUser: order.cpanelUser || (order as any).hostingUsername || "",
+          cpanelApiToken,
         });
 
         if (prov.ok && prov.credentials) {

@@ -506,6 +506,10 @@ if ($action === 'database_create') {
     if (empty($cpUser)) {
         $cpUser = detectLocalCpanelUser();
     }
+    $cpToken = trim((string)($payload['cpanel_api_token'] ?? $config['cpanel_api_token'] ?? ''));
+    if (!empty($cpUser))  $config['cpanel_user'] = $cpUser;
+    if (!empty($cpToken)) $config['cpanel_api_token'] = $cpToken;
+    if (!empty($cpUser) || !empty($cpToken)) saveConfig($config);
 
     $appName = sanitizeDbName($payload['app_name'] ?? 'app', 4);
     $suffix  = sanitizeDbName(bin2hex(random_bytes(3)), 6);
@@ -523,19 +527,19 @@ if ($action === 'database_create') {
     try {
         // Try creating DB
         try {
-            cpanelUapi('Mysql', 'create_database', ['name' => $dbSuffix]);
+            cpanelUapi('Mysql', 'create_database', ['name' => $dbSuffix], $config);
             $steps[] = ['step' => 'create_database', 'status' => 'OK', 'name' => $fullDbName];
         } catch (Exception $e) {
-            cpanelUapi('Mysql', 'create_database', ['name' => $fullDbName]);
+            cpanelUapi('Mysql', 'create_database', ['name' => $fullDbName], $config);
             $steps[] = ['step' => 'create_database', 'status' => 'OK', 'name' => $fullDbName, 'mode' => 'full_prefix'];
         }
 
         // Try creating user
         try {
-            cpanelUapi('Mysql', 'create_user', ['name' => $userSuffix, 'password' => $password]);
+            cpanelUapi('Mysql', 'create_user', ['name' => $userSuffix, 'password' => $password], $config);
             $steps[] = ['step' => 'create_user', 'status' => 'OK', 'user' => $fullUserName];
         } catch (Exception $e) {
-            cpanelUapi('Mysql', 'create_user', ['name' => $fullUserName, 'password' => $password]);
+            cpanelUapi('Mysql', 'create_user', ['name' => $fullUserName, 'password' => $password], $config);
             $steps[] = ['step' => 'create_user', 'status' => 'OK', 'user' => $fullUserName, 'mode' => 'full_prefix'];
         }
 
@@ -552,7 +556,7 @@ if ($action === 'database_create') {
                     'user'       => $fullUserName,
                     'database'   => $fullDbName,
                     'privileges' => $priv,
-                ]);
+                ], $config);
                 $steps[] = ['step' => 'grant_privileges', 'status' => 'OK', 'format' => $priv];
                 $granted = true;
                 break;
