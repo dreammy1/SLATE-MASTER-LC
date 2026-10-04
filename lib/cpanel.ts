@@ -135,6 +135,7 @@ async function uapiOnce(
 
   for (const base of baseUrls(creds.host)) {
     const url = `${base}/execute/${module}/${func}${query ? `?${query}` : ""}`;
+    let portAnswered = false;
     for (const authHeader of authHeaders) {
       try {
         const res = await fetch(url, {
@@ -144,9 +145,10 @@ async function uapiOnce(
             Accept: "application/json",
           },
           body: formData ? (cloneFormData(formData) as any) : undefined,
-          signal: AbortSignal.timeout(20_000),
+          signal: AbortSignal.timeout(6_000),
         });
 
+        portAnswered = true;
         const text = await res.text();
         const trimmed = text.trim();
         const looksHtml = /^<(!doctype\s+html|html[\s>])/i.test(trimmed.slice(0, 200));
@@ -201,6 +203,7 @@ async function uapiOnce(
         break; // Network/transport failure, try next base URL
       }
     }
+    if (portAnswered) break; // Port responded (auth accepted or rejected); do not attempt unencrypted fallback ports
   }
 
   return {

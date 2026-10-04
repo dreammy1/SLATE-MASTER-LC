@@ -201,18 +201,12 @@ function cpanelUapi($module, $func, array $params = [], $config = null) {
         $currentHost = $_SERVER['SERVER_NAME'];
     }
 
-    $endpoints = [
-        "https://127.0.0.1:2083/execute/{$module}/{$func}",
-        "https://localhost:2083/execute/{$module}/{$func}",
-    ];
+    $endpoints = [];
     if ($currentHost && $currentHost !== 'localhost' && $currentHost !== '127.0.0.1') {
         $endpoints[] = "https://{$currentHost}:2083/execute/{$module}/{$func}";
     }
-    $endpoints[] = "http://127.0.0.1:2082/execute/{$module}/{$func}";
-    $endpoints[] = "http://localhost:2082/execute/{$module}/{$func}";
-    if ($currentHost && $currentHost !== 'localhost' && $currentHost !== '127.0.0.1') {
-        $endpoints[] = "http://{$currentHost}:2082/execute/{$module}/{$func}";
-    }
+    $endpoints[] = "https://127.0.0.1:2083/execute/{$module}/{$func}";
+    $endpoints[] = "https://localhost:2083/execute/{$module}/{$func}";
 
     $lastHttpCode = 0;
     $lastError    = '';
@@ -226,6 +220,7 @@ function cpanelUapi($module, $func, array $params = [], $config = null) {
     ];
 
     foreach ($endpoints as $url) {
+        $endpointReplied = false;
         foreach ($authHeaderVariants as $authHdr) {
             $ch = curl_init();
             curl_setopt_array($ch, [
@@ -235,12 +230,12 @@ function cpanelUapi($module, $func, array $params = [], $config = null) {
                 CURLOPT_SSL_VERIFYHOST => false,
                 CURLOPT_FOLLOWLOCATION => true,
                 CURLOPT_MAXREDIRS      => 3,
-                CURLOPT_TIMEOUT        => 25,
-                CURLOPT_CONNECTTIMEOUT => 4,
+                CURLOPT_TIMEOUT        => 8,
+                CURLOPT_CONNECTTIMEOUT => 3,
                 CURLOPT_HTTPHEADER     => [
                     $authHdr,
                     'Content-Type: application/x-www-form-urlencoded',
-                    'User-Agent: SLATE-DevOps-Agent/3.0.0',
+                    'User-Agent: SLATE-DevOps-Agent/3.2.0',
                 ],
                 CURLOPT_POST           => !empty($params),
                 CURLOPT_POSTFIELDS     => http_build_query($params, '', '&', PHP_QUERY_RFC3986),
@@ -256,6 +251,7 @@ function cpanelUapi($module, $func, array $params = [], $config = null) {
                 continue;
             }
 
+            $endpointReplied = true;
             $lastHttpCode = $httpCode;
             $lastRawBody  = $body;
 
@@ -281,6 +277,9 @@ function cpanelUapi($module, $func, array $params = [], $config = null) {
                 }
                 return $result['data'] ?? $result['result']['data'] ?? $result;
             }
+        }
+        if ($endpointReplied) {
+            break;
         }
     }
 

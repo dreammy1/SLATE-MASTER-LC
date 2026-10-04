@@ -593,7 +593,32 @@ export async function pushAgent(
     return { ok: false, message: `auth.php source missing on Master: public/auth.php` };
   }
 
-  // 1. Try cPanel Fileman upload if credentials are provided
+  // 1. If agent is already reachable, try fast in-place HTTP upgrade first (< 1s)
+  const tmp = path.join(os.tmpdir(), `slate-auth-${Date.now()}.zip`);
+  let httpDeployAttempted = false;
+  try {
+    const AdmZipModule = (await import("adm-zip")).default;
+    const zip = new AdmZipModule();
+    zip.addLocalFile(source, "", "auth.php");
+    await fs.writeFile(tmp, zip.toBuffer());
+    httpDeployAttempted = true;
+    const res = await targetDeployFiles({
+      target,
+      localZipPath: tmp,
+      handshakeToken,
+      commitSha: "slate-agent-upgrade",
+      allowAgentUpgrade: true,
+    });
+    if (res.ok) {
+      return { ok: true, message: `Remote auth.php updated in-place (${res.filesExtracted || 0} file).` };
+    }
+  } catch {
+    // Agent endpoint not ready or returned error; fall back to cPanel upload below
+  } finally {
+    await cleanupTemp([tmp]).catch(() => {});
+  }
+
+  // 2. Fallback: Try cPanel Fileman upload if credentials are provided
   const cpHost = cpanelCreds?.host || (target as any).cpanelHost || "";
   const cpUser = cpanelCreds?.user || (target as any).cpanelUser || "";
   const cpToken = cpanelCreds?.apiToken || (target as any).cpanelApiToken || "";
@@ -612,35 +637,10 @@ export async function pushAgent(
     }
   }
 
-  // 2. Try agent deploy action fallback
-  const tmp = path.join(os.tmpdir(), `slate-auth-${Date.now()}.zip`);
-  try {
-    const AdmZipModule = (await import("adm-zip")).default;
-    const zip = new AdmZipModule();
-    zip.addLocalFile(source, "", "auth.php");
-    await fs.writeFile(tmp, zip.toBuffer());
-    const res = await targetDeployFiles({
-      target,
-      localZipPath: tmp,
-      handshakeToken,
-      commitSha: "slate-agent-upgrade",
-      allowAgentUpgrade: true,
-    });
-    if (!res.ok) {
-      return {
-        ok: false,
-        message: `Agent update push failed: ${res.message}${cpanelError ? ` (cPanel upload: ${cpanelError})` : ""}`,
-      };
-    }
-    return { ok: true, message: `Remote auth.php updated (${res.filesExtracted || 0} file).` };
-  } catch (err: any) {
-    return {
-      ok: false,
-      message: `Agent update push error: ${err?.message || err}${cpanelError ? ` (cPanel upload: ${cpanelError})` : ""}`,
-    };
-  } finally {
-    await cleanupTemp([tmp]).catch(() => {});
-  }
+  return {
+    ok: false,
+    message: `Agent update push failed${cpanelError ? ` (cPanel upload: ${cpanelError})` : ""}`,
+  };
 }
 
 // ────────────────────────────────────────────────────────────────────────────

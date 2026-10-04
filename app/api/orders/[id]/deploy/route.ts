@@ -110,11 +110,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
       // Automatically push latest auth.php agent to target so it has latest auto-provisioning & discovery capabilities
       try {
-        const updatePush = await pushAgent(target, token, cpanelApiToken ? {
-          host: order.cpanelHost || target.cpanelHost || "",
-          user: order.cpanelUser || target.cpanelUser || "",
-          apiToken: cpanelApiToken,
-        } : undefined);
+        const updatePush = await pushAgent(target, token);
         if (updatePush.ok) {
           await emit({ stage: state.stage, percent: 11, message: "Agent updated to latest release." });
         }
