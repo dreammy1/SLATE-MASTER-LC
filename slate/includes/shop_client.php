@@ -17,16 +17,32 @@ use Slate\Services\Licensing\LicenseCatalog;
 /**
  * Build the Master Dashboard base URL.
  *
- * Reads from SLATE_MASTER_URL env, falls back to localhost for dev.
+ * Reads the configured Master host without hardcoding a production checkout
+ * origin. Localhost remains a development-only fallback.
  */
 function shop_master_url(): string
 {
     $url = '';
     if (function_exists('env')) {
-        $url = (string) env('SLATE_MASTER_URL', '');
+        $url = (string) (env('SLATE_MASTER_URL', '') ?: env('LICENSE_MASTER_URL', ''));
     }
     if ($url === '') {
-        $url = getenv('SLATE_MASTER_URL') ?: 'http://localhost:3000';
+        $url = (string) (getenv('SLATE_MASTER_URL') ?: getenv('LICENSE_MASTER_URL') ?: '');
+    }
+    if ($url === '') {
+        $configPath = defined('SLATE_ROOT') ? SLATE_ROOT . '/.slate_agent_config.json' : __DIR__ . '/../.slate_agent_config.json';
+        if (is_file($configPath)) {
+            $config = json_decode((string) @file_get_contents($configPath), true);
+            if (is_array($config)) {
+                $url = (string) ($config['master_host'] ?? '');
+            }
+        }
+    }
+    if ($url === '') {
+        $url = 'http://localhost:3000';
+    }
+    if (!preg_match('#^https?://#i', $url)) {
+        $url = 'https://' . $url;
     }
     return rtrim($url, '/');
 }
