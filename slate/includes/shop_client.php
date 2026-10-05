@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 use Slate\Services\Licensing\TenantToken;
 use Slate\Services\Licensing\PluginEntitlement;
+use Slate\Services\Licensing\LicenseCatalog;
 
 /**
  * Build the Master Dashboard base URL.
@@ -114,4 +115,25 @@ function shop_entitlement_info(string $slug): array
             'package_slug' => null,
         ];
     }
+}
+
+/**
+ * Tenant-scoped read model used by My Licenses and Plugins Shop.
+ *
+ * Keep page templates on this helper so the UI cannot accidentally query
+ * another tenant or duplicate the package-vs-single license rules.
+ */
+function shop_license_catalog(): array
+{
+    try {
+        return LicenseCatalog::forCurrentTenant();
+    } catch (\Throwable $e) {
+        return ['core' => null, 'plugins' => [], 'items' => []];
+    }
+}
+
+/** Return a normalized status for a license row without writing to storage. */
+function shop_license_status(?string $status, ?string $expiresAt = null): string
+{
+    return LicenseCatalog::status($status, $expiresAt);
 }
