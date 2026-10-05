@@ -34,6 +34,141 @@ Make the embedded checkout flow production-ready for returning customers, packag
 - Renewal context is preserved through Stripe checkout.
 - Invalid, expired, cross-domain, or tampered tokens are rejected.
 
+### Phase 3 implementation contract
+
+The checkout flow must treat the signed tenant token as the authority for the
+customer and installation context. Client-supplied profile fields are editable
+data only; they must never be used to select a tenant, license, price, or
+Stripe account.
+
+#### Canonical purchase context
+
+Every session request should normalize to the following shape before any Stripe
+call is made:
+
+```ts
+type PurchaseContext = {
+  kind: "standalone_plugin" | "package" | "package_renewal" | "plugin_renewal";
+  pluginSlug?: string;
+  packageSlug?: string;
+  licenseId?: string;
+  orderId?: string;
+};
+```
+
+Required rules:
+
+- `standalone_plugin` requires a catalog-valid `pluginSlug`.
+- `package` requires a catalog-valid `packageSlug`.
+- `package_renewal` requires the existing package `licenseId` and must verify
+  that the license belongs to the signed tenant.
+- `plugin_renewal` requires `licenseId` and must verify that the license
+  belongs to the signed tenant and matches the requested plugin.
+- `orderId`, when present, is an internal correlation value only; it must not
+  override the tenant or entitlement selected from the token and database.
+- Unknown fields, conflicting identifiers, and mismatched renewal context are
+  rejected with a stable `400` response before Stripe is contacted.
+
+#### Profile contract
+
+`GET /api/master/checkout/profile` returns the tenant-scoped profile with these
+editable fields: `name`, `email`, `phone`, `company`, `taxId`, `country`,
+`city`, `address`, and `postalCode`. `PUT`/`POST` accepts the same allow-list
+only and returns the normalized saved profile. Payment-card numbers, CVC,
+expiry, bank details, Stripe payment method objects, and arbitrary metadata
+must be rejected rather than silently persisted.
+
+The profile route must:
+
+1. verify signature, expiry, audience, issuer, and allowed origin on every
+   request;
+2. resolve the tenant from the verified token, never from the request body;
+3. normalize email/country and trim bounded text fields;
+4. apply the same validation rules on read-back and write;
+5. return a non-sensitive error envelope such as
+   `{ "error": { "code": "invalid_token", "message": "..." } }`.
+
+#### Stripe metadata contract
+
+The checkout session must include only non-secret correlation values needed by
+fulfillment and support, for example:
+
+```json
+{
+  "tenant_id": "tenant_…",
+  "purchase_kind": "plugin_renewal",
+  "plugin_slug": "example-plugin",
+  "license_id": "license_…",
+  "order_id": "order_…"
+}
+```
+
+Metadata is not an authorization mechanism. The webhook must re-validate the
+tenant, product, and renewal target against server-side records before changing
+entitlements. Do not include raw tenant tokens, license keys, card data, or
+profile secrets in Stripe metadata, URLs, logs, or iframe messages.
+
+#### Success and cancellation bridge
+
+The checkout page should expose a small, versioned iframe contract:
+
+- success: `{ "type": "slate.checkout.completed", "version": 1,
+  "sessionId": "…" }`
+- cancellation: `{ "type": "slate.checkout.cancelled", "version": 1 }`
+- failure: `{ "type": "slate.checkout.failed", "version": 1,
+  "code": "…" }`
+
+Messages must be sent only to the validated parent origin. The client must
+ignore unknown message types, mismatched origins, duplicate completion events,
+and messages received after the modal has been closed. A completion message
+means that Stripe completed checkout; the client should refresh licenses and
+display fulfillment-pending state until the webhook-backed entitlement is
+visible.
+
+### Phase 3 execution order
+
+Implement Phase 3 in small, reversible slices:
+
+1. **Contract tests first:** add request/response fixtures for all four
+   purchase contexts, profile allow-list behavior, token failures, and Stripe
+   metadata.
+2. **Token boundary:** centralize verification and tenant resolution for both
+   profile and session routes; remove route-local fallbacks.
+3. **Profile persistence:** implement load, allow-listed save, normalization,
+   and read-back tests using an isolated database.
+4. **Context normalization:** validate catalog slugs and renewal ownership
+   before creating a checkout session.
+5. **Metadata and return URLs:** attach correlation metadata and derive success
+   and cancel URLs from the configured production origin, with localhost
+   allowed only in explicit local development mode.
+6. **Iframe bridge:** implement the versioned success/cancel/failure messages,
+   origin checks, duplicate-event protection, and license refresh.
+7. **Regression pass:** run the focused test matrix, then the existing Stripe
+   race and entitlement integration tests before starting Phase 4.
+
+### Phase 3 verification matrix
+
+| Area | Pass cases | Reject/negative cases |
+| --- | --- | --- |
+| Token | valid tenant token; correct audience and origin | missing, expired, tampered, wrong audience, wrong origin, cross-tenant token |
+| Profile | load; edit; save; normalized read-back | card fields; oversized fields; malformed email/country; tenant mismatch |
+| Purchase | standalone plugin; package; package renewal; plugin renewal | unknown slug; missing renewal ID; mismatched plugin/license; conflicting IDs |
+| Metadata | stable tenant/product/license/order correlation values | raw token, raw key, payment data, arbitrary unvalidated fields |
+| Return URLs | configured HTTPS production origin; explicit local development origin | localhost in production; arbitrary external origin; malformed URL |
+| Iframe bridge | one completion refreshes licenses; cancellation closes cleanly | wrong origin; unknown type; duplicate completion; post-close event |
+
+### Phase 3 implementation evidence
+
+Before marking Phase 3 complete, record the following in the release notes:
+
+- commit containing the contract and route changes;
+- test command and passing result for the focused Phase 3 suite;
+- migration/database version used by the isolated test database;
+- configured production origin used for success and cancellation URLs;
+- representative checkout session ID for test mode, with no card data stored;
+- confirmation that the webhook fulfillment test observes the expected renewal
+  identifiers and tenant scope.
+
 ## Phase 4 — Client checkout bridge hardening
 
 ### Objective

@@ -13,11 +13,24 @@ import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 function CheckoutCompleteContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session_id");
+  const cancelled = searchParams.get("cancelled") === "1" || searchParams.get("canceled") === "1";
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
 
   useEffect(() => {
+    const postToParent = (message: Record<string, unknown>) => {
+      if (typeof window === "undefined" || window.parent === window) return;
+      let parentOrigin = "";
+      try { parentOrigin = document.referrer ? new URL(document.referrer).origin : ""; } catch { parentOrigin = ""; }
+      if (parentOrigin) window.parent.postMessage({ version: 1, ...message }, parentOrigin);
+    };
+    if (cancelled) {
+      setStatus("error");
+      postToParent({ type: "slate.checkout.cancelled" });
+      return;
+    }
     if (!sessionId) {
       setStatus("error");
+      postToParent({ type: "slate.checkout.failed", code: "missing_session" });
       return;
     }
     
@@ -26,13 +39,8 @@ function CheckoutCompleteContent() {
     // So we just assume success if we reached here, and postMessage to parent.
     setStatus("success");
     
-    // Notify the tenant dashboard iframe parent that checkout is complete
-    if (typeof window !== "undefined" && window.parent !== window) {
-      setTimeout(() => {
-        window.parent.postMessage({ type: "SLATE_CHECKOUT_COMPLETE", sessionId }, "*");
-      }, 2000);
-    }
-  }, [sessionId]);
+    setTimeout(() => postToParent({ type: "slate.checkout.completed", sessionId }), 2000);
+  }, [sessionId, cancelled]);
 
   if (status === "loading") {
     return (
@@ -47,8 +55,8 @@ function CheckoutCompleteContent() {
       <div className="flex h-screen items-center justify-center p-4">
         <div className="bg-red-500/10 text-red-500 p-8 rounded-lg border border-red-500/20 text-center">
           <XCircle className="w-12 h-12 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Checkout Failed</h2>
-          <p className="text-sm">We could not verify your payment session.</p>
+          <h2 className="text-xl font-semibold mb-2">{cancelled ? "Checkout Cancelled" : "Checkout Failed"}</h2>
+          <p className="text-sm">{cancelled ? "No payment was taken." : "We could not verify your payment session."}</p>
         </div>
       </div>
     );

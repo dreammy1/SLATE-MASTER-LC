@@ -217,12 +217,19 @@ require __DIR__ . '/partials/header.php';
     const details = document.getElementById('detailsModal');
     const detailsBody = document.getElementById('detailsBody');
 
-    const closeCheckout = () => { checkout.hidden = true; frame.src = 'about:blank'; };
+    let frameOrigin = '';
+    const closeCheckout = () => { checkout.hidden = true; frame.src = 'about:blank'; frameOrigin = ''; };
     const closeDetails = () => { details.hidden = true; };
     const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
     const openCheckout = (button) => {
         const url = button.dataset['purchase' + cycle.value.charAt(0).toUpperCase() + cycle.value.slice(1)] || '#token-error';
-        if (url === '#token-error') { window.alert('Checkout is not configured for this site yet.'); return; }
+        if (url === '#token-error') { window.alert('A secure checkout token could not be created.'); return; }
+        if (url === '#master-unavailable') { window.alert('The licensing Master is not configured for this site.'); return; }
+        if (url === '#invalid-product') { window.alert('This plugin is not available for purchase.'); return; }
+        let parsed;
+        try { parsed = new URL(url, window.location.href); } catch { window.alert('Checkout URL is invalid.'); return; }
+        if (!['http:', 'https:'].includes(parsed.protocol)) { window.alert('Checkout URL is invalid.'); return; }
+        frameOrigin = parsed.origin;
         checkoutTitle.textContent = 'Purchase plugin';
         frame.src = url;
         checkout.hidden = false;
@@ -270,6 +277,14 @@ require __DIR__ . '/partials/header.php';
     checkout.addEventListener('click', (event) => { if (event.target === checkout) closeCheckout(); });
     details.addEventListener('click', (event) => { if (event.target === details) closeDetails(); });
     document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { closeCheckout(); closeDetails(); } });
+    window.addEventListener('message', (event) => {
+        if (checkout.hidden || event.source !== frame.contentWindow || !frameOrigin || event.origin !== frameOrigin) return;
+        const message = event.data || {};
+        if (message.version !== 1) return;
+        if (message.type === 'slate.checkout.completed') { closeCheckout(); window.location.reload(); }
+        else if (message.type === 'slate.checkout.cancelled') closeCheckout();
+        else if (message.type === 'slate.checkout.failed') { closeCheckout(); window.alert('Checkout failed. Please try again.'); }
+    });
     refresh();
 })();
 </script>

@@ -1,31 +1,25 @@
 <?php
-require_once __DIR__ . '/../includes/bootstrap.php';
-require_once __DIR__ . '/../src/Services/Licensing/TenantToken.php';
+require_once dirname(__DIR__) . '/config.php';
+require_once __DIR__ . '/../includes/shop_client.php';
 
 Auth::requirePerm('settings.view');
 
-$pluginSlug = $_GET['plugin'] ?? '';
-if (!$pluginSlug) die('Plugin not specified');
-
-$tenantId = current_tenant_id() ?: 1;
-$domain = $_SERVER['HTTP_HOST'];
-$userEmail = Auth::user()['email'] ?? '';
-
-$token = \Slate\Services\Licensing\TenantToken::mint($tenantId, $domain, $userEmail);
-if (!$token) {
-    die('Cannot mint token: APP_SECRET not found.');
+$pluginSlug = trim((string)($_GET['plugin'] ?? ''));
+if ($pluginSlug === '') {
+    http_response_code(400);
+    exit('Plugin not specified.');
 }
 
-// Ensure you replace this with the real Master Dashboard URL in production
-$masterUrl = 'http://localhost:3000/checkout';
+$checkoutUrl = shop_checkout_url($pluginSlug, (string)($_GET['cycle'] ?? 'monthly'));
+$errorMessages = [
+    '#invalid-product' => 'This plugin is not available for purchase.',
+    '#master-unavailable' => 'The licensing Master is not configured for this site.',
+    '#token-error' => 'A secure checkout token could not be created. Check APP_SECRET.',
+];
+if (isset($errorMessages[$checkoutUrl])) {
+    http_response_code(503);
+    exit($errorMessages[$checkoutUrl]);
+}
 
-// Build the query string for the embedded checkout iframe
-$qs = http_build_query([
-    'token' => $token,
-    'type'  => 'single',
-    'items' => $pluginSlug,
-    'cycle' => 'monthly' // default
-]);
-
-header("Location: {$masterUrl}?{$qs}");
+header('Location: ' . $checkoutUrl, true, 302);
 exit;

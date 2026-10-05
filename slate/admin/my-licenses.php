@@ -36,7 +36,7 @@ $statusClass = static function (string $status): string {
     };
 };
 $checkoutCycle = 'yearly';
-$packageRenewUrl = $packageSlug !== '' ? shop_package_checkout_url($packageSlug, $checkoutCycle) : '#token-error';
+$packageRenewUrl = $packageSlug !== '' ? shop_package_checkout_url($packageSlug, $checkoutCycle, $core['id'] ?? null) : '#token-error';
 
 require __DIR__ . '/partials/header.php';
 ?>
@@ -123,8 +123,8 @@ require __DIR__ . '/partials/header.php';
                     $source = (string)($item['source'] ?? 'single');
                     $isPackage = $source === 'package';
                     $renewUrl = $isPackage
-                        ? ($item['package_slug'] ? shop_package_checkout_url((string)$item['package_slug'], $checkoutCycle) : $packageRenewUrl)
-                        : shop_checkout_url((string)($item['product_slug'] ?? ''), $checkoutCycle);
+                        ? ($item['package_slug'] ? shop_package_checkout_url((string)$item['package_slug'], $checkoutCycle, (string)($item['license_id'] ?? '')) : $packageRenewUrl)
+                        : shop_checkout_url((string)($item['product_slug'] ?? ''), $checkoutCycle, (string)($item['license_id'] ?? ''));
                 ?>
                     <tr>
                         <td>
@@ -185,11 +185,16 @@ require __DIR__ . '/partials/header.php';
     const modal = document.getElementById('checkoutModal');
     const frame = document.getElementById('checkoutFrame');
     const title = document.getElementById('checkoutModalTitle');
-    const close = () => { modal.hidden = true; frame.src = 'about:blank'; };
+    let frameOrigin = '';
+    const close = () => { modal.hidden = true; frame.src = 'about:blank'; frameOrigin = ''; };
     document.querySelectorAll('[data-checkout-url]').forEach((button) => {
         button.addEventListener('click', () => {
             const url = button.dataset.checkoutUrl || '#token-error';
             if (url === '#token-error') { window.alert('Checkout is not configured for this site yet.'); return; }
+            let parsed;
+            try { parsed = new URL(url, window.location.href); } catch { window.alert('Checkout URL is invalid.'); return; }
+            if (!['http:', 'https:'].includes(parsed.protocol)) { window.alert('Checkout URL is invalid.'); return; }
+            frameOrigin = parsed.origin;
             title.textContent = button.dataset.checkoutTitle || 'Checkout';
             frame.src = url;
             modal.hidden = false;
@@ -198,6 +203,14 @@ require __DIR__ . '/partials/header.php';
     document.querySelector('[data-close-checkout]')?.addEventListener('click', close);
     modal.addEventListener('click', (event) => { if (event.target === modal) close(); });
     document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !modal.hidden) close(); });
+    window.addEventListener('message', (event) => {
+        if (modal.hidden || event.source !== frame.contentWindow || !frameOrigin || event.origin !== frameOrigin) return;
+        const message = event.data || {};
+        if (message.version !== 1) return;
+        if (message.type === 'slate.checkout.completed') { close(); window.location.reload(); }
+        else if (message.type === 'slate.checkout.cancelled') close();
+        else if (message.type === 'slate.checkout.failed') { close(); window.alert('Checkout failed. Please try again.'); }
+    });
 })();
 </script>
 

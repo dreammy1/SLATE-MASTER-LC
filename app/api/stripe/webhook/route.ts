@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { getOrder, updateOrder } from "@/lib/storage";
+import { isCollectedPaymentEvent, markOrderPaid } from "@/lib/stripeFulfillment";
 
 function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY || "dummy_key_for_webhook_signature";
@@ -39,32 +39,27 @@ export async function POST(req: NextRequest) {
     const sessionId: string = dataObj?.id || event.id || "";
     const orderId: string = dataObj?.metadata?.orderId || "";
 
-    if (event.type === "checkout.session.completed" || event.type === "payment_intent.succeeded") {
-      // checkout.session.completed also fires for delayed-payment methods (bank
-      // debits etc.) BEFORE the money arrives. Only treat the order as paid once
-      // Stripe reports it collected; the async-success event covers the rest.
-      if (event.type === "checkout.session.completed" && dataObj?.payment_status !== "paid") {
-        return NextResponse.json({ success: true, received: true, note: "Session completed but payment not yet collected." });
-      }
-      if (orderId) {
-        const order = await getOrder(orderId);
-        if (order) {
-          if (order.status === "paid") {
-            return NextResponse.json({ success: true, deduped: true }); // Idempotency check: Already paid
-          }
-          await updateOrder(orderId, { status: "paid", stripe_session_id: sessionId || undefined });
-        }
-        return NextResponse.json({ success: true, orderId });
-      }
+    if (event.type === "checkout.session.completed" && dataObj?.payment_status !== "paid") {
+      return NextResponse.json({ success: true, received: true, note: "Session completed but payment not yet collected." });
     }
 
-    // Delayed-payment methods report success here, later.
-    if (event.type === "checkout.session.async_payment_succeeded" && orderId) {
-      const order = await getOrder(orderId);
-      if (order && order.status !== "paid") {
-        await updateOrder(orderId, { status: "paid", stripe_session_id: sessionId || undefined });
+    if (isCollectedPaymentEvent(event.type, dataObj?.payment_status) && orderId) {
+      // PaymentIntent IDs and Checkout Session IDs are different identifiers
+      // for the same payment. Bind the order only to the session identifier;
+      // PaymentIntent success remains a valid fulfillment signal without
+      // creating a false "conflicting session" on the later session event.
+      const checkoutSessionId = event.type.startsWith("checkout.session.") ? sessionId : "";
+      const result = await markOrderPaid(orderId, checkoutSessionId);
+      if (result.kind === "ignored" && result.reason === "conflicting_session") {
+        return NextResponse.json({ success: false, error: "Order is already bound to a different Stripe transaction." }, { status: 409 });
       }
-      return NextResponse.json({ success: true, orderId });
+      if (result.kind === "ignored" && result.reason === "cancelled") {
+        return NextResponse.json({ success: true, ignored: true, reason: "cancelled", orderId });
+      }
+      if (result.kind === "ignored" && result.reason === "missing_order") {
+        return NextResponse.json({ success: true, received: true, note: "No matching order found." });
+      }
+      return NextResponse.json({ success: true, orderId, deduped: result.kind === "deduped" });
     }
     
     return NextResponse.json({ success: true, received: true, note: "Unhandled event type or missing orderId." });

@@ -24,13 +24,13 @@
 
 ## Phase 4 — Client checkout bridge
 
-- [ ] Fix `slate/admin/checkout-modal.php` bootstrap include.
-- [ ] Remove the hardcoded localhost Master URL.
-- [ ] Reuse safe Master URL resolution in every checkout entry point.
-- [ ] Validate requested plugin/package slugs.
-- [ ] Add iframe origin validation and safe `postMessage` handling.
-- [ ] Add missing-token and unavailable-Master error states.
-- [ ] Refresh license UI after successful checkout.
+- [x] Fix `slate/admin/checkout-modal.php` bootstrap include.
+- [x] Remove the hardcoded localhost Master URL.
+- [x] Reuse safe Master URL resolution in every checkout entry point.
+- [x] Validate product slugs against the local catalog.
+- [x] Add iframe origin validation and safe `postMessage` handling.
+- [x] Add missing-token and unavailable-Master error states.
+- [x] Refresh license UI after successful checkout.
 - [ ] Verify purchase, package renewal, and plugin renewal links.
 
 ## Phase 5 — Fulfillment and synchronization
