@@ -8,6 +8,7 @@ require_once dirname(__DIR__) . '/MembershipAPI.php';
 
 Auth::require();
 Auth::requirePerm('membership.manage_settings');
+if (function_exists('slate_require_plugin_entitlement')) { slate_require_plugin_entitlement('membership'); }
 MembershipAPI::ensureSchema();
 
 $pageTitle  = 'Membership settings';

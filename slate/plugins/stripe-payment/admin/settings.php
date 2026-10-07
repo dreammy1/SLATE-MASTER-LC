@@ -25,6 +25,7 @@ require $root . '/config.php';
 
 Auth::require();
 Auth::requirePerm('stripe.manage_settings');
+if (function_exists('slate_require_plugin_entitlement')) { slate_require_plugin_entitlement('stripe-payment'); }
 
 require_once dirname(__DIR__) . '/StripeAPI.php';
 

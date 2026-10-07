@@ -42,9 +42,13 @@ if (!function_exists('slate_license_guard')) {
                 if ($res['status'] === 'expired') $res['mode'] = 'expired';
                 if (in_array($res['status'], ['suspended', 'revoked', 'cancelled'], true)) $res['mode'] = 'locked';
             }
+            // If the request targets a plugin, evaluate the plugin entitlement first
+            if (preg_match('#(?:^|/)plugins/([^/]+)/#i', strtolower(str_replace('\\', '/', (string)$script)))) {
+                slate_plugin_guard($script, $tenantId);
+            }
+
             if ($res['mode'] === 'ok' || $res['mode'] === 'grace') {
                 if ($res['mode'] === 'grace' && !defined('SLATE_LICENSE_GRACE')) define('SLATE_LICENSE_GRACE', 1);
-                slate_plugin_guard($script, $tenantId);
                 return;
             }
 
@@ -215,22 +219,28 @@ if (!function_exists('slate_plugin_guard')) {
     {
         try {
             $slug = null;
-            $scriptPath = $target ?? (string)($_SERVER['SCRIPT_NAME'] ?? '');
-            if ($scriptPath === '' && isset($_SERVER['SCRIPT_FILENAME'])) {
-                $scriptPath = (string)$_SERVER['SCRIPT_FILENAME'];
-            }
-            $norm = strtolower(str_replace('\\', '/', $scriptPath));
-
-            // Ignore static assets
-            if (preg_match('/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/i', $norm)) {
-                return ['ok' => true, 'state' => 'asset', 'mode' => 'ok', 'slug' => null];
-            }
-
-            // Extract plugin slug from path: /plugins/<slug>/... or direct slug passed
             if ($target !== null && !str_contains($target, '/') && !str_contains($target, '\\')) {
                 $slug = strtolower(trim($target));
-            } elseif (preg_match('#(?:^|/)plugins/([^/]+)/#i', $norm, $m)) {
-                $slug = strtolower(trim($m[1]));
+                $scriptPath = (string)($_SERVER['SCRIPT_NAME'] ?? $_SERVER['SCRIPT_FILENAME'] ?? $_SERVER['REQUEST_URI'] ?? '');
+                $norm = strtolower(str_replace('\\', '/', $scriptPath));
+            } else {
+                $scriptPath = $target ?? (string)($_SERVER['SCRIPT_NAME'] ?? '');
+                if ($scriptPath === '' && isset($_SERVER['SCRIPT_FILENAME'])) {
+                    $scriptPath = (string)$_SERVER['SCRIPT_FILENAME'];
+                }
+                if ($scriptPath === '' && isset($_SERVER['REQUEST_URI'])) {
+                    $scriptPath = (string)parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+                }
+                $norm = strtolower(str_replace('\\', '/', $scriptPath));
+
+                // Ignore static assets
+                if (preg_match('/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/i', $norm)) {
+                    return ['ok' => true, 'state' => 'asset', 'mode' => 'ok', 'slug' => null];
+                }
+
+                if (preg_match('#(?:^|/)plugins/([^/]+)/#i', $norm, $m)) {
+                    $slug = strtolower(trim($m[1]));
+                }
             }
 
             if (!$slug || $slug === '_dist') {
@@ -290,10 +300,14 @@ if (!function_exists('slate_plugin_guard')) {
 
                 slate_set_plugin_notice($slug, 'expired', $pluginName, $info['expires_at'] ?? null);
 
-                $isPost = (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST');
+                $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+                $isMutation = in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'], true);
                 $isApi = str_contains($norm, '/api/') || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
 
-                if ($isPost) {
+                if ($isMutation) {
+                    if (PHP_SAPI === 'cli') {
+                        return ['ok' => false, 'state' => 'expired', 'mode' => 'readonly', 'slug' => $slug];
+                    }
                     if ($isApi) {
                         http_response_code(403);
                         header('Content-Type: application/json; charset=utf-8');
@@ -316,6 +330,10 @@ if (!function_exists('slate_plugin_guard')) {
             }
 
             // State 3: Blocked (suspended, revoked, cancelled) or unowned -> complete block
+            if (PHP_SAPI === 'cli') {
+                return ['ok' => false, 'state' => $state, 'mode' => 'blocked', 'slug' => $slug];
+            }
+
             $isApi = str_contains($norm, '/api/') || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
             if ($isApi) {
                 http_response_code(403);

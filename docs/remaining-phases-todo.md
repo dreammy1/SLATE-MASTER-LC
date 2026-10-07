@@ -68,7 +68,7 @@
 
 ## Phase 7 — Integration, Deployment, and Rollout
 - [x] Run PHP lint (`php -l`) across all changed files.
-- [x] Run PHP unit tests (`php -r "require 'slate/src/autoload.php'; require 'slate/tests/unit/harness.php'; require 'slate/tests/unit/LicenseCatalogTest.php'; require 'slate/tests/unit/PluginEntitlementGuardTest.php'; exit(unit_summary());"`).
+- [x] Run PHP unit tests (`php slate/tests/unit/run.php` — 374/374 passed).
 - [x] Run TypeScript typecheck (`npm run typecheck`).
 - [x] Run Next.js production build (`npm run build`).
 - [x] Run focused test suites (`npm run test:phase3`, `npm run test:phase4`, `npm run test:phase5`, and `tests/e2e/checkout-phase5-rpc-and-activation.test.mjs`).

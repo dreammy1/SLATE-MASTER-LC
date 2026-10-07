@@ -2001,7 +2001,7 @@ if (!function_exists('slate_admin_nav_icon')) {
                 <span>
                     <strong><?= e($pluginNotice['title']) ?>:</strong> <?= e($pluginNotice['message']) ?>
                 </span>
-                <a href="<?= e($pluginNotice['url'] ?? (SLATE_URL . '/admin/my-licenses.php')) ?>" class="btn btn-sm btn-primary" style="white-space:nowrap; text-decoration:none;">
+                <a href="<?= e($pluginNotice['url'] ?? (defined('SLATE_URL') ? SLATE_URL . '/admin/my-licenses.php' : 'my-licenses.php')) ?>" class="btn btn-sm btn-primary" style="white-space:nowrap; text-decoration:none;">
                     <?= e($pluginNotice['action'] ?? 'Renew License') ?>
                 </a>
             </div>

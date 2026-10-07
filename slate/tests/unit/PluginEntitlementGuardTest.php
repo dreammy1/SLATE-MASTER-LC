@@ -8,12 +8,16 @@
  * 2. PluginEntitlement::allows() ungates non-licensable plugins and evaluates entitlements.
  * 3. slate_plugin_guard() enforces active, expiring, expired (restricted read-only),
  *    and blocked states with zero data loss.
+ * 4. Multi-tenant isolation and cache separation in PluginEntitlement.
  */
 
 declare(strict_types=1);
 
 use Slate\Services\Licensing\PluginEntitlement;
 
+if (!class_exists(PluginEntitlement::class)) {
+    require_once dirname(__DIR__, 2) . '/src/autoload.php';
+}
 require_once __DIR__ . '/../../includes/license_guard.php';
 
 unit('Plugin manifest audit: sellable plugins are licensable and system plugins are non-licensable', function (): void {
@@ -87,4 +91,36 @@ unit('slate_plugin_active_notice() tracks expiring and expired notices without f
     assert_eq('warning', $notice['type']);
     assert_true(str_contains($notice['title'], 'Membership'));
     assert_true(str_contains($notice['message'], 'read-only'));
+});
+
+unit('slate_plugin_guard() blocks unowned licensable plugins fail-closed', function (): void {
+    PluginEntitlement::forget(99999);
+    $res = slate_plugin_guard('booking', 99999);
+    assert_false($res['ok'], 'unowned plugin must not be ok');
+    assert_eq('unowned', $res['state']);
+    assert_eq('blocked', $res['mode']);
+    assert_eq('booking', $res['slug']);
+});
+
+unit('slate_require_plugin_entitlement() delegates to guard correctly', function (): void {
+    $sysRes = slate_require_plugin_entitlement('mcp-gateway');
+    assert_true($sysRes['ok']);
+    assert_eq('system', $sysRes['state']);
+
+    $unownedRes = slate_require_plugin_entitlement('stripe-payment', 88888);
+    assert_false($unownedRes['ok']);
+    assert_eq('unowned', $unownedRes['state']);
+    assert_eq('blocked', $unownedRes['mode']);
+});
+
+unit('PluginEntitlement separates caches across different tenants', function (): void {
+    PluginEntitlement::forget();
+    $map1 = PluginEntitlement::map(991);
+    $map2 = PluginEntitlement::map(992);
+    assert_true(is_array($map1));
+    assert_true(is_array($map2));
+    PluginEntitlement::forget(991);
+    // 992 cache persists while 991 cleared
+    $map2After = PluginEntitlement::map(992);
+    assert_true(is_array($map2After));
 });

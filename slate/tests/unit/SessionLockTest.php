@@ -43,13 +43,18 @@ function slock_probe(array $args, bool $background = false): array
 
     if ($background) {
         // Detach, so the caller can race a second opener against it.
-        $h = popen($cmd . ' > /dev/null 2>&1 &', 'r');
+        if (DIRECTORY_SEPARATOR === '\\') {
+            $h = popen('start "" /B ' . $cmd . ' > NUL 2>&1', 'r');
+        } else {
+            $h = popen($cmd . ' > /dev/null 2>&1 &', 'r');
+        }
         if (is_resource($h)) pclose($h);
         return ['', 0];
     }
 
     $t0  = microtime(true);
-    $out = (string) shell_exec($cmd . ' 2>/dev/null');
+    $redirect = (DIRECTORY_SEPARATOR === '\\') ? ' 2>NUL' : ' 2>/dev/null';
+    $out = (string) shell_exec($cmd . $redirect);
     return [trim($out), (int) round((microtime(true) - $t0) * 1000)];
 }
 

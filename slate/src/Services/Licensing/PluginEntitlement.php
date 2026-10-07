@@ -40,8 +40,8 @@ class PluginEntitlement
     /** Does not run at all. */
     private const BLOCK = ['suspended', 'revoked', 'cancelled'];
 
-    /** Cached per request: the whole scan is a handful of queries. */
-    private static ?array $map = null;
+    /** @var array<int,array<string,mixed>> Cached per tenant */
+    private static array $map = [];
 
     /**
      * Everything the tenant is entitled to, in one pass.
@@ -50,10 +50,10 @@ class PluginEntitlement
      */
     public static function map(?int $tenantId = null): array
     {
-        if (self::$map !== null) {
-            return self::$map;
-        }
         $tenantId = $tenantId ?? (function_exists('current_tenant_id') ? current_tenant_id() : 1);
+        if (isset(self::$map[$tenantId])) {
+            return self::$map[$tenantId];
+        }
         $map = [];
 
         // (c) Package-derived entitlements. A package license carries the
@@ -69,8 +69,9 @@ class PluginEntitlement
             }
             $status = strtolower((string) ($row['status'] ?? 'none'));
             $expires = $row['expires_at'] ?? null;
+            $entitled = self::isEntitled($status, $expires);
             $map[$slug] = [
-                'entitled'     => self::isEntitled($status, $expires),
+                'entitled'     => $entitled,
                 'state'        => self::stateFor($status, $expires),
                 'source'       => (string) ($row['source'] ?? 'single'),
                 'status'       => $status,
@@ -81,21 +82,29 @@ class PluginEntitlement
             ];
         }
 
-        // Package rows fill in whatever an explicit license did not claim.
+        // Package rows fill in whatever an explicit license did not claim,
+        // or provide entitlement if an explicit license is expired/cancelled but package is active.
         foreach ($pkg as $slug => $info) {
             if (!isset($map[$slug])) {
+                $map[$slug] = $info;
+            } elseif (!$map[$slug]['entitled'] && !empty($info['entitled'])) {
+                // Active package entitlement takes precedence over older expired/cancelled single license
                 $map[$slug] = $info;
             }
         }
 
-        self::$map = $map;
+        self::$map[$tenantId] = $map;
         return $map;
     }
 
     /** Drop the per-request cache (after a purchase lands). */
-    public static function forget(): void
+    public static function forget(?int $tenantId = null): void
     {
-        self::$map = null;
+        if ($tenantId !== null) {
+            unset(self::$map[$tenantId]);
+        } else {
+            self::$map = [];
+        }
     }
 
     /**

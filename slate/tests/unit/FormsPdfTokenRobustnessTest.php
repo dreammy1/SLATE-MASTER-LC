@@ -29,7 +29,8 @@ function fptrt_probe(string $mode): array
 {
     $script = __DIR__ . '/fixtures/forms-pdf-token-probe.php';
     $cmd    = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($script) . ' ' . escapeshellarg($mode);
-    $raw    = shell_exec($cmd . ' 2>/dev/null');
+    $redirect = (DIRECTORY_SEPARATOR === '\\') ? ' 2>NUL' : ' 2>/dev/null';
+    $raw    = shell_exec($cmd . $redirect);
     $json   = json_decode((string) $raw, true);
     if (!is_array($json)) {
         throw new RuntimeException("probe '$mode' produced no JSON: " . var_export($raw, true));

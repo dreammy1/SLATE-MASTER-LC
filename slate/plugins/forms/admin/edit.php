@@ -12,6 +12,7 @@ require_once __DIR__ . '/_editor_ui.php';   // reusable record-editor UI kit
 
 Auth::require();
 Auth::requirePerm('forms.manage');
+if (function_exists('slate_require_plugin_entitlement')) { slate_require_plugin_entitlement('forms'); }
 FormsAPI::ensureSchema();
 
 $tid = current_tenant_id();

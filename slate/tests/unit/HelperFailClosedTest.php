@@ -22,7 +22,8 @@ function core1_probe(string $mode): array
 {
     $script = __DIR__ . '/fixtures/app-secret-probe.php';
     $cmd    = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($script) . ' ' . escapeshellarg($mode);
-    $raw    = shell_exec($cmd . ' 2>/dev/null');
+    $redirect = (DIRECTORY_SEPARATOR === '\\') ? ' 2>NUL' : ' 2>/dev/null';
+    $raw    = shell_exec($cmd . $redirect);
     $json   = json_decode((string) $raw, true);
     if (!is_array($json)) {
         throw new RuntimeException("probe '$mode' produced no JSON: " . var_export($raw, true));
@@ -132,7 +133,8 @@ unit('slate_db_time(): derives from the database clock, not PHP time()', functio
     // its definitions with function_exists, so a stub only wins if it is
     // declared before the file loads — and by now another test has loaded it.
     $script = __DIR__ . '/fixtures/db-clock-probe.php';
-    $raw    = shell_exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($script) . ' 2>/dev/null');
+    $redirect = (DIRECTORY_SEPARATOR === '\\') ? ' 2>NUL' : ' 2>/dev/null';
+    $raw    = shell_exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($script) . $redirect);
     $p      = json_decode((string) $raw, true);
 
     assert_true(is_array($p), 'clock probe produced JSON: ' . var_export($raw, true));

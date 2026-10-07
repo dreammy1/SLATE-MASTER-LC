@@ -13,6 +13,7 @@ require_once dirname(__DIR__) . '/includes/assets.php';
 
 Auth::require();
 Auth::requirePerm('coaching.manage_clients');
+if (function_exists('slate_require_plugin_entitlement')) { slate_require_plugin_entitlement('coaching'); }
 CoachingAPI::ensureSchema();
 
 $flash = null;
