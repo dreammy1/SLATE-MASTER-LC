@@ -16,6 +16,7 @@ require_once dirname(__DIR__) . '/MultilangTranslate.php';
 
 Auth::require();
 Auth::requirePerm('mlt.view');
+if (function_exists('slate_require_plugin_entitlement')) { slate_require_plugin_entitlement('multilang-translate'); }
 
 $pageTitle  = __('translations', 'Translations');
 // Highlights the same sidebar item as every other settings-area page

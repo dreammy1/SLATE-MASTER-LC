@@ -62,7 +62,7 @@ final class LicenseClient
                     : 'https://' . rtrim($host, '/');
             }
         }
-        return '';
+        return 'https://slate-master-dashboard.onrender.com';
     }
 
     /**

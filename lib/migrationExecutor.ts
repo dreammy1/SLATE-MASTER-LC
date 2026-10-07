@@ -521,8 +521,9 @@ export async function targetDeployFiles(params: {
   handshakeToken?: string;
   commitSha?: string;
   allowAgentUpgrade?: boolean;
+  cpanelCreds?: { host: string; user: string; apiToken: string };
 }): Promise<StepResult & { filesExtracted?: number }> {
-  const { target, localZipPath, handshakeToken, commitSha, allowAgentUpgrade } = params;
+  const { target, localZipPath, handshakeToken, commitSha, allowAgentUpgrade, cpanelCreds } = params;
   const agentUrl = getAgentUrl(target.siteUrl, target.fileManagerPath);
   if (!agentUrl) {
     return { ok: false, message: "Target auth.php URL could not be constructed." };
@@ -532,6 +533,7 @@ export async function targetDeployFiles(params: {
   }
   const token = handshakeToken || (target as any).handshakeToken || "slate_auto_" + Date.now();
 
+  let httpError = "";
   try {
     const zipBuffer = await fs.readFile(localZipPath);
     const filename = `slate-deploy-${Date.now()}.zip`;
@@ -563,23 +565,62 @@ export async function targetDeployFiles(params: {
       body: body as any,
     }, 600_000);
     const data = await parseJsonSafe(res);
-    if (!res.ok || data?.error) {
-      return { ok: false, message: data?.error || `Target deploy returned HTTP ${res.status}: ${JSON.stringify(data || {}).slice(0, 400)}` };
+    if (res.ok && !data?.error && data.status === "DEPLOYED") {
+      const filesExtracted = data.files_extracted || 0;
+      return {
+        ok: true,
+        message: `Target ${target.siteUrl} deployed: ${filesExtracted} files extracted to ${target.fileManagerPath}. ${data.message || ""}`,
+        filesExtracted,
+        transferredFiles: filesExtracted,
+        details: data,
+      };
     }
-    if (data.status !== "DEPLOYED") {
-      return { ok: false, message: `Target deploy status=${data.status}: ${data.message || ""}` };
-    }
-    const filesExtracted = data.files_extracted || 0;
-    return {
-      ok: true,
-      message: `Target ${target.siteUrl} deployed: ${filesExtracted} files extracted to ${target.fileManagerPath}. ${data.message || ""}`,
-      filesExtracted,
-      transferredFiles: filesExtracted,
-      details: data,
-    };
+    httpError = data?.error || (res.status === 413 ? "Uploaded archive exceeds server upload_max_filesize limit." : `Target deploy returned HTTP ${res.status}: ${JSON.stringify(data || {}).slice(0, 400)}`);
   } catch (err: any) {
-    return { ok: false, message: `Target deploy network error: ${err?.message || err}` };
+    httpError = `Target deploy network error: ${err?.message || err}`;
   }
+
+  // Fallback: Try cPanel Fileman upload if credentials are provided
+  const cpHost = cpanelCreds?.host || (target as any).cpanelHost || "";
+  const cpUser = cpanelCreds?.user || (target as any).cpanelUser || "";
+  const cpToken = cpanelCreds?.apiToken || (target as any).cpanelApiToken || "";
+  if (cpHost && cpUser && cpToken) {
+    try {
+      const { cpanelUploadFile, cpanelEnsureDir } = await import("./cpanel");
+      const remoteDir = target.fileManagerPath || "public_html/slate";
+      await cpanelEnsureDir({ host: cpHost, user: cpUser, apiToken: cpToken }, remoteDir).catch(() => null);
+      const up = await cpanelUploadFile({ host: cpHost, user: cpUser, apiToken: cpToken }, localZipPath, remoteDir);
+      if (up.ok) {
+        // Trigger deploy action pointing to local archive file
+        const extractRes = await safeFetch(withActionQuery(agentUrl, "deploy"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Slate-Token": token },
+          body: JSON.stringify({
+            action: "deploy",
+            token,
+            commit_sha: commitSha || "migration-master",
+            archive_file: path.basename(localZipPath),
+            allow_agent_upgrade: allowAgentUpgrade ? 1 : undefined,
+          }),
+        }, 120_000);
+        const extractData = await parseJsonSafe(extractRes);
+        if (extractRes.ok && extractData?.status === "DEPLOYED") {
+          const filesExtracted = extractData.files_extracted || 0;
+          return {
+            ok: true,
+            message: `Target ${target.siteUrl} deployed via cPanel upload fallback: ${filesExtracted} files extracted to ${target.fileManagerPath}. ${extractData.message || ""}`,
+            filesExtracted,
+            transferredFiles: filesExtracted,
+            details: extractData,
+          };
+        }
+      }
+    } catch {
+      // ignore fallback error and report httpError below
+    }
+  }
+
+  return { ok: false, message: httpError || "Target deploy failed." };
 }
 
 /** Uploads public/auth.php directly to the client's app directory, updating the agent in-place. */
@@ -674,14 +715,16 @@ export async function linkCpanelCredentials(params: {
   handshakeToken?: string;
   cpanelUser: string;
   cpanelApiToken: string;
+  cpanelHost?: string;
 }): Promise<StepResult & { status?: string; cpanelUser?: string; dbCount?: number }> {
-  const { target, handshakeToken, cpanelUser, cpanelApiToken } = params;
+  const { target, handshakeToken, cpanelUser, cpanelApiToken, cpanelHost } = params;
   const agentUrl = getAgentUrl(target.siteUrl, target.fileManagerPath);
   if (!agentUrl) {
     return { ok: false, message: "Target auth.php URL could not be constructed." };
   }
   const user = String(cpanelUser || "").trim();
   const token = String(cpanelApiToken || "").trim();
+  const host = String(cpanelHost || (target as any).cpanelHost || "").trim();
   if (!user || !token) {
     return { ok: false, message: "cPanel username and API token are both required to link the agent." };
   }
@@ -696,6 +739,7 @@ export async function linkCpanelCredentials(params: {
         token: agentToken,
         cpanel_user: user,
         cpanel_api_token: token,
+        cpanel_host: host || undefined,
       }),
     }, 30_000);
     const data = await parseJsonSafe(res);
@@ -731,16 +775,26 @@ export async function targetProvisionDatabase(params: {
   appName?: string;
   cpanelUser?: string;
   cpanelApiToken?: string;
+  cpanelHost?: string;
+  existingDbName?: string;
+  existingDbUser?: string;
+  existingDbPass?: string;
+  existingDbHost?: string;
 }): Promise<StepResult & { credentials?: { db_name: string; db_user: string; db_password: string; db_host: string } }> {
-  const { target, handshakeToken, appName, cpanelUser, cpanelApiToken } = params;
+  const { target, handshakeToken, appName, cpanelUser, cpanelApiToken, cpanelHost, existingDbName, existingDbUser, existingDbPass, existingDbHost } = params;
   const agentUrl = getAgentUrl(target.siteUrl, target.fileManagerPath);
   if (!agentUrl) {
     return { ok: false, message: "Target auth.php URL could not be constructed." };
   }
   const token = handshakeToken || (target as any).handshakeToken || "slate_auto_" + Date.now();
 
-  // If target already has explicit dbName + dbUser + dbPass, skip provisioning and validate
-  if (target.dbName && target.dbUser && target.dbPass) {
+  const candDbName = existingDbName || target.dbName || "";
+  const candDbUser = existingDbUser || target.dbUser || "";
+  const candDbPass = existingDbPass || target.dbPass || "";
+  const candDbHost = existingDbHost || target.dbHost || "localhost";
+
+  // Probe existing credentials before reusing them
+  if (candDbName && candDbUser && candDbPass) {
     try {
       const probeRes = await safeFetch(withActionQuery(agentUrl, "database_probe"), {
         method: "POST",
@@ -748,34 +802,35 @@ export async function targetProvisionDatabase(params: {
         body: JSON.stringify({
           action: "database_probe",
           token,
-          db_host: target.dbHost || "localhost",
+          db_host: candDbHost,
           db_port: 3306,
-          db_name: target.dbName,
-          db_user: target.dbUser,
-          db_password: target.dbPass,
+          db_name: candDbName,
+          db_user: candDbUser,
+          db_password: candDbPass,
         }),
       }, 20_000);
       const probe = await parseJsonSafe(probeRes);
       if (probeRes.ok && probe.status === "CONNECTED") {
         return {
           ok: true,
-          message: `Target DB ${target.dbName} validated (${probe.table_count || 0} tables). Provisioning skipped: credentials pre-supplied.`,
+          message: `Target DB ${candDbName} verified and connected (${probe.table_count || 0} tables). Provisioning skipped: pre-supplied credentials verified.`,
           transferredTables: probe.table_count || 0,
           credentials: {
-            db_name: target.dbName,
-            db_user: target.dbUser,
-            db_password: target.dbPass,
-            db_host: target.dbHost || "localhost",
+            db_name: candDbName,
+            db_user: candDbUser,
+            db_password: candDbPass,
+            db_host: candDbHost,
           },
         };
       }
     } catch {
-      // fall through to attempt provisioning anyway
+      // fall through to attempt provisioning or repair
     }
   }
 
   // Auto-provision via auth.php database_create
   try {
+    const cpHost = cpanelHost || (target as any).cpanelHost || "";
     const cpUser = cpanelUser || target.cpanelUser || (target as any).hostingUsername || "";
     const cpToken = cpanelApiToken || (target as any).cpanelApiToken || "";
     const res = await safeFetch(withActionQuery(agentUrl, "database_create"), {
@@ -784,8 +839,10 @@ export async function targetProvisionDatabase(params: {
       body: JSON.stringify({
         action: "database_create",
         token,
+        cpanel_host: cpHost || undefined,
         cpanel_user: cpUser || undefined,
         cpanel_api_token: cpToken || undefined,
+        requested_name: candDbName || undefined,
         app_name: appName || target.siteUrl?.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8) || "slateapp",
       }),
     }, 45_000);
@@ -793,13 +850,41 @@ export async function targetProvisionDatabase(params: {
     if (!res.ok || data?.error) {
       return { ok: false, message: data?.error || `Target database_create HTTP ${res.status}: ${JSON.stringify(data || {}).slice(0, 400)}` };
     }
-    if (data.status !== "PROVISIONED") {
+    if (data.status !== "PROVISIONED" && data.status !== "REUSED") {
       return { ok: false, message: `Target provision status=${data.status}: ${data.message || ""}` };
     }
+    const creds = data.credentials;
+    if (!creds?.db_name || !creds?.db_user || !creds?.db_password) {
+      return { ok: false, message: "Target provisioned database but returned incomplete credentials." };
+    }
+
+    // MANDATORY: Probe newly returned credentials via database_probe. Never return ok: true without confirmed CONNECTED!
+    const verifyProbeRes = await safeFetch(withActionQuery(agentUrl, "database_probe"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Slate-Token": token },
+      body: JSON.stringify({
+        action: "database_probe",
+        token,
+        db_host: creds.db_host || "localhost",
+        db_port: 3306,
+        db_name: creds.db_name,
+        db_user: creds.db_user,
+        db_password: creds.db_password,
+      }),
+    }, 20_000);
+    const verifyProbe = await parseJsonSafe(verifyProbeRes);
+    if (!verifyProbeRes.ok || verifyProbe?.status !== "CONNECTED") {
+      const probeErr = verifyProbe?.error || verifyProbe?.message || "Connection probe failed";
+      return {
+        ok: false,
+        message: `Database credentials for ${creds.db_name} could not connect: ${probeErr}. Provisioning aborted.`,
+      };
+    }
+
     return {
       ok: true,
-      message: `Target DB provisioned: ${data.credentials?.db_name}. ${data.message || ""}`,
-      credentials: data.credentials,
+      message: `Target DB provisioned & verified: ${creds.db_name}. ${data.message || ""}`,
+      credentials: creds,
       details: data,
     };
   } catch (err: any) {

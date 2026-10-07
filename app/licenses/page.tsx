@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import FuturisticLayout from "@/components/FuturisticLayout";
 import {
   KeyRound, Ban, Play, Plus, RefreshCw, Search, Pencil, Trash2, Activity,
-  ShieldCheck, Eye, EyeOff, Server, Package as PkgIcon, Radio, HeartPulse, Wrench, Copy, Check, FileCog, AlertTriangle,
+  ShieldCheck, Eye, EyeOff, Server, Package as PkgIcon, Radio, HeartPulse, Wrench, Copy, Check, FileCog, AlertTriangle, Database,
 } from "lucide-react";
 
 /* ────────────
@@ -101,6 +101,11 @@ export default function ClientConsolePage() {
       license_expires_at: d.client.license.expiresAt ? String(d.client.license.expiresAt).slice(0, 10) : "",
       activation_limit: d.client.license.activationLimit || 3,
       remoteAccess: d.client.remoteAccess || "unknown",
+      dbName: d.order?.dbName || "",
+      dbUser: d.order?.dbUser || "",
+      dbHost: d.order?.dbHost || "",
+      dbPass: "",
+      clearDatabase: false,
     });
   }, []);
 
@@ -117,6 +122,7 @@ export default function ClientConsolePage() {
     setBusy(true);
     const payload: any = { ...edit };
     if (!payload.cpanelApiToken) delete payload.cpanelApiToken;
+    if (!payload.dbPass) delete payload.dbPass;
     if (payload.remoteAccess === "unknown") delete payload.remoteAccess;
     const d = await fetch(`/api/clients/${detail.client.id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
@@ -404,6 +410,9 @@ export default function ClientConsolePage() {
                 <KV k="Active plugins (stored)" v={(detail.client.activePlugins || []).join(", ") || "—"} />
                 <KV k="Payment method" v={detail.order?.payMethod || "—"} />
                 <KV k="Progress" v={`${detail.client.progressPercent}% · ${detail.client.progressStage || ""}`} />
+                <KV k="Database name" v={detail.order?.dbName || "—"} />
+                <KV k="Database user" v={detail.order?.dbUser || "—"} />
+                <KV k="Database host" v={detail.order?.dbHost || "localhost"} />
               </div>
             </Panel>
 
@@ -472,6 +481,16 @@ export default function ClientConsolePage() {
                   className="px-3 py-1 border-emerald-500 text-emerald-400 rounded disabled:opacity-50 flex items-center gap-1">
                   <FileCog className="w-3.5 h-3.5" /> Write config (.env)
                 </button>
+                <button disabled={busy}
+                  title="Clear database association from master order record and remote agent config."
+                  onClick={() => {
+                    if (confirm("Reset database association for this client? This clears the database credentials from master and agent config.")) {
+                      action(detail.client.id, { action: "reset_database" });
+                    }
+                  }}
+                  className="px-3 py-1 border-rose-500 text-rose-400 rounded disabled:opacity-50 flex items-center gap-1">
+                  <Database className="w-3.5 h-3.5" /> Reset DB association
+                </button>
               </div>
             </Panel>
 
@@ -513,6 +532,21 @@ export default function ClientConsolePage() {
                 <Field label="cPanel host" value={edit.cpanelHost} onChange={(v: string) => setEdit({ ...edit, cpanelHost: v })} />
                 <Field label="cPanel user" value={edit.cpanelUser} onChange={(v: string) => setEdit({ ...edit, cpanelUser: v })} />
                 <Field label="New cPanel API token (blank = keep)" value={edit.cpanelApiToken} onChange={(v: string) => setEdit({ ...edit, cpanelApiToken: v })} />
+                <Field label="Database name" value={edit.dbName} onChange={(v: string) => setEdit({ ...edit, dbName: v })} />
+                <Field label="Database user" value={edit.dbUser} onChange={(v: string) => setEdit({ ...edit, dbUser: v })} />
+                <Field label="Database host" value={edit.dbHost} onChange={(v: string) => setEdit({ ...edit, dbHost: v })} />
+                <Field label="New DB password (blank = keep)" value={edit.dbPass} onChange={(v: string) => setEdit({ ...edit, dbPass: v })} />
+                <div className="flex items-center gap-2 md:col-span-2 pt-1">
+                  <button type="button"
+                    onClick={() => {
+                      if (confirm("Clear all database credentials on save?")) {
+                        setEdit({ ...edit, clearDatabase: true, dbName: "", dbUser: "", dbHost: "", dbPass: "" });
+                      }
+                    }}
+                    className={`px-3 py-1 text-xs border rounded ${edit.clearDatabase ? "border-rose-500 bg-rose-500/20 text-rose-300" : "border-[#1e293b] text-slate-400 hover:text-white"}`}>
+                    {edit.clearDatabase ? "✓ Database will be cleared on save" : "Clear database association on save"}
+                  </button>
+                </div>
                 <div>
                   <label className="block text-slate-400 mb-1 uppercase">Package</label>
                   <select value={edit.package_id ?? ""} onChange={(e) => setEdit({ ...edit, package_id: e.target.value })}

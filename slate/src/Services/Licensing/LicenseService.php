@@ -195,6 +195,7 @@ final class LicenseService
         $license = self::forTenant($tenantId);
         if ($license === null) {
             return 'none';
+        }
         $status = (string)$license['status'];
         if (in_array($status, ['trial', 'active'], true) && !empty($license['expires_at'])
             && strtotime((string)$license['expires_at']) <= time()) {

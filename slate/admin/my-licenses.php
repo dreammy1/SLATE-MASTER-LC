@@ -38,6 +38,35 @@ $statusClass = static function (string $status): string {
 $checkoutCycle = 'yearly';
 $packageRenewUrl = $packageSlug !== '' ? shop_package_checkout_url($packageSlug, $checkoutCycle, $core['id'] ?? null) : '#token-error';
 
+$flash = null;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['_action'] ?? '') === 'activate_license') {
+    if (!csrf_verify()) {
+        $flash = ['type' => 'error', 'msg' => 'Security check failed. Please refresh and try again.'];
+    } else {
+        $key = trim((string)($_POST['license_key'] ?? ''));
+        $res = shop_activate_license_key($key);
+        if (!empty($res['ok'])) {
+            $flash = ['type' => 'success', 'msg' => $res['message'] ?? 'License successfully activated! Full access to your dashboard has been restored.'];
+            $catalog = shop_license_catalog();
+            $licenseItems = $catalog['items'] ?? [];
+            $core = $catalog['core'] ?? null;
+        } else {
+            $flash = ['type' => 'error', 'msg' => $res['error'] ?? 'Activation failed. Please verify your license key.'];
+        }
+    }
+}
+
+if (!$flash) {
+    if (!empty($_GET['expired_plugin'])) {
+        $pSlug = htmlspecialchars((string)$_GET['expired_plugin']);
+        $flash = ['type' => 'warning', 'msg' => "The '$pSlug' plugin license has expired. The plugin is operating in restricted read-only mode with zero data loss. Renew below to restore full access."];
+    } elseif (!empty($_GET['blocked_plugin'])) {
+        $pSlug = htmlspecialchars((string)$_GET['blocked_plugin']);
+        $pState = htmlspecialchars((string)($_GET['state'] ?? 'unlicensed'));
+        $flash = ['type' => 'error', 'msg' => "Access to the '$pSlug' plugin is restricted ($pState). All existing data is safe. Activate or purchase a license below."];
+    }
+}
+
 require __DIR__ . '/partials/header.php';
 ?>
 
@@ -70,6 +99,38 @@ require __DIR__ . '/partials/header.php';
 </div>
 
 <div class="content-body">
+    <?php if ($flash): ?>
+        <div class="alert alert-<?= match($flash['type'] ?? '') { 'error' => 'danger', 'warning' => 'warning', default => 'success' } ?>" role="status" style="margin-bottom:1.25rem; padding:0.85rem 1.15rem; border-radius:8px;">
+            <?= e($flash['msg']) ?>
+        </div>
+    <?php endif; ?>
+
+    <div class="card license-activation-card" style="margin-bottom:1.5rem; border:1px solid #00f0ff44; background:var(--card-bg, #111625); border-radius:10px;">
+        <div class="card-header" style="padding:1rem 1.25rem; border-bottom:1px solid var(--border-color); display:flex; flex-direction:column; gap:0.25rem;">
+            <h2 class="card-title" style="margin:0; font-size:1.1rem; color:var(--text-color); font-weight:600;">Activate License Key</h2>
+            <p class="text-muted mb-0" style="font-size:0.85rem; margin:0;">
+                Paste the license key received after deployment or purchase to activate this site and unlock all dashboard pages.
+            </p>
+        </div>
+        <div class="card-body" style="padding:1.25rem;">
+            <form method="post" action="" class="license-activate-form" style="display:flex; flex-wrap:wrap; gap:0.75rem; align-items:center;">
+                <?= csrf_field() ?>
+                <input type="hidden" name="_action" value="activate_license">
+                <div style="flex:1; min-width:280px;">
+                    <input type="text" name="license_key" id="licenseKeyInput" required
+                           placeholder="SLT-XXXX-XXXX-XXXX-XXXX"
+                           pattern="SLT-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}"
+                           title="Expected format: SLT-XXXX-XXXX-XXXX-XXXX"
+                           autocomplete="off" spellcheck="false"
+                           style="width:100%; box-sizing:border-box; font-family:monospace; font-size:1rem; letter-spacing:1px; padding:0.65rem 0.85rem; border-radius:6px; border:1px solid var(--border-color); background:var(--input-bg, #0a0d14); color:var(--text-color, #fff);" />
+                </div>
+                <button type="submit" class="btn btn-primary" id="activateLicenseBtn" style="padding:0.65rem 1.35rem; font-weight:600; cursor:pointer;">
+                    Activate License
+                </button>
+            </form>
+        </div>
+    </div>
+
     <div class="license-summary">
         <div class="license-stat">
             <div class="license-stat-label">Package</div>

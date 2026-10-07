@@ -125,6 +125,35 @@ const params = await p;
       if (body.notes !== undefined) orderPatch.notes = String(body.notes);
       if (body.progressStage !== undefined) orderPatch.progressStage = String(body.progressStage);
 
+      if (body.clearDatabase === true) {
+        orderPatch.dbName = "";
+        orderPatch.dbUser = "";
+        orderPatch.dbPassEncrypted = "";
+        orderPatch.dbHost = "";
+        if (rawOrder.error && (rawOrder.error.toLowerCase().includes("database") || rawOrder.error.toLowerCase().includes("access denied"))) {
+          orderPatch.error = "";
+        }
+        const targetSite = rawSite || (rawOrder.siteUrl ? ({
+          id: "temp",
+          domain: rawOrder.siteUrl,
+          path: "",
+          handshakeToken: (rawOrder as any).handshakeToken || (rawOrder as any).licenseKey || "",
+          name: rawOrder.siteUrl,
+          createdAt: "",
+        } as any) : null);
+        if (targetSite) {
+          await agentCall(targetSite, "database_reset").catch(() => null);
+        }
+      } else {
+        if (body.dbName !== undefined) orderPatch.dbName = String(body.dbName).trim();
+        if (body.dbUser !== undefined) orderPatch.dbUser = String(body.dbUser).trim();
+        if (body.dbHost !== undefined) orderPatch.dbHost = String(body.dbHost).trim();
+        if (body.dbPass !== undefined) {
+          const p = String(body.dbPass).trim();
+          orderPatch.dbPassEncrypted = p ? encryptSecret(p) : "";
+        }
+      }
+
       const nextFilePath = body.fileManagerPath !== undefined ? String(body.fileManagerPath).trim() : rawOrder.fileManagerPath;
       if (body.fileManagerPath !== undefined) {
         orderPatch.fileManagerPath = nextFilePath;

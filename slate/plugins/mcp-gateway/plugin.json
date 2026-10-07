@@ -11,5 +11,6 @@
                             "label":  "Manage MCP gateway access tokens"
                         }
                     ],
+    "system":  true,
     "licensable":  false
 }

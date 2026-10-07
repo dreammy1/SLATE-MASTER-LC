@@ -339,6 +339,50 @@ async function handlePushUpdate({ order, lic, site, pkg, body }: Ctx): Promise<N
   return NextResponse.json(res, { status: res.success ? 200 : 502 });
 }
 
+async function handleResetDatabase({ order, lic, site }: Ctx): Promise<NextResponse> {
+  let agentOk = false;
+  let agentMsg = "No remote agent reachable.";
+
+  const targetSite = site || (lic?.siteId ? await getSite(lic.siteId) : null);
+  if (targetSite) {
+    const call = await agentCall(targetSite, "database_reset");
+    agentOk = call.ok;
+    agentMsg = call.ok ? "Remote agent database reset." : (call.error || "Remote agent reset returned false");
+  } else if (order?.siteUrl) {
+    const dummySite: Site = {
+      id: "temp",
+      domain: order.siteUrl,
+      path: "",
+      handshakeToken: (order as any).handshakeToken || (order as any).licenseKey || "",
+      name: order.siteUrl,
+      createdAt: "",
+    } as any;
+    const call = await agentCall(dummySite, "database_reset");
+    agentOk = call.ok;
+    agentMsg = call.ok ? "Remote agent database reset." : (call.error || "Remote agent reset returned false");
+  }
+
+  if (order) {
+    await updateOrder(order.id, {
+      dbName: "",
+      dbUser: "",
+      dbPassEncrypted: "",
+      dbHost: "",
+      error: order.error && (order.error.toLowerCase().includes("database") || order.error.toLowerCase().includes("access denied")) ? "" : order.error,
+    });
+  }
+
+  if (site) {
+    await audit(site, `database reset: agent=${agentOk ? "ok" : agentMsg}`);
+  }
+
+  return NextResponse.json({
+    success: true,
+    message: "Database configuration cleared successfully.",
+    agent: { ok: agentOk, message: agentMsg },
+  });
+}
+
 const HANDLERS: Record<string, (c: Ctx) => Promise<NextResponse>> = {
   remote_access: handleRemoteAccess,
   rotate_key: handleRotateKey,
@@ -349,5 +393,6 @@ const HANDLERS: Record<string, (c: Ctx) => Promise<NextResponse>> = {
   reveal_key: handleRevealKey,
   write_config: handleWriteConfig,
   push_update: handlePushUpdate,
+  reset_database: handleResetDatabase,
 };
 

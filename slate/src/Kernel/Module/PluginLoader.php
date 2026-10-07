@@ -107,7 +107,7 @@ class PluginLoader {
                         $allowed = false;
                         try {
                             if (class_exists('\\Slate\\Services\\Licensing\\PluginEntitlement')) {
-                                $allowed = \Slate\Services\Licensing\PluginEntitlement::allows($slug, true);
+                                $allowed = \Slate\Services\Licensing\PluginEntitlement::allows($slug, true, null, true);
                             }
                         } catch (\Throwable $ge) {
                             // Pre-migration or missing table — fail open

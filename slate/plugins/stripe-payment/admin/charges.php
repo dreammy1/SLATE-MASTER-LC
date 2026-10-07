@@ -15,6 +15,7 @@ require_once dirname(__DIR__) . '/StripePaymentAPI.php';
 
 Auth::require();
 Auth::requirePerm('stripe.manage_charges');
+if (function_exists('slate_require_plugin_entitlement')) { slate_require_plugin_entitlement('stripe-payment'); }
 
 StripePaymentAPI::ensureChargesSchema();
 

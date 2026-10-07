@@ -160,6 +160,32 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
             <button onClick={load} className="px-4 py-2 rounded border border-[#1e293b] text-slate-300 text-xs">
               Refresh status
             </button>
+            {Boolean(o.dbName || o.status === "failed") && (
+              <button
+                onClick={async () => {
+                  if (!confirm("Reset database credentials for this order? This allows re-provisioning or fresh database setup.")) return;
+                  try {
+                    const res = await fetch(`/api/orders/${o.id}`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ action: "reset_database" }),
+                    });
+                    const d = await res.json();
+                    if (d.success) {
+                      alert("Database configuration cleared.");
+                      load();
+                    } else {
+                      alert(d.error || "Reset failed.");
+                    }
+                  } catch (e: any) {
+                    alert(e.message || "Failed to reset database.");
+                  }
+                }}
+                className="px-4 py-2 rounded border border-rose-500/50 text-rose-300 hover:bg-rose-500/10 text-xs"
+              >
+                Reset Database
+              </button>
+            )}
             <a href={`/api/orders/${o.id}/invoice`} target="_blank" rel="noreferrer"
               className="px-4 py-2 rounded border border-[#1e293b] text-slate-300 text-xs">
               🧾 Invoice
@@ -225,6 +251,7 @@ function SelfEditPanel({ order, onSaved }: { order: any; onSaved: () => void }) 
     hostingUsername: order.hostingUsername || order.cpanelUser || "",
     hostingServerUrl: order.hostingServerUrl || order.cpanelHost || "",
     payMethod: order.payMethod || "manual_bank",
+    clearDatabase: false,
   });
 
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
@@ -242,6 +269,7 @@ function SelfEditPanel({ order, onSaved }: { order: any; onSaved: () => void }) 
       payMethod: form.payMethod,
     };
     if (form.contactEmail && form.contactEmail !== order.contactEmail) patch.contactEmail = form.contactEmail;
+    if (form.clearDatabase) patch.clearDatabase = true;
 
     try {
       const { data: d } = await fetchJson(`/api/orders/${order.id}`, {
@@ -311,6 +339,18 @@ function SelfEditPanel({ order, onSaved }: { order: any; onSaved: () => void }) 
               <option value="manual_custom">Custom (manual approve)</option>
               <option value="stripe">Stripe (auto on webhook)</option>
             </select>
+          </div>
+
+          <div className="md:col-span-2 pt-1">
+            <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.clearDatabase}
+                onChange={(e) => setForm((f) => ({ ...f, clearDatabase: e.target.checked }))}
+                className="rounded border-[#1e293b] bg-[#0a0d14]"
+              />
+              Reset / clear database credentials (allows fresh database provisioning)
+            </label>
           </div>
 
           {error && <div className="md:col-span-2 rounded border-rose-500/50 bg-rose-500/10 p-3 text-[11px] text-rose-200">{error}</div>}

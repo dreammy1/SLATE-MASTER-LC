@@ -63,8 +63,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const norm = (u: string) => u.toLowerCase().replace(/\/+$/, "");
-    if (norm(lic.domain) !== norm(domain)) {
+    const norm = (u: string) =>
+      u.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/+$/, "");
+    const licNorm = norm(lic.domain);
+    const domainNorm = norm(domain);
+    const licHost = licNorm.split("/")[0];
+    const reqHost = domainNorm.split("/")[0];
+    const matchesDomain = !domain || licNorm === domainNorm || (licHost && reqHost && licHost === reqHost);
+
+    if (!matchesDomain) {
       return fail(
         `This key belongs to ${lic.domain}, not ${siteLabel}.`,
         403,

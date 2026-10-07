@@ -20,6 +20,8 @@ next-env.d.ts
 !.env.production.example
 deploy/.env.production
 slate/.env
+.slate_agent_config.json
+public/.slate_agent_config.json
 
 # ── Live database: the only copy of sites, licenses, orders,
 #    database credentials and handshake tokens. Keep it private.
@@ -56,3 +58,5 @@ Thumbs.db
 tmp/
 coverage/
 .nyc_output/
+.agents/
+.manus/

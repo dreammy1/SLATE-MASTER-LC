@@ -12,6 +12,7 @@ Auth::require();
 if (!Auth::can('membership.view') && !Auth::isSuperAdmin()) {
     Auth::requirePerm('membership.view');
 }
+if (function_exists('slate_require_plugin_entitlement')) { slate_require_plugin_entitlement('membership'); }
 MembershipAPI::ensureSchema();
 
 $pageTitle  = 'Membership';

@@ -127,3 +127,205 @@ function shop_license_status(?string $status, ?string $expiresAt = null): string
 {
     return LicenseCatalog::status($status, $expiresAt);
 }
+
+/**
+ * Activate a license key (core package or standalone plugin) via Master authority.
+ * Installs the key in .env, updates the local database (licenses / plugin_licenses),
+ * writes restrictions, and flushes entitlement caches.
+ *
+ * @return array{ok:bool, message?:string, error?:string}
+ */
+function shop_activate_license_key(string $key): array
+{
+    $key = trim($key);
+    if (!preg_match('/^SLT-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/i', $key)) {
+        return ['ok' => false, 'error' => 'Invalid license key format. Expected SLT-XXXX-XXXX-XXXX-XXXX.'];
+    }
+
+    $masterUrl = shop_master_url();
+    if ($masterUrl === '') {
+        if (class_exists('\\Slate\\Services\\Licensing\\LicenseClient')) {
+            $masterUrl = \Slate\Services\Licensing\LicenseClient::masterUrl();
+        }
+    }
+    if ($masterUrl === '') {
+        $masterUrl = (string)(function_exists('env') ? env('LICENSE_MASTER_URL', '') : (getenv('LICENSE_MASTER_URL') ?: ''));
+    }
+    if ($masterUrl === '') {
+        $masterUrl = 'https://slate-master-dashboard.onrender.com';
+    }
+
+    $domain = '';
+    if (defined('SLATE_URL') && SLATE_URL !== '') {
+        $domain = SLATE_URL;
+    } elseif (function_exists('env') && env('APP_URL')) {
+        $domain = env('APP_URL');
+    } elseif (!empty($_SERVER['HTTP_HOST'])) {
+        $scheme = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
+        $domain = $scheme . '://' . $_SERVER['HTTP_HOST'];
+    }
+
+    $payload = json_encode(['key' => $key, 'domain' => $domain]);
+    $endpoint = rtrim($masterUrl, '/') . '/api/licenses/activate';
+    $raw = false;
+
+    if (function_exists('curl_init')) {
+        $ch = curl_init($endpoint);
+        if ($ch) {
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Content-Type: application/json',
+                'Accept: application/json',
+            ]);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+            $raw = curl_exec($ch);
+            curl_close($ch);
+        }
+    }
+    if ($raw === false || $raw === '' || $raw === null) {
+        $ctx = stream_context_create([
+            'http' => [
+                'method'  => 'POST',
+                'header'  => "Content-Type: application/json\r\nAccept: application/json\r\n",
+                'content' => $payload,
+                'timeout' => 15,
+            ],
+        ]);
+        $raw = @file_get_contents($endpoint, false, $ctx);
+    }
+    if (!$raw) {
+        return ['ok' => false, 'error' => 'Could not connect to Master license authority. Please check your network and try again.'];
+    }
+
+    $data = json_decode((string)$raw, true);
+    if (!is_array($data) || empty($data['success'])) {
+        $errMsg = is_array($data) && !empty($data['error']) ? (string)$data['error'] : 'License validation failed.';
+        return ['ok' => false, 'error' => $errMsg];
+    }
+
+    // 1. Install LICENSE_KEY into in-memory environment and .env file
+    $_ENV['LICENSE_KEY'] = $key;
+    putenv("LICENSE_KEY={$key}");
+
+    $root = defined('SLATE_ROOT') ? SLATE_ROOT : dirname(__DIR__);
+    $envPath = $root . '/.env';
+    if (file_exists($envPath)) {
+        $env = (string)@file_get_contents($envPath);
+        $lines = explode("\n", $env);
+        $newLine = 'LICENSE_KEY="' . addslashes($key) . '"';
+        $found = false;
+        foreach ($lines as $i => $ln) {
+            if (preg_match('/^LICENSE_KEY=.*$/', rtrim($ln, "\r"))) {
+                $lines[$i] = $newLine;
+                $found = true;
+                break;
+            }
+        }
+        if (!$found) {
+            $env = rtrim($env, "\r\n") . "\n" . $newLine;
+        } else {
+            $env = implode("\n", $lines);
+        }
+        @file_put_contents($envPath, $env);
+    } else {
+        @file_put_contents($envPath, "LICENSE_KEY=\"" . addslashes($key) . "\"\n");
+    }
+
+    $tenantId = function_exists('current_tenant_id') ? (int)current_tenant_id() : 1;
+    $lic = $data['license'] ?? [];
+    $pkg = $data['package'] ?? null;
+    $pluginEntitlements = $data['pluginEntitlements'] ?? [];
+
+    $keyHash = hash('sha256', $key);
+    $keyLast4 = substr($key, -4);
+    $status = (string)($lic['status'] ?? 'active');
+    $expiresAt = !empty($lic['expires_at']) ? (string)$lic['expires_at'] : null;
+    $billingCycle = !empty($lic['billing_cycle']) ? (string)$lic['billing_cycle'] : 'yearly';
+    $packageSlug = $pkg['slug'] ?? ($lic['package_slug'] ?? null);
+
+    // 2. Database persistence
+    if (class_exists('Database')) {
+        try {
+            if ($pkg !== null || !empty($lic['package_id']) || $packageSlug !== null) {
+                $existing = \Database::row("SELECT id FROM licenses WHERE tenant_id = ? ORDER BY id DESC LIMIT 1", [$tenantId]);
+                if ($existing && !empty($existing['id'])) {
+                    \Database::query(
+                        "UPDATE licenses SET
+                          license_key_hash = ?,
+                          status = ?,
+                          expires_at = ?,
+                          domain = COALESCE(?, domain),
+                          billing_cycle = ?,
+                          package_slug = COALESCE(?, package_slug),
+                          last_validated_at = NOW(),
+                          updated_at = NOW()
+                         WHERE id = ?",
+                        [$keyHash, $status, $expiresAt, $domain, $billingCycle, $packageSlug, $existing['id']]
+                    );
+                } else {
+                    \Database::insert('licenses', [
+                        'tenant_id'         => $tenantId,
+                        'license_key_hash'  => $keyHash,
+                        'status'            => $status,
+                        'domain'            => $domain,
+                        'billing_cycle'     => $billingCycle,
+                        'package_slug'      => $packageSlug,
+                        'expires_at'        => $expiresAt,
+                        'activation_limit'  => 1,
+                        'activation_count'  => 1,
+                        'last_validated_at' => date('Y-m-d H:i:s'),
+                    ]);
+                }
+
+                if (!empty($pkg['restrictions']) && is_array($pkg['restrictions'])) {
+                    $restPath = $root . '/.slate_restrictions.json';
+                    @file_put_contents($restPath, json_encode(array_values($pkg['restrictions']), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+                }
+            }
+
+            if (!empty($pluginEntitlements) && is_array($pluginEntitlements)) {
+                foreach ($pluginEntitlements as $slug => $ent) {
+                    $entStatus = (string)($ent['status'] ?? 'active');
+                    $entSource = (string)($ent['source'] ?? 'package');
+                    $entExpires = !empty($ent['expires_at']) ? (string)$ent['expires_at'] : $expiresAt;
+                    \Database::query(
+                        "INSERT INTO plugin_licenses
+                          (tenant_id, plugin_slug, domain, license_key_hash, license_key_last4,
+                           status, billing_cycle, source, source_package_slug, starts_at, expires_at,
+                           activation_limit, activation_count, last_validated_at, created_at, updated_at)
+                         VALUES
+                          (?, ?, ?, ?, ?,
+                           ?, ?, ?, ?, NOW(), ?,
+                           1, 1, NOW(), NOW(), NOW())
+                         ON DUPLICATE KEY UPDATE
+                          status = VALUES(status),
+                          expires_at = VALUES(expires_at),
+                          source = VALUES(source),
+                          source_package_slug = VALUES(source_package_slug),
+                          last_validated_at = NOW(),
+                          updated_at = NOW()",
+                        [
+                            $tenantId, $slug, $domain, $keyHash, $keyLast4,
+                            $entStatus, $billingCycle, $entSource, $packageSlug, $entExpires
+                        ]
+                    );
+                }
+            }
+        } catch (\Throwable $e) {
+            // best-effort DB update
+        }
+    }
+
+    // 3. Invalidate entitlement cache
+    if (class_exists('\\Slate\\Services\\Licensing\\PluginEntitlement')) {
+        \Slate\Services\Licensing\PluginEntitlement::forget();
+    }
+
+    return [
+        'ok'      => true,
+        'message' => 'License key successfully activated! Full access has been restored.',
+    ];
+}

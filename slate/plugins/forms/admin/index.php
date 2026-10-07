@@ -8,6 +8,7 @@ require_once dirname(__DIR__) . '/FormsAPI.php';
 
 Auth::require();
 Auth::requirePerm('forms.view');
+if (function_exists('slate_require_plugin_entitlement')) { slate_require_plugin_entitlement('forms'); }
 FormsAPI::ensureSchema();
 
 $pageTitle  = __('forms', 'Forms');

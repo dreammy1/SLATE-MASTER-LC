@@ -47,6 +47,9 @@ const EXCLUDE_RE = [
   /(^|\/)\.slate_restrictions\.json$/i,
   /(^|\/)\.slate_import_/i,
   /(^|\/)test-db-.*\.log$/i,
+  /(^|\/)docs(\/|$)/i,
+  /(^|\/)tests(\/|$)/i,
+  /\.md$/i,
 ];
 
 function isExcluded(entryName: string): boolean {
@@ -66,7 +69,17 @@ async function normalizeZipRoot(zipPath: string): Promise<{ stripped: string | n
 
   // Does every file share the same first path segment?
   const roots = new Set(entries.map((e) => e.entryName.split("/")[0]));
-  if (roots.size !== 1) return { stripped: null, entries: entries.length };
+  if (roots.size !== 1) {
+    let purged = false;
+    for (const e of zip.getEntries()) {
+      if (isExcluded(e.entryName)) {
+        zip.deleteFile(e.entryName);
+        purged = true;
+      }
+    }
+    if (purged) await fs.writeFile(zipPath, zip.toBuffer());
+    return { stripped: null, entries: entries.length };
+  }
 
   const root = entries[0].entryName.split("/")[0];
   // Only treat it as a wrapper when every entry really sits under it.

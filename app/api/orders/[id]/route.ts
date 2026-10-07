@@ -135,6 +135,8 @@ const id = (await ctx.params).id;
         progressStage: order.progressStage,
         error: order.error,
         dbName: order.dbName,
+        dbUser: order.dbUser,
+        dbHost: order.dbHost,
         licenseKeyLast4: order.licenseKeyLast4,
         activateUrl,
         createdAt: order.createdAt,
@@ -152,8 +154,40 @@ const id = (await ctx.params).id;
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
 const id = (await ctx.params).id;
 
-  // Probe (order-form Test button): stateless, stores nothing.
+
   const probeBody = await req.json().catch(() => ({}));
+
+  if (probeBody?.action === "reset_database") {
+    try {
+      const order = await getOrder(id);
+      if (!order) return NextResponse.json({ success: false, error: "Order not found." }, { status: 404 });
+      if (order.siteUrl) {
+        const dummySite = {
+          id: "temp",
+          domain: order.siteUrl,
+          path: "",
+          handshakeToken: (order as any).handshakeToken || (order as any).licenseKey || "",
+          name: order.siteUrl,
+          createdAt: "",
+        } as any;
+        const { agentCall } = await import("@/lib/clientRegistry");
+        await agentCall(dummySite, "database_reset").catch(() => null);
+      }
+      await updateOrder(order.id, {
+        dbName: "",
+        dbUser: "",
+        dbPassEncrypted: "",
+        dbHost: "",
+        error: order.error && (order.error.toLowerCase().includes("database") || order.error.toLowerCase().includes("access denied")) ? "" : order.error,
+      });
+      return NextResponse.json({ success: true, message: "Database configuration cleared from order." });
+    } catch (err: any) {
+      return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    }
+  }
+
+  // Probe (order-form Test button): stateless, stores nothing.
+
   if (id === "__probe__" || probeBody?.action === "test_cpanel") {
     const h = String(probeBody?.cpanelHost || "").trim();
     const u = String(probeBody?.cpanelUser || "").trim();
@@ -229,6 +263,37 @@ const id = (await ctx.params).id;
     if (body.cpanelHost !== undefined) { patch.cpanelHost = String(body.cpanelHost).trim(); edited.push("cpanelHost"); }
     if (body.cpanelUser !== undefined) { patch.cpanelUser = String(body.cpanelUser).trim(); edited.push("cpanelUser"); }
     if (body.cpanelApiToken) { patch.cpanelApiTokenEncrypted = encryptSecret(String(body.cpanelApiToken).trim()); edited.push("cpanelApiToken"); }
+
+    if (body.clearDatabase === true) {
+      patch.dbName = "";
+      patch.dbUser = "";
+      patch.dbPassEncrypted = "";
+      patch.dbHost = "";
+      if (order.error && (order.error.toLowerCase().includes("database") || order.error.toLowerCase().includes("access denied"))) {
+        patch.error = "";
+      }
+      edited.push("clearDatabase");
+      if (order.siteUrl) {
+        const dummySite = {
+          id: "temp",
+          domain: order.siteUrl,
+          path: "",
+          handshakeToken: (order as any).handshakeToken || (order as any).licenseKey || "",
+          name: order.siteUrl,
+          createdAt: "",
+        } as any;
+        import("@/lib/clientRegistry").then(({ agentCall }) => agentCall(dummySite, "database_reset")).catch(() => null);
+      }
+    } else {
+      if (body.dbName !== undefined) { patch.dbName = String(body.dbName).trim(); edited.push("dbName"); }
+      if (body.dbUser !== undefined) { patch.dbUser = String(body.dbUser).trim(); edited.push("dbUser"); }
+      if (body.dbHost !== undefined) { patch.dbHost = String(body.dbHost).trim(); edited.push("dbHost"); }
+      if (body.dbPass !== undefined) {
+        const p = String(body.dbPass).trim();
+        patch.dbPassEncrypted = p ? encryptSecret(p) : "";
+        edited.push("dbPass");
+      }
+    }
 
     // ── Frictionless field names (one domain drives URL + upload path) ──
     // The new checkout/edit form sends siteDomain / hostingUsername /
@@ -320,6 +385,9 @@ const id = (await ctx.params).id;
         cpanelHost: updated.cpanelHost,
         cpanelUser: updated.cpanelUser,
         cpanelApiTokenSet: Boolean(updated.cpanelApiTokenEncrypted),
+        dbName: updated.dbName,
+        dbUser: updated.dbUser,
+        dbHost: updated.dbHost,
         contactName: updated.contactName,
         contactPhone: updated.contactPhone,
         contactEmail: maskEmail(updated.contactEmail),

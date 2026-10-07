@@ -44,7 +44,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const fail = async (err: Error, failedStage?: string) => {
     const sn = failedStage || state.stage;
     await updateOrder(id, { status: "failed", progressPercent: state.percent, progressStage: sn, error: err.message }).catch(() => {});
-    await emit({ error: err.message, failedStage: sn, percent: state.percent, guide: guideForStage(sn, err.message), warnings: state.warnings });
+    await emit({ message: err.message, error: err.message, failedStage: sn, percent: state.percent, guide: guideForStage(sn, err.message), warnings: state.warnings });
   };
   void updateOrder(id, { status: "install_running", progressPercent: 1, progressStage: "CONNECT", error: "" }).catch(() => {});
   (async () => {
@@ -147,20 +147,65 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       const mUser = String(body?.dbUser || "");
       const mPass = String(body?.dbPass || "");
       if (mName && mUser && mPass) {
+        const mHost = String(body?.dbHost || "localhost");
+        await emit({ stage: state.stage, percent: 15, message: `Testing supplied credentials for database (${mName})…` });
+        try {
+          const probeRes = await agentFetch(`${agentUrl}?action=database_probe`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-Slate-Token": token },
+            body: JSON.stringify({
+              action: "database_probe",
+              token,
+              db_host: mHost,
+              db_port: 3306,
+              db_name: mName,
+              db_user: mUser,
+              db_password: mPass,
+            }),
+          }, 20_000);
+          const probeData = await readAgentResponse(probeRes);
+          const probeJson = probeData.json || {};
+          if (!probeRes.ok || (probeJson.status !== "CONNECTED" && probeJson.data?.status !== "CONNECTED")) {
+            state.percent = 16;
+            const probeErr = probeJson.error || probeJson.data?.error || probeData.message || "Database connection test failed.";
+            await fail(new Error(`Provided database credentials for ${mName} could not connect: ${probeErr}`), "DATABASE");
+            return;
+          }
+        } catch (probeEx: any) {
+          state.percent = 16;
+          await fail(new Error(`Could not verify database credentials for ${mName}: ${probeEx?.message || probeEx}`), "DATABASE");
+          return;
+        }
+
         dbName = mName;
         dbUser = mUser;
         dbPass = mPass;
-        dbHost = String(body?.dbHost || "localhost");
+        dbHost = mHost;
+        target.dbName = dbName;
+        target.dbUser = dbUser;
+        target.dbPass = dbPass;
+        target.dbHost = dbHost;
         await updateOrder(id, { dbName, dbUser, dbHost, dbPassEncrypted: encryptSecret(dbPass) }).catch(() => {});
-      } else if (!dbName || !dbUser || !dbPass) {
-        // Run Zero-Touch auto-provisioning via auth.php (CLI uapi / PDO / auto-discovery)
-        await emit({ stage: state.stage, percent: 14, message: "Provisioning database automatically…" });
+        await emit({ stage: state.stage, percent: 20, message: `Using verified form credentials for database (${dbName}).` });
+      } else {
+        // Run Zero-Touch auto-provisioning or validated reuse via auth.php
+        target.dbName = dbName;
+        target.dbUser = dbUser;
+        target.dbPass = dbPass;
+        target.dbHost = dbHost;
+
+        await emit({ stage: state.stage, percent: 14, message: "Validating or provisioning database automatically…" });
         const prov = await targetProvisionDatabase({
           target,
           handshakeToken: token,
           appName: "slateapp",
           cpanelUser: order.cpanelUser || (order as any).hostingUsername || "",
           cpanelApiToken,
+          cpanelHost: order.cpanelHost || target.cpanelHost || "",
+          existingDbName: dbName,
+          existingDbUser: dbUser,
+          existingDbPass: dbPass,
+          existingDbHost: dbHost,
         });
 
         if (prov.ok && prov.credentials) {
@@ -174,18 +219,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
           target.dbPass = dbPass;
           target.dbHost = dbHost;
           await updateOrder(id, { dbName, dbUser, dbHost, dbPassEncrypted: encryptSecret(dbPass) }).catch(() => {});
+          await emit({ stage: state.stage, percent: 20, message: prov.message || `Database ready (${dbName}).` });
         } else {
-          // If auto-provisioning could not create automatically and no DB details were sent:
           state.percent = 15;
           await fail(new Error(prov.message || "We could not create the database automatically. Please enter database details or verify cPanel permissions."), "DATABASE");
           return;
         }
-      } else {
-        target.dbName = dbName;
-        target.dbUser = dbUser;
-        target.dbPass = dbPass;
-        target.dbHost = dbHost;
-        await emit({ stage: state.stage, percent: 20, message: `Reusing existing database (${dbName}). Skipped duplicate creation.` });
       }
       state.percent = 25;
       await emit({ stage: state.stage, percent: 25, message: `Database ready (${dbName}).` });
@@ -198,7 +237,17 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       await emit({ stage: state.stage, percent: 45, message: rel.message });
       const push = await pushInstaller(target, token);
       if (!push.ok) state.warnings.push(push.message);
-      const dep = await targetDeployFiles({ target, localZipPath: zipPath, handshakeToken: token, commitSha: rel.sha || "manual-install" });
+      const dep = await targetDeployFiles({
+        target,
+        localZipPath: zipPath,
+        handshakeToken: token,
+        commitSha: rel.sha || "manual-install",
+        cpanelCreds: (cpanelApiToken && (order.cpanelUser || target.cpanelUser)) ? {
+          host: order.cpanelHost || target.cpanelHost || "",
+          user: order.cpanelUser || target.cpanelUser || "",
+          apiToken: cpanelApiToken,
+        } : undefined,
+      });
       if (!dep.ok) { state.percent = 50; await fail(new Error(dep.message), "DEPLOY"); return; }
       state.percent = 60;
       await emit({ stage: state.stage, percent: 60, message: dep.message });

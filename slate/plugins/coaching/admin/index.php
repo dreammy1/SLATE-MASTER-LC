@@ -14,6 +14,7 @@ if (!Auth::can('coaching.view_clients')
     && !Auth::isSuperAdmin()) {
     Auth::requirePerm('coaching.view_clients');
 }
+if (function_exists('slate_require_plugin_entitlement')) { slate_require_plugin_entitlement('coaching'); }
 CoachingAPI::ensureSchema();
 
 $pageTitle  = 'Coaching';

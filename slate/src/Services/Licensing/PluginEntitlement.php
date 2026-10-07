@@ -105,7 +105,7 @@ class PluginEntitlement
      * and is never gated - returning true here is what keeps media-library and
      * mcp-gateway working.
      */
-    public static function allows(string $slug, bool $licensable, ?int $tenantId = null): bool
+    public static function allows(string $slug, bool $licensable, ?int $tenantId = null, bool $allowExpired = false): bool
     {
         if (!$licensable) {
             return true;
@@ -113,6 +113,9 @@ class PluginEntitlement
         $info = self::map($tenantId)[$slug] ?? null;
         if ($info === null) {
             return false; // licensable, nothing on record -> must be bought
+        }
+        if ($allowExpired && ($info['state'] ?? '') === 'expired') {
+            return true;
         }
         return (bool) $info['entitled'];
     }

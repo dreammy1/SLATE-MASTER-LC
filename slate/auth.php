@@ -196,17 +196,27 @@ function cpanelUapi($module, $func, array $params = [], $config = null) {
         throw new Exception('cURL PHP extension is required for cPanel UAPI calls.');
     }
 
+    $cpHost = $config['cpanel_host'] ?? '';
     $currentHost = !empty($_SERVER['HTTP_HOST']) ? preg_replace('/:[0-9]+$/', '', $_SERVER['HTTP_HOST']) : '';
     if (empty($currentHost) && !empty($_SERVER['SERVER_NAME'])) {
         $currentHost = $_SERVER['SERVER_NAME'];
     }
 
     $endpoints = [];
+    if (!empty($cpHost)) {
+        $cleanCpH = preg_replace('/^https?:\/\//i', '', $cpHost);
+        $cleanCpH = preg_replace('/:[0-9]+$/', '', $cleanCpH);
+        $cleanCpH = trim(explode('/', $cleanCpH)[0]);
+        if (!empty($cleanCpH)) {
+            $endpoints[] = "https://{$cleanCpH}:2083/execute/{$module}/{$func}";
+        }
+    }
     if ($currentHost && $currentHost !== 'localhost' && $currentHost !== '127.0.0.1') {
         $endpoints[] = "https://{$currentHost}:2083/execute/{$module}/{$func}";
     }
     $endpoints[] = "https://127.0.0.1:2083/execute/{$module}/{$func}";
     $endpoints[] = "https://localhost:2083/execute/{$module}/{$func}";
+    $endpoints = array_values(array_unique($endpoints));
 
     $lastHttpCode = 0;
     $lastError    = '';
@@ -328,11 +338,12 @@ if (!is_array($payload)) $payload = $_POST;
 // individual if-blocks below. Used for diagnostics → stale-agent detection.
 $SLATE_SUPPORTED_ACTIONS = [
     'diagnostics','ping','handshake','cpanel_setup',
-    'database_scan','database_create','database_probe',
+    'database_scan','database_create','database_probe','database_reset',
     'deploy','package_files','download_package',
     'dump_database','sql_import','write_config',
     'license_status','license_set_key','license_enforce',
     'site_overview',
+    'get_checkout_profile','put_checkout_profile','plugin_license_sync',
 ];
 
 // Parse action: URL query string > $_POST['action'] (multipart/form-data)
@@ -420,6 +431,7 @@ if ($action === 'cpanel_setup') {
 
     $cpUser  = trim($payload['cpanel_user']      ?? '');
     $cpToken = trim($payload['cpanel_api_token'] ?? '');
+    $cpHost  = trim($payload['cpanel_host']      ?? '');
 
     if (empty($cpUser) || empty($cpToken)) {
         respond(400, ['error' => 'Both cpanel_user and cpanel_api_token are required.']);
@@ -429,6 +441,9 @@ if ($action === 'cpanel_setup') {
     $config = loadConfig();
     $config['cpanel_user']      = $cpUser;
     $config['cpanel_api_token'] = $cpToken;
+    if (!empty($cpHost)) {
+        $config['cpanel_host']  = $cpHost;
+    }
     saveConfig($config);
 
     try {
@@ -506,9 +521,11 @@ if ($action === 'database_create') {
         $cpUser = detectLocalCpanelUser();
     }
     $cpToken = trim((string)($payload['cpanel_api_token'] ?? $config['cpanel_api_token'] ?? ''));
+    $cpHost  = trim((string)($payload['cpanel_host'] ?? $config['cpanel_host'] ?? ''));
     if (!empty($cpUser))  $config['cpanel_user'] = $cpUser;
     if (!empty($cpToken)) $config['cpanel_api_token'] = $cpToken;
-    if (!empty($cpUser) || !empty($cpToken)) saveConfig($config);
+    if (!empty($cpHost))  $config['cpanel_host'] = $cpHost;
+    if (!empty($cpUser) || !empty($cpToken) || !empty($cpHost)) saveConfig($config);
 
     // ── Pre-check: Check if auth.php ALREADY created / provisioned a DB for this Slate app ──
     // On retry / redeploy, do NOT create another new database: reuse the record, test connection, and continue!
@@ -571,6 +588,83 @@ if ($action === 'database_create') {
         }
     }
 
+    $requestedName = trim((string)($payload['requested_name'] ?? ''));
+    $candidateDb = $requestedName;
+    if (empty($candidateDb) && !empty($config['provisioned_db']['db_name'])) {
+        $candidateDb = $config['provisioned_db']['db_name'];
+    }
+
+    // If candidate DB exists but connection fails, attempt in-place repair with dedicated user via cPanel UAPI
+    if (!empty($candidateDb) && (!empty($cpUser) || detectLocalCpanelUser())) {
+        try {
+            $repairSuffix = 'u' . substr(sanitizeDbName(bin2hex(random_bytes(3)), 6), 0, 5);
+            $repairFullUser = ($cpUser ? $cpUser . '_' : '') . $repairSuffix;
+            $repairPassword = generatePassword(18);
+
+            // Create dedicated user
+            try {
+                cpanelUapi('Mysql', 'create_user', ['name' => $repairSuffix, 'password' => $repairPassword], $config);
+            } catch (Exception $e) {
+                cpanelUapi('Mysql', 'create_user', ['name' => $repairFullUser, 'password' => $repairPassword], $config);
+            }
+
+            // Grant ALL PRIVILEGES on the candidate database
+            $privilegeVariants = ['ALL PRIVILEGES', 'ALL', 'ALTER,CREATE,DELETE,DROP,INDEX,INSERT,SELECT,UPDATE,REFERENCES'];
+            $granted = false;
+            foreach ($privilegeVariants as $priv) {
+                try {
+                    cpanelUapi('Mysql', 'set_privileges_on_database', [
+                        'user'       => $repairFullUser,
+                        'database'   => $candidateDb,
+                        'privileges' => $priv,
+                    ], $config);
+                    $granted = true;
+                    break;
+                } catch (Exception $e) {}
+            }
+
+            $repairHost = 'localhost';
+            $repairConnected = false;
+            if ($granted) {
+                if (testDbConnection('localhost', $repairFullUser, $repairPassword, $candidateDb)) {
+                    $repairConnected = true;
+                    $repairHost = 'localhost';
+                } elseif (testDbConnection('127.0.0.1', $repairFullUser, $repairPassword, $candidateDb)) {
+                    $repairConnected = true;
+                    $repairHost = '127.0.0.1';
+                }
+            }
+
+            if ($repairConnected) {
+                $config['provisioned_db'] = [
+                    'db_name'     => $candidateDb,
+                    'db_user'     => $repairFullUser,
+                    'db_password' => $repairPassword,
+                    'db_host'     => $repairHost,
+                    'repaired'    => true,
+                    'created_by'  => 'auth.php_repair',
+                    'created_at'  => date('c'),
+                ];
+                saveConfig($config);
+                respond(200, [
+                    'status'      => 'PROVISIONED',
+                    'reused'      => true,
+                    'message'     => "Repaired database `{$candidateDb}` with dedicated user `{$repairFullUser}` via cPanel UAPI.",
+                    'credentials' => [
+                        'db_name'     => $candidateDb,
+                        'db_user'     => $repairFullUser,
+                        'db_password' => $repairPassword,
+                        'db_host'     => $repairHost,
+                        'db_port'     => 3306,
+                    ],
+                    'steps' => [['step' => 'repair_existing_db', 'status' => 'OK', 'name' => $candidateDb, 'user' => $repairFullUser]],
+                ]);
+            }
+        } catch (\Throwable $repairEx) {
+            // Repair attempt did not succeed, proceed to standard creation below
+        }
+    }
+
     $appName = sanitizeDbName($payload['app_name'] ?? 'app', 4);
     $suffix  = sanitizeDbName(bin2hex(random_bytes(3)), 6);
 
@@ -625,11 +719,21 @@ if ($action === 'database_create') {
             }
         }
 
+        // CRITICAL: Assert testDbConnection() before returning PROVISIONED!
+        $dbHost = 'localhost';
+        if (!testDbConnection($dbHost, $fullUserName, $password, $fullDbName)) {
+            if (testDbConnection('127.0.0.1', $fullUserName, $password, $fullDbName)) {
+                $dbHost = '127.0.0.1';
+            } else {
+                throw new Exception("Created database `{$fullDbName}` via cPanel UAPI, but connection verification failed.");
+            }
+        }
+
         $config['provisioned_db'] = [
             'db_name'     => $fullDbName,
             'db_user'     => $fullUserName,
             'db_password' => $password,
-            'db_host'     => 'localhost',
+            'db_host'     => $dbHost,
             'created_by'  => 'auth.php',
             'created_at'  => date('c'),
         ];
@@ -637,12 +741,12 @@ if ($action === 'database_create') {
 
         respond(200, [
             'status'      => 'PROVISIONED',
-            'message'     => 'Database and user provisioned automatically via cPanel UAPI.',
+            'message'     => 'Database and user provisioned automatically via cPanel UAPI and verified.',
             'credentials' => [
                 'db_name'     => $fullDbName,
                 'db_user'     => $fullUserName,
                 'db_password' => $password,
-                'db_host'     => 'localhost',
+                'db_host'     => $dbHost,
                 'db_port'     => 3306,
             ],
             'steps' => $steps,
@@ -674,90 +778,61 @@ if ($action === 'database_create') {
                 $newDb = ($cpUser ? $cpUser . '_' : '') . 'slate_' . substr(bin2hex(random_bytes(3)), 0, 6);
                 try {
                     $pdo->exec("CREATE DATABASE IF NOT EXISTS `{$newDb}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-                    $config['provisioned_db'] = [
-                        'db_name'     => $newDb,
-                        'db_user'     => $dUser,
-                        'db_password' => $dPass,
-                        'db_host'     => $dHost,
-                        'created_by'  => 'auth.php_dedicated',
-                        'created_at'  => date('c'),
-                    ];
-                    saveConfig($config);
-                    respond(200, [
-                        'status'      => 'PROVISIONED',
-                        'message'     => "Created dedicated database `{$newDb}` using verified MySQL connection from {$src}.",
-                        'credentials' => [
+                    if (testDbConnection($dHost, $dUser, $dPass, $newDb)) {
+                        $config['provisioned_db'] = [
                             'db_name'     => $newDb,
                             'db_user'     => $dUser,
                             'db_password' => $dPass,
                             'db_host'     => $dHost,
-                            'db_port'     => 3306,
-                        ],
-                        'steps' => array_merge($steps, [['step' => 'created_dedicated_db', 'status' => 'OK', 'name' => $newDb]]),
-                    ]);
+                            'created_by'  => 'auth.php_dedicated',
+                            'created_at'  => date('c'),
+                        ];
+                        saveConfig($config);
+                        respond(200, [
+                            'status'      => 'PROVISIONED',
+                            'message'     => "Created dedicated database `{$newDb}` using verified MySQL connection from {$src}.",
+                            'credentials' => [
+                                'db_name'     => $newDb,
+                                'db_user'     => $dUser,
+                                'db_password' => $dPass,
+                                'db_host'     => $dHost,
+                                'db_port'     => 3306,
+                            ],
+                            'steps' => array_merge($steps, [['step' => 'created_dedicated_db', 'status' => 'OK', 'name' => $newDb]]),
+                        ]);
+                    }
                 } catch (\Throwable $createEx) {
                     // Cannot CREATE DATABASE (normal for shared hosting user).
-                    // Seamlessly adopt existing database!
-                    $config['provisioned_db'] = [
-                        'db_name'     => $dName,
-                        'db_user'     => $dUser,
-                        'db_password' => $dPass,
-                        'db_host'     => $dHost,
-                        'adopted'     => true,
-                        'source'      => $src,
-                        'created_at'  => date('c'),
-                    ];
-                    saveConfig($config);
-                    respond(200, [
-                        'status'      => 'PROVISIONED',
-                        'message'     => "Connected and adopted database `{$dName}` from {$src}.",
-                        'credentials' => [
+                    // Adopt existing database IF connection test passes
+                    if (testDbConnection($dHost, $dUser, $dPass, $dName)) {
+                        $config['provisioned_db'] = [
                             'db_name'     => $dName,
                             'db_user'     => $dUser,
                             'db_password' => $dPass,
                             'db_host'     => $dHost,
-                            'db_port'     => 3306,
-                        ],
-                        'steps' => array_merge($steps, [['step' => 'adopted_existing_db', 'status' => 'OK', 'name' => $dName]]),
-                    ]);
+                            'adopted'     => true,
+                            'source'      => $src,
+                            'created_at'  => date('c'),
+                        ];
+                        saveConfig($config);
+                        respond(200, [
+                            'status'      => 'PROVISIONED',
+                            'message'     => "Connected and adopted database `{$dName}` from {$src}.",
+                            'credentials' => [
+                                'db_name'     => $dName,
+                                'db_user'     => $dUser,
+                                'db_password' => $dPass,
+                                'db_host'     => $dHost,
+                                'db_port'     => 3306,
+                            ],
+                            'steps' => array_merge($steps, [['step' => 'adopted_existing_db', 'status' => 'OK', 'name' => $dName]]),
+                        ]);
+                    }
                 }
             } catch (\Throwable $connEx) {
-                // Return discovered credentials even if direct connection timed out
-                $config['provisioned_db'] = [
-                    'db_name'     => $dName,
-                    'db_user'     => $dUser,
-                    'db_password' => $dPass,
-                    'db_host'     => $dHost,
-                    'source'      => $src,
-                    'created_at'  => date('c'),
-                ];
-                saveConfig($config);
-                respond(200, [
-                    'status'      => 'PROVISIONED',
-                    'message'     => "Discovered credentials for database `{$dName}` from {$src}.",
-                    'credentials' => [
-                        'db_name'     => $dName,
-                        'db_user'     => $dUser,
-                        'db_password' => $dPass,
-                        'db_host'     => $dHost,
-                        'db_port'     => 3306,
-                    ],
-                    'steps' => array_merge($steps, [['step' => 'discovered_db_fallback', 'status' => 'OK', 'name' => $dName]]),
-                ]);
+                // Connection failed - DO NOT return PROVISIONED!
+                $steps[] = ['step' => 'discovered_db_connection_failed', 'status' => 'FAILED', 'error' => $connEx->getMessage()];
             }
-        } else {
-            respond(200, [
-                'status'      => 'PROVISIONED',
-                'message'     => "Discovered database `{$dName}` from {$src}.",
-                'credentials' => [
-                    'db_name'     => $dName,
-                    'db_user'     => $dUser,
-                    'db_password' => $dPass,
-                    'db_host'     => $dHost,
-                    'db_port'     => 3306,
-                ],
-                'steps' => array_merge($steps, [['step' => 'discovered_db_fallback', 'status' => 'OK', 'name' => $dName]]),
-            ]);
         }
     }
 
@@ -776,27 +851,41 @@ if ($action === 'database_create') {
                 ]);
                 $newDb = ($cpUser ? $cpUser . '_' : '') . 'slate_' . substr(bin2hex(random_bytes(3)), 0, 6);
                 $pdo->exec("CREATE DATABASE IF NOT EXISTS `{$newDb}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-                respond(200, [
-                    'status'      => 'PROVISIONED',
-                    'message'     => "Created database `{$newDb}` via local MySQL connection.",
-                    'credentials' => [
+                if (testDbConnection('localhost', $cl['user'], $cl['pass'], $newDb)) {
+                    $config['provisioned_db'] = [
                         'db_name'     => $newDb,
                         'db_user'     => $cl['user'],
                         'db_password' => $cl['pass'],
                         'db_host'     => 'localhost',
-                        'db_port'     => 3306,
-                    ],
-                    'steps' => array_merge($steps, [['step' => 'local_mysql_provision', 'status' => 'OK', 'name' => $newDb]]),
-                ]);
+                        'created_by'  => 'auth.php_local',
+                        'created_at'  => date('c'),
+                    ];
+                    saveConfig($config);
+                    respond(200, [
+                        'status'      => 'PROVISIONED',
+                        'message'     => "Created database `{$newDb}` via local MySQL connection.",
+                        'credentials' => [
+                            'db_name'     => $newDb,
+                            'db_user'     => $cl['user'],
+                            'db_password' => $cl['pass'],
+                            'db_host'     => 'localhost',
+                            'db_port'     => 3306,
+                        ],
+                        'steps' => array_merge($steps, [['step' => 'local_mysql_provision', 'status' => 'OK', 'name' => $newDb]]),
+                    ]);
+                }
             } catch (\Throwable $e) {
                 // continue to next candidate
             }
         }
     }
 
-    respond(500, [
-        'error' => "Automated database provisioning failed: " . ($uapiError ?: 'cPanel credentials not configured and local CLI uapi unavailable.') . " Please verify cPanel API Token or provide MySQL credentials.",
-        'steps' => $steps,
+    $errMsg = $uapiError ? "cPanel UAPI error: {$uapiError}" : "Automated database provisioning failed. Please verify cPanel API Token or provide MySQL credentials.";
+    respond(200, [
+        'status'  => 'FAILED',
+        'error'   => $errMsg,
+        'message' => $errMsg,
+        'steps'   => $steps,
     ]);
 }
 
@@ -861,6 +950,27 @@ if ($action === 'database_probe') {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// 6b. DATABASE RESET — clear cached provisioned database from config
+// ═════════════════════════════════════════════════════════════════════════════
+if ($action === 'database_reset') {
+    if (!authenticateAgent($payload)) {
+        respond(401, ['error' => 'Unauthorized. Invalid X-Slate-Token.']);
+    }
+
+    $config = loadConfig();
+    $previousDb = $config['provisioned_db']['db_name'] ?? null;
+    unset($config['provisioned_db']);
+    saveConfig($config);
+
+    respond(200, [
+        'success'     => true,
+        'status'      => 'RESET',
+        'message'     => 'Cleared provisioned database cache from agent configuration.',
+        'previous_db' => $previousDb,
+    ]);
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 // 7. ZERO-TOUCH PAYLOAD DEPLOYMENT
 // ═════════════════════════════════════════════════════════════════════════════
 if ($action === 'deploy') {
@@ -869,29 +979,54 @@ if ($action === 'deploy') {
     }
 
     $zipData = null;
-    if (isset($_FILES['archive']) && $_FILES['archive']['error'] === UPLOAD_ERR_OK) {
-        $zipData = file_get_contents($_FILES['archive']['tmp_name']);
+    if (isset($_FILES['archive'])) {
+        if ($_FILES['archive']['error'] === UPLOAD_ERR_INI_SIZE || $_FILES['archive']['error'] === UPLOAD_ERR_FORM_SIZE) {
+            $maxUpload = ini_get('upload_max_filesize') ?: 'unknown';
+            $postMax   = ini_get('post_max_size') ?: 'unknown';
+            respond(413, [
+                'error'               => "Uploaded archive exceeds server upload_max_filesize limit (upload_max_filesize={$maxUpload}, post_max_size={$postMax}).",
+                'upload_max_filesize' => $maxUpload,
+                'post_max_size'       => $postMax,
+            ]);
+        } elseif ($_FILES['archive']['error'] === UPLOAD_ERR_OK) {
+            $zipData = file_get_contents($_FILES['archive']['tmp_name']);
+        } elseif ($_FILES['archive']['error'] !== UPLOAD_ERR_NO_FILE) {
+            respond(400, [
+                'error' => 'File upload failed with PHP upload error code: ' . $_FILES['archive']['error'],
+            ]);
+        }
     } elseif (!empty($payload['archive_base64'])) {
         $zipData = base64_decode($payload['archive_base64']);
     }
 
-    if (!$zipData) {
+    $tempZip = null;
+    $archiveFile = $payload['archive_file'] ?? $_POST['archive_file'] ?? '';
+    if ($archiveFile) {
+        $candidatePath = __DIR__ . '/' . basename($archiveFile);
+        if (file_exists($candidatePath)) {
+            $tempZip = $candidatePath;
+        }
+    }
+
+    if (!$zipData && !$tempZip) {
         respond(400, ['error' => 'No deployment archive received (archive or archive_base64 required).']);
     }
 
-    $tempZip = __DIR__ . '/.slate_deploy_' . time() . '.zip';
-    if (!@file_put_contents($tempZip, $zipData)) {
-        respond(500, ['error' => 'Failed to write temporary archive. Check folder permissions.']);
+    if ($zipData && !$tempZip) {
+        $tempZip = __DIR__ . '/.slate_deploy_' . time() . '.zip';
+        if (!@file_put_contents($tempZip, $zipData)) {
+            respond(500, ['error' => 'Failed to write temporary archive. Check folder permissions.']);
+        }
     }
 
     if (!class_exists('ZipArchive')) {
-        @unlink($tempZip);
+        if ($tempZip && file_exists($tempZip)) @unlink($tempZip);
         respond(500, ['error' => 'PHP ZipArchive extension is not enabled.']);
     }
 
     $zip = new ZipArchive();
     if ($zip->open($tempZip) !== true) {
-        @unlink($tempZip);
+        if ($tempZip && file_exists($tempZip)) @unlink($tempZip);
         respond(500, ['error' => 'Failed to open deployment zip package.']);
     }
 
@@ -904,7 +1039,7 @@ if ($action === 'deploy') {
         $extracted++;
     }
     $zip->close();
-    @unlink($tempZip);
+    if ($tempZip && file_exists($tempZip)) @unlink($tempZip);
 
     if (function_exists('opcache_reset')) @opcache_reset();
 
@@ -1958,11 +2093,330 @@ if ($action === 'site_overview') {
     ]);
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// 14. CHECKOUT PROFILE HANDLERS (v3.3.0) — get/put checkout profile (0025)
+// ═════════════════════════════════════════════════════════════════════════════
+if ($action === 'get_checkout_profile') {
+    if (!authenticateAgent($payload)) {
+        respond(401, ['error' => 'Unauthorized. Invalid X-Slate-Token.']);
+    }
+    $tenantId = (int)($payload['tenant_id'] ?? 1);
+    $profile = [
+        'name'       => '',
+        'email'      => '',
+        'phone'      => '',
+        'company'    => '',
+        'taxId'      => '',
+        'country'    => '',
+        'city'       => '',
+        'address'    => '',
+        'postalCode' => '',
+    ];
 
+    $pdo = slate_agent_pdo();
+    if ($pdo) {
+        try {
+            $stmt = $pdo->prepare("SELECT * FROM plugin_checkout_profiles WHERE tenant_id = ? LIMIT 1");
+            $stmt->execute([$tenantId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($row) {
+                $profile = [
+                    'name'       => (string)($row['full_name'] ?? ''),
+                    'email'      => (string)($row['email'] ?? ''),
+                    'phone'      => (string)($row['phone'] ?? ''),
+                    'company'    => (string)($row['company'] ?? ''),
+                    'taxId'      => (string)($row['vat_tax_id'] ?? ''),
+                    'country'    => (string)($row['country'] ?? ''),
+                    'city'       => (string)($row['city'] ?? ''),
+                    'address'    => (string)($row['address_line1'] ?? ''),
+                    'postalCode' => (string)($row['postal_code'] ?? ''),
+                ];
+            }
+        } catch (\Throwable $e) {
+            // table may not exist yet if migration has not run
+        }
+    }
+
+    respond(200, [
+        'status'  => 'OK',
+        'profile' => $profile,
+    ]);
+}
+
+if ($action === 'put_checkout_profile') {
+    if (!authenticateAgent($payload)) {
+        respond(401, ['error' => 'Unauthorized. Invalid X-Slate-Token.']);
+    }
+    $tenantId = (int)($payload['tenant_id'] ?? 1);
+    $in = is_array($payload['profile'] ?? null) ? $payload['profile'] : [];
+
+    $fullName   = trim((string)($in['name'] ?? $in['full_name'] ?? ''));
+    $email      = trim((string)($in['email'] ?? ''));
+    $phone      = trim((string)($in['phone'] ?? ''));
+    $company    = trim((string)($in['company'] ?? ''));
+    $vatTaxId   = trim((string)($in['taxId'] ?? $in['vat_tax_id'] ?? ''));
+    $country    = strtoupper(trim((string)($in['country'] ?? '')));
+    $city       = trim((string)($in['city'] ?? ''));
+    $address1   = trim((string)($in['address'] ?? $in['address_line1'] ?? ''));
+    $address2   = trim((string)($in['address_line2'] ?? ''));
+    $postalCode = trim((string)($in['postalCode'] ?? $in['postal_code'] ?? ''));
+    $masterCustId = isset($in['master_customer_id']) ? (string)$in['master_customer_id'] : null;
+
+    $pdo = slate_agent_pdo();
+    if (!$pdo) {
+        respond(500, ['error' => 'Cannot connect to client database to save checkout profile.']);
+    }
+
+    try {
+        $stmt = $pdo->prepare(
+            "INSERT INTO plugin_checkout_profiles
+              (tenant_id, full_name, email, phone, company, vat_tax_id, country, city, address_line1, address_line2, postal_code, master_customer_id, created_at, updated_at)
+             VALUES
+              (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+             ON DUPLICATE KEY UPDATE
+              full_name = VALUES(full_name),
+              email = VALUES(email),
+              phone = VALUES(phone),
+              company = VALUES(company),
+              vat_tax_id = VALUES(vat_tax_id),
+              country = VALUES(country),
+              city = VALUES(city),
+              address_line1 = VALUES(address_line1),
+              address_line2 = VALUES(address_line2),
+              postal_code = VALUES(postal_code),
+              master_customer_id = COALESCE(VALUES(master_customer_id), master_customer_id),
+              updated_at = NOW()"
+        );
+        $stmt->execute([
+            $tenantId, $fullName, $email, $phone, $company, $vatTaxId,
+            $country, $city, $address1, $address2, $postalCode, $masterCustId
+        ]);
+
+        respond(200, [
+            'status'  => 'OK',
+            'saved'   => true,
+            'profile' => [
+                'name'       => $fullName,
+                'email'      => $email,
+                'phone'      => $phone,
+                'company'    => $company,
+                'taxId'      => $vatTaxId,
+                'country'    => $country,
+                'city'       => $city,
+                'address'    => $address1,
+                'postalCode' => $postalCode,
+            ],
+        ]);
+    } catch (\Throwable $e) {
+        respond(500, ['error' => 'Failed to save checkout profile: ' . $e->getMessage()]);
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 15. PLUGIN LICENSE SYNCHRONIZATION (v3.3.0) — sync plugin entitlements (0023, 0024)
+// ═════════════════════════════════════════════════════════════════════════════
+if ($action === 'plugin_license_sync') {
+    if (!authenticateAgent($payload)) {
+        respond(401, ['error' => 'Unauthorized. Invalid X-Slate-Token.']);
+    }
+    $tenantId = (int)($payload['tenant_id'] ?? 1);
+    $pdo = slate_agent_pdo();
+    if (!$pdo) {
+        respond(500, ['error' => 'Cannot connect to client database for license synchronization.']);
+    }
+
+    $rawSlugs = $payload['plugin_slugs'] ?? $payload['plugin_slug'] ?? [];
+    $pluginSlugs = is_array($rawSlugs) ? $rawSlugs : (is_string($rawSlugs) && $rawSlugs !== '' ? [$rawSlugs] : []);
+    $status = (string)($payload['status'] ?? 'active');
+    $billingCycle = (string)($payload['billing_cycle'] ?? 'yearly');
+    $source = (string)($payload['source'] ?? 'single');
+    $sourcePkgSlug = !empty($payload['source_package_slug']) ? (string)$payload['source_package_slug'] : null;
+    $expiresAt = !empty($payload['expires_at']) ? (string)$payload['expires_at'] : null;
+    $startsAt = !empty($payload['starts_at']) ? (string)$payload['starts_at'] : date('Y-m-d H:i:s');
+    $domain = !empty($payload['domain']) ? (string)$payload['domain'] : null;
+    $keyHash = !empty($payload['license_key_hash']) ? (string)$payload['license_key_hash'] : null;
+    $keyLast4 = !empty($payload['license_key_last4']) ? (string)$payload['license_key_last4'] : null;
+    $keyEncrypted = !empty($payload['license_key_encrypted']) ? (string)$payload['license_key_encrypted'] : null;
+    $activationLimit = (int)($payload['activation_limit'] ?? 1);
+    $renewalOf = !empty($payload['renewal_of']) ? (int)$payload['renewal_of'] : null;
+    $metaJson = isset($payload['metadata']) ? (is_array($payload['metadata']) ? json_encode($payload['metadata']) : (string)$payload['metadata']) : null;
+
+    $syncedLicenses = [];
+
+    foreach ($pluginSlugs as $slug) {
+        $slug = trim((string)$slug);
+        if ($slug === '') continue;
+
+        // If no hash provided, generate a deterministic fallback hash
+        $curHash = $keyHash ?: hash('sha256', "plugin:{$tenantId}:{$slug}:" . microtime(true));
+        $curLast4 = $keyLast4 ?: substr($curHash, -4);
+
+        // Check if an existing row exists for this tenant & slug to update it or renewal
+        $existing = null;
+        try {
+            $chk = $pdo->prepare("SELECT id, license_key_hash FROM plugin_licenses WHERE tenant_id = ? AND plugin_slug = ? LIMIT 1");
+            $chk->execute([$tenantId, $slug]);
+            $existing = $chk->fetch(PDO::FETCH_ASSOC);
+        } catch (\Throwable $e) {}
+
+        if ($existing && !empty($existing['id'])) {
+            $upd = $pdo->prepare(
+                "UPDATE plugin_licenses SET
+                  status = ?,
+                  billing_cycle = ?,
+                  source = ?,
+                  source_package_slug = COALESCE(?, source_package_slug),
+                  expires_at = ?,
+                  license_key_hash = COALESCE(?, license_key_hash),
+                  license_key_last4 = COALESCE(?, license_key_last4),
+                  license_key_encrypted = COALESCE(?, license_key_encrypted),
+                  renewal_of = COALESCE(?, renewal_of),
+                  metadata = COALESCE(?, metadata),
+                  last_validated_at = NOW(),
+                  updated_at = NOW()
+                 WHERE id = ?"
+            );
+            $upd->execute([
+                $status, $billingCycle, $source, $sourcePkgSlug, $expiresAt,
+                $keyHash, $keyLast4, $keyEncrypted, $renewalOf, $metaJson, $existing['id']
+            ]);
+            $syncedLicenses[] = ['slug' => $slug, 'action' => 'updated', 'id' => (int)$existing['id']];
+        } else {
+            $ins = $pdo->prepare(
+                "INSERT INTO plugin_licenses
+                  (tenant_id, plugin_slug, domain, license_key_hash, license_key_last4, license_key_encrypted,
+                   status, billing_cycle, source, source_package_slug, starts_at, expires_at,
+                   activation_limit, activation_count, renewal_of, metadata, last_validated_at, created_at, updated_at)
+                 VALUES
+                  (?, ?, ?, ?, ?, ?,
+                   ?, ?, ?, ?, ?, ?,
+                   ?, 0, ?, ?, NOW(), NOW(), NOW())
+                 ON DUPLICATE KEY UPDATE
+                  status = VALUES(status),
+                  expires_at = VALUES(expires_at),
+                  billing_cycle = VALUES(billing_cycle),
+                  source = VALUES(source),
+                  source_package_slug = VALUES(source_package_slug),
+                  renewal_of = COALESCE(VALUES(renewal_of), renewal_of),
+                  metadata = COALESCE(VALUES(metadata), metadata),
+                  last_validated_at = NOW(),
+                  updated_at = NOW()"
+            );
+            $ins->execute([
+                $tenantId, $slug, $domain, $curHash, $curLast4, $keyEncrypted,
+                $status, $billingCycle, $source, $sourcePkgSlug, $startsAt, $expiresAt,
+                $activationLimit, $renewalOf, $metaJson
+            ]);
+            $syncedLicenses[] = ['slug' => $slug, 'action' => 'inserted'];
+        }
+    }
+
+    // Also sync to plugin_orders if stripe_session_id is provided
+    if (!empty($payload['stripe_session_id'])) {
+        try {
+            $sessionId = (string)$payload['stripe_session_id'];
+            $intentId = !empty($payload['stripe_payment_intent']) ? (string)$payload['stripe_payment_intent'] : null;
+            $orderType = !empty($payload['order_type']) ? (string)$payload['order_type'] : ($sourcePkgSlug ? 'package' : 'single');
+            $amountCents = (int)($payload['amount_cents'] ?? 0);
+            $currency = (string)($payload['currency'] ?? 'USD');
+            $orderStatus = (string)($payload['order_status'] ?? 'paid');
+            $contactEmail = !empty($payload['contact_email']) ? (string)$payload['contact_email'] : null;
+            $slugsJson = json_encode($pluginSlugs);
+
+            $ordStmt = $pdo->prepare(
+                "INSERT INTO plugin_orders
+                  (tenant_id, order_type, package_slug, plugin_slugs, billing_cycle, amount_cents, currency,
+                   status, stripe_session_id, stripe_payment_intent, renewal_of_plugin_license_id,
+                   contact_email, metadata, created_at, paid_at, updated_at)
+                 VALUES
+                  (?, ?, ?, ?, ?, ?, ?,
+                   ?, ?, ?, ?,
+                   ?, ?, NOW(), NOW(), NOW())
+                 ON DUPLICATE KEY UPDATE
+                  status = VALUES(status),
+                  paid_at = COALESCE(plugin_orders.paid_at, VALUES(paid_at)),
+                  stripe_payment_intent = COALESCE(VALUES(stripe_payment_intent), stripe_payment_intent),
+                  updated_at = NOW()"
+            );
+            $ordStmt->execute([
+                $tenantId, $orderType, $sourcePkgSlug, $slugsJson, $billingCycle, $amountCents, $currency,
+                $orderStatus, $sessionId, $intentId, $renewalOf,
+                $contactEmail, $metaJson
+            ]);
+        } catch (\Throwable $e) {
+            // best-effort order record
+        }
+    }
+
+    // Call PluginEntitlement::forget() after license synchronization
+    if (file_exists(__DIR__ . '/src/autoload.php')) {
+        require_once __DIR__ . '/src/autoload.php';
+    }
+    if (class_exists('\\Slate\\Services\\Licensing\\PluginEntitlement')) {
+        \Slate\Services\Licensing\PluginEntitlement::forget();
+    }
+
+    respond(200, [
+        'status'  => 'OK',
+        'synced'  => $syncedLicenses,
+        'message' => 'Plugin licenses synchronized and entitlement cache flushed.',
+    ]);
+}
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Helpers (shared)
 // ═════════════════════════════════════════════════════════════════════════════
+function slate_agent_pdo() {
+    static $cachedPdo = null;
+    if ($cachedPdo !== null) return $cachedPdo;
+    if (!extension_loaded('pdo_mysql')) return null;
+
+    $dbHost = 'localhost'; $dbName = ''; $dbUser = ''; $dbPass = '';
+    $envPath = __DIR__ . '/.env';
+    if (file_exists($envPath)) {
+        foreach ((array)@file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+            $t = trim($line);
+            if ($t === '' || $t[0] === '#' || strpos($t, '=') === false) continue;
+            list($k, $v) = explode('=', $t, 2);
+            $k = trim($k); $v = trim($v, " \t\"'");
+            if ($k === 'DB_HOST') $dbHost = $v;
+            elseif ($k === 'DB_NAME' || $k === 'DB_DATABASE') { if ($dbName === '') $dbName = $v; }
+            elseif ($k === 'DB_USER' || $k === 'DB_USERNAME') { if ($dbUser === '') $dbUser = $v; }
+            elseif ($k === 'DB_PASS' || $k === 'DB_PASSWORD') { if ($dbPass === '') $dbPass = $v; }
+        }
+    }
+    if ($dbName === '' || $dbUser === '') {
+        $disc = discoverDbCredentials(__DIR__);
+        if (!empty($disc['db_name']) && !empty($disc['db_user'])) {
+            $dbName = $disc['db_name'];
+            $dbUser = $disc['db_user'];
+            $dbPass = $disc['db_pass'] ?? '';
+            $dbHost = $disc['db_host'] ?? 'localhost';
+        }
+    }
+    if ($dbName === '' || $dbUser === '') {
+        $cfg = loadConfig();
+        if (!empty($cfg['provisioned_db'])) {
+            $dbName = $cfg['provisioned_db']['db_name'] ?? '';
+            $dbUser = $cfg['provisioned_db']['db_user'] ?? '';
+            $dbPass = $cfg['provisioned_db']['db_password'] ?? '';
+            $dbHost = $cfg['provisioned_db']['db_host'] ?? 'localhost';
+        }
+    }
+    if ($dbName === '' || $dbUser === '') return null;
+
+    $h = preg_replace('/:[0-9]+$/', '', (string)$dbHost) ?: 'localhost';
+    try {
+        $cachedPdo = new PDO("mysql:host={$h};dbname={$dbName};charset=utf8mb4", $dbUser, $dbPass, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_TIMEOUT => 4,
+        ]);
+        return $cachedPdo;
+    } catch (\Throwable $e) {
+        return null;
+    }
+}
+
 function slate_license_read_local() {
     $out = ['status' => 'none', 'expires_at' => null, 'domain' => null, 'plan_slug' => null, 'last_validated_at' => null];
     $config = loadConfig();
@@ -2139,63 +2593,31 @@ function testDbConnection($host, $user, $pass, $db = null) {
 
 function discoverDbCredentials($dir) {
     $out = ['db_name' => null, 'db_user' => null, 'db_pass' => null, 'db_host' => 'localhost', 'source' => null];
-    $docRoot = !empty($_SERVER['DOCUMENT_ROOT']) ? $_SERVER['DOCUMENT_ROOT'] : '';
-    $candidates = array_unique(array_filter([
-        $dir,
-        dirname($dir),
-        dirname(dirname($dir)),
-        $docRoot,
-        $docRoot ? dirname($docRoot) : '',
-        $docRoot ? dirname(dirname($docRoot)) : '',
-    ]));
+    if (!is_dir($dir)) return $out;
 
-    foreach ($candidates as $cdir) {
-        if (!is_dir($cdir)) continue;
-
-        // 1. wp-config.php (WordPress install in current, parent, or document root)
-        $wp = $cdir . '/wp-config.php';
-        if (file_exists($wp)) {
-            $c = @file_get_contents($wp);
-            if ($c !== false) {
-                $found = [];
-                if (preg_match("/define\s*\(\s*['\"]DB_NAME['\"]\s*,\s*['\"]([^'\"]+)['\"]/", $c, $m)) $found['db_name'] = $m[1];
-                if (preg_match("/define\s*\(\s*['\"]DB_USER['\"]\s*,\s*['\"]([^'\"]+)['\"]/", $c, $m)) $found['db_user'] = $m[1];
-                if (preg_match("/define\s*\(\s*['\"]DB_PASSWORD['\"]\s*,\s*['\"]([^'\"]*)['\"]/", $c, $m)) $found['db_pass'] = $m[1];
-                if (preg_match("/define\s*\(\s*['\"]DB_HOST['\"]\s*,\s*['\"]([^'\"]+)['\"]/", $c, $m)) $found['db_host'] = $m[1];
-                if (!empty($found['db_name']) && !empty($found['db_user'])) {
-                    $found['source'] = $wp;
-                    if (testDbConnection($found['db_host'] ?? 'localhost', $found['db_user'], $found['db_pass'] ?? '', $found['db_name'])) {
-                        return array_merge($out, $found);
-                    }
-                    if (!$out['db_name']) $out = array_merge($out, $found);
-                }
+    // Only inspect the local installation directory (.env).
+    // Do NOT search parent directories or docroot, and do NOT adopt WordPress wp-config.php.
+    $env = $dir . '/.env';
+    if (file_exists($env)) {
+        $lines = @file($env, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if (is_array($lines)) {
+            $found = [];
+            foreach ($lines as $line) {
+                $t = trim($line);
+                if ($t === '' || $t[0] === '#' || strpos($t, '=') === false) continue;
+                list($k, $v) = explode('=', $t, 2);
+                $k = trim($k); $v = trim($v, " \t\"'");
+                if ($k === 'DB_NAME' && $v !== '') $found['db_name'] = $v;
+                elseif ($k === 'DB_USER' && $v !== '') $found['db_user'] = $v;
+                elseif (($k === 'DB_PASS' || $k === 'DB_PASSWORD') && $v !== '') $found['db_pass'] = $v;
+                elseif ($k === 'DB_HOST' && $v !== '') $found['db_host'] = $v;
+                elseif ($k === 'DB_DATABASE' && empty($found['db_name'])) $found['db_name'] = $v;
+                elseif ($k === 'DB_USERNAME' && empty($found['db_user'])) $found['db_user'] = $v;
             }
-        }
-
-        // 2. .env (Laravel / Slate / other frameworks)
-        $env = $cdir . '/.env';
-        if (file_exists($env)) {
-            $lines = @file($env, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-            if (is_array($lines)) {
-                $found = [];
-                foreach ($lines as $line) {
-                    $t = trim($line);
-                    if ($t === '' || $t[0] === '#' || strpos($t, '=') === false) continue;
-                    list($k, $v) = explode('=', $t, 2);
-                    $k = trim($k); $v = trim($v, " \t\"'");
-                    if ($k === 'DB_NAME' && $v !== '') $found['db_name'] = $v;
-                    elseif ($k === 'DB_USER' && $v !== '') $found['db_user'] = $v;
-                    elseif (($k === 'DB_PASS' || $k === 'DB_PASSWORD') && $v !== '') $found['db_pass'] = $v;
-                    elseif ($k === 'DB_HOST' && $v !== '') $found['db_host'] = $v;
-                    elseif ($k === 'DB_DATABASE' && empty($found['db_name'])) $found['db_name'] = $v;
-                    elseif ($k === 'DB_USERNAME' && empty($found['db_user'])) $found['db_user'] = $v;
-                }
-                if (!empty($found['db_name']) && !empty($found['db_user'])) {
-                    $found['source'] = $env;
-                    if (testDbConnection($found['db_host'] ?? 'localhost', $found['db_user'], $found['db_pass'] ?? '', $found['db_name'])) {
-                        return array_merge($out, $found);
-                    }
-                    if (!$out['db_name']) $out = array_merge($out, $found);
+            if (!empty($found['db_name']) && !empty($found['db_user'])) {
+                $found['source'] = $env;
+                if (testDbConnection($found['db_host'] ?? 'localhost', $found['db_user'], $found['db_pass'] ?? '', $found['db_name'])) {
+                    return array_merge($out, $found);
                 }
             }
         }

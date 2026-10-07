@@ -16,6 +16,7 @@ require_once dirname(__DIR__) . '/BookingAPI.php';
 
 Auth::require();
 Auth::requirePerm('booking.view');
+if (function_exists('slate_require_plugin_entitlement')) { slate_require_plugin_entitlement('booking'); }
 BookingAPI::ensureSchema();
 
 $pageTitle  = __('booking', 'Booking');
