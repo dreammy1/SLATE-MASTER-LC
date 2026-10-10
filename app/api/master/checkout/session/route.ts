@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyTenantToken } from "@/lib/tenantToken";
 import { sellablePlugins } from "@/lib/pluginCatalog";
-import { getLicense, getPackages } from "@/lib/storage";
+import { getLicense, getLicenses, getPackages } from "@/lib/storage";
 import { createCheckoutSession } from "@/lib/stripeCheckout";
 import { normalizePurchaseContext, publicError } from "@/lib/checkoutContract";
 import { resolveMasterOrigin } from "@/lib/masterOrigin";
@@ -31,11 +31,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(publicError("order_mismatch", "Order does not belong to this tenant"), { status: 403 });
     }
     if (context.licenseId) {
-      const license = await getLicense(context.licenseId);
+      let license = await getLicense(context.licenseId);
+      if (!license) {
+        if (order.licenseId) {
+          license = await getLicense(order.licenseId);
+        }
+        if (!license) {
+          const allLicenses = await getLicenses();
+          license = allLicenses.find((l) =>
+            (l.orderId === order.id || (!!order.siteId && l.siteId === order.siteId)) &&
+            (context.kind === "plugin_renewal" && context.pluginSlug ? l.package_slug === context.pluginSlug : true)
+          );
+        }
+      }
+      if (license) {
+        context.licenseId = license.id;
+      }
       const owned = license && (license.orderId === order.id || (!!order.siteId && license.siteId === order.siteId));
-      if (!owned) return NextResponse.json(publicError("license_mismatch", "License does not belong to this tenant"), { status: 403 });
-      if (context.kind === "plugin_renewal" && context.pluginSlug && license.package_slug !== context.pluginSlug) {
+      if (!owned && license) {
+        return NextResponse.json(publicError("license_mismatch", "License does not belong to this tenant"), { status: 403 });
+      }
+      if (license && context.kind === "plugin_renewal" && context.pluginSlug && license.package_slug !== context.pluginSlug) {
         return NextResponse.json(publicError("plugin_mismatch", "License does not match the requested plugin"), { status: 400 });
+      }
+    } else if (context.kind === "package_renewal" || context.kind === "plugin_renewal") {
+      if (order.licenseId) {
+        context.licenseId = order.licenseId;
       }
     }
     const packages = await getPackages(false);

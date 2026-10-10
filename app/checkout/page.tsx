@@ -12,7 +12,7 @@ import { Loader2 } from "lucide-react";
 function CheckoutContent() {
   const searchParams = useSearchParams();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string>("");
   const [mockMessage, setMockMessage] = useState("");
 
   useEffect(() => {
@@ -23,14 +23,22 @@ function CheckoutContent() {
     // Better flow for an iframe: The tenant sets src="/checkout?token=...&items=...&type=...&cycle=..."
     // Then this page calls the session endpoint itself.
     const token = searchParams.get("token");
-    const type = searchParams.get("type");
-    const items = searchParams.get("items"); // comma separated
-    const cycle = searchParams.get("cycle");
+    const type = searchParams.get("type") || searchParams.get("kind") || searchParams.get("order_type");
+    const rawItems = searchParams.get("items"); // comma separated
+    const cycle = searchParams.get("cycle") || searchParams.get("billing_cycle");
+    const pluginSlug = searchParams.get("plugin_slug") || searchParams.get("pluginSlug");
+    const packageSlug = searchParams.get("package_slug") || searchParams.get("packageSlug");
+    const licenseId = searchParams.get("license_id") || searchParams.get("licenseId");
+    const orderId = searchParams.get("order_id") || searchParams.get("orderId");
 
-    if (!token || !type || !items || !cycle) {
+    if (!token || !type || (!rawItems && !packageSlug && !pluginSlug) || !cycle) {
       setError("Missing checkout parameters");
       return;
     }
+
+    const items = rawItems
+      ? rawItems.split(",").map((s) => s.trim()).filter(Boolean)
+      : (packageSlug ? [packageSlug] : (pluginSlug ? [pluginSlug] : []));
 
     fetch("/api/master/checkout/session", {
       method: "POST",
@@ -38,29 +46,50 @@ function CheckoutContent() {
       body: JSON.stringify({
         tenant_token: token,
         order_type: type,
-        items: items.split(","),
-        billing_cycle: cycle
-      })
+        items,
+        billing_cycle: cycle,
+        plugin_slug: pluginSlug || undefined,
+        package_slug: packageSlug || undefined,
+        license_id: licenseId || undefined,
+        order_id: orderId || undefined,
+        purchase_context: {
+          kind: type,
+          items,
+          pluginSlug: pluginSlug || undefined,
+          packageSlug: packageSlug || undefined,
+          licenseId: licenseId || undefined,
+          orderId: orderId || undefined,
+        },
+      }),
     })
-    .then(r => r.json())
-    .then(data => {
+    .then((r) => r.json())
+    .then((data) => {
       if (!data.success) {
-        setError(data.error || "Failed to create checkout session");
+        const rawErr = data.error || "Failed to create checkout session";
+        const errMsg = typeof rawErr === "object"
+          ? (rawErr.message || rawErr.code || JSON.stringify(rawErr))
+          : String(rawErr);
+        setError(errMsg);
       } else if (data.mock) {
-        setMockMessage(data.message);
+        const msg = typeof data.message === "object" ? JSON.stringify(data.message) : String(data.message || "");
+        setMockMessage(msg);
       } else {
         setClientSecret(data.clientSecret);
       }
     })
-    .catch(err => setError(err.message));
+    .catch((err) => {
+      const errMsg = typeof err === "object" ? (err.message || JSON.stringify(err)) : String(err);
+      setError(errMsg);
+    });
   }, [searchParams]);
 
   if (error) {
+    const errorText = typeof error === "object" ? ((error as any)?.message || JSON.stringify(error)) : String(error);
     return (
       <div className="flex h-screen items-center justify-center p-4">
         <div className="bg-red-500/10 text-red-500 p-4 rounded-lg border border-red-500/20 w-full max-w-md text-center">
           <p className="font-medium">Checkout Error</p>
-          <p className="text-sm mt-1">{error}</p>
+          <p className="text-sm mt-1">{errorText}</p>
         </div>
       </div>
     );

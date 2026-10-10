@@ -86,3 +86,22 @@ unit('Plugins shop template contains solid modal backgrounds, backdrop blur, z-i
     assert_true(str_contains($content, '[data-bs-theme="dark"]'), 'Dark theme selector covers Bootstrap / system theme variations');
 });
 
+unit('Canonical plugins catalog provides sellable plugins for uninstalled shop browsing', function (): void {
+    require_once dirname(__DIR__, 2) . '/includes/shop_client.php';
+
+    $canonical = shop_canonical_plugins();
+    assert_true(isset($canonical['booking']), 'Booking is in canonical plugins');
+    assert_true(isset($canonical['forms']), 'Forms is in canonical plugins');
+    assert_true(isset($canonical['membership']), 'Membership is in canonical plugins');
+    assert_true(isset($canonical['stripe-payment']), 'Stripe payment is in canonical plugins');
+    assert_true(isset($canonical['backups']), 'Backups is in canonical plugins');
+
+    assert_true(shop_is_valid_plugin_slug('booking'), 'Booking is valid slug');
+    assert_true(shop_is_valid_plugin_slug('forms'), 'Forms is valid slug');
+    assert_false(shop_is_valid_plugin_slug('non-existent-plugin-12345'), 'Non-existent slug is invalid');
+
+    $masterCatalog = shop_master_plugins_catalog();
+    assert_true(count($masterCatalog) >= count($canonical), 'Master catalog has all canonical plugins');
+});
+
+

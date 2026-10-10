@@ -17,7 +17,27 @@ foreach (($licenseCatalog['items'] ?? []) as $item) {
     }
 }
 
-$catalog = [];
+// 1. Build initial catalogue from Master / Canonical sellable plugins
+$masterCatalog = shop_master_plugins_catalog();
+$catalogMap = [];
+foreach ($masterCatalog as $slug => $item) {
+    $catalogMap[$slug] = [
+        'slug' => $slug,
+        'name' => (string)($item['name'] ?? $slug),
+        'version' => (string)($item['version'] ?? '—'),
+        'description' => (string)($item['description'] ?? ''),
+        'tagline' => (string)($item['tagline'] ?? $item['description'] ?? ''),
+        'category' => (string)($item['category'] ?? 'Other'),
+        'features' => array_values(array_map('strval', is_array($item['features'] ?? null) ? $item['features'] : [])),
+        'requires_core' => (string)($item['requires_core'] ?? '>=1.0.0'),
+        'monthly_cents' => (int)($item['monthly_cents'] ?? 0),
+        'yearly_cents' => (int)($item['yearly_cents'] ?? 0),
+        'lifetime_cents' => (int)($item['lifetime_cents'] ?? 0),
+        'installed' => false,
+    ];
+}
+
+// 2. Scan local plugins directory and merge installed metadata
 $pluginsDir = __DIR__ . '/../plugins';
 if (is_dir($pluginsDir)) {
     foreach (scandir($pluginsDir) as $dirName) {
@@ -25,25 +45,13 @@ if (is_dir($pluginsDir)) {
         $manifestPath = $pluginsDir . '/' . $dirName . '/plugin.json';
         if (!is_file($manifestPath)) continue;
         $manifest = json_decode((string)file_get_contents($manifestPath), true);
-        if (!is_array($manifest) || empty($manifest['licensable']) || empty($manifest['slug'])) continue;
+        if (!is_array($manifest) || empty($manifest['slug'])) continue;
+        if (!empty($manifest['system']) || empty($manifest['licensable'])) continue;
         $slug = (string)$manifest['slug'];
         $price = is_array($manifest['price'] ?? null) ? $manifest['price'] : [];
         $shop = is_array($manifest['shop'] ?? null) ? $manifest['shop'] : [];
-        $entitlement = shop_entitlement_info($slug);
-        $owned = $ownedItems[$slug] ?? null;
-        $source = (string)($owned['source'] ?? $entitlement['source'] ?? 'none');
-        $packageSlug = (string)($owned['package_slug'] ?? $entitlement['package_slug'] ?? '');
-        $status = (string)($owned['status'] ?? $entitlement['state'] ?? 'unowned');
-        $active = false;
-        try { $active = PluginLoader::isActive($slug); } catch (\Throwable $e) { $active = false; }
 
-        $inPackage = ($source === 'package');
-        $isActivated = $inPackage
-            || $active
-            || !empty($entitlement['entitled'])
-            || in_array(strtolower($status), ['active', 'trial', 'licensed', 'expiring'], true);
-
-        $catalog[] = [
+        $entry = $catalogMap[$slug] ?? [
             'slug' => $slug,
             'name' => (string)($manifest['name'] ?? $slug),
             'version' => (string)($manifest['version'] ?? '—'),
@@ -55,18 +63,55 @@ if (is_dir($pluginsDir)) {
             'monthly_cents' => (int)($price['monthly_cents'] ?? 0),
             'yearly_cents' => (int)($price['yearly_cents'] ?? 0),
             'lifetime_cents' => (int)($price['lifetime_cents'] ?? 0),
-            'source' => $source,
-            'package_slug' => $packageSlug,
-            'status' => $status,
-            'active' => $active,
-            'in_package' => $inPackage,
-            'is_activated' => $isActivated,
-            'purchase_monthly' => shop_checkout_url($slug, 'monthly'),
-            'purchase_yearly' => shop_checkout_url($slug, 'yearly'),
-            'purchase_lifetime' => shop_checkout_url($slug, 'lifetime'),
         ];
+
+        $entry['installed'] = true;
+        if (!empty($manifest['version'])) $entry['version'] = (string)$manifest['version'];
+        if (!empty($manifest['name'])) $entry['name'] = (string)$manifest['name'];
+        if (!empty($manifest['description'])) $entry['description'] = (string)$manifest['description'];
+        if (!empty($shop['tagline'])) $entry['tagline'] = (string)$shop['tagline'];
+        if (!empty($shop['category'])) $entry['category'] = (string)$shop['category'];
+        if (!empty($shop['features']) && is_array($shop['features'])) {
+            $entry['features'] = array_values(array_map('strval', $shop['features']));
+        }
+        if (!empty($price['monthly_cents'])) $entry['monthly_cents'] = (int)$price['monthly_cents'];
+        if (!empty($price['yearly_cents'])) $entry['yearly_cents'] = (int)$price['yearly_cents'];
+        if (!empty($price['lifetime_cents'])) $entry['lifetime_cents'] = (int)$price['lifetime_cents'];
+
+        $catalogMap[$slug] = $entry;
     }
 }
+
+// 3. Resolve tenant entitlements, active state, and checkout URLs
+$catalog = [];
+foreach ($catalogMap as $slug => $entry) {
+    $entitlement = shop_entitlement_info($slug);
+    $owned = $ownedItems[$slug] ?? null;
+    $source = (string)($owned['source'] ?? $entitlement['source'] ?? 'none');
+    $packageSlug = (string)($owned['package_slug'] ?? $entitlement['package_slug'] ?? '');
+    $status = (string)($owned['status'] ?? $entitlement['state'] ?? 'unowned');
+    $active = false;
+    try { $active = PluginLoader::isActive($slug); } catch (\Throwable $e) { $active = false; }
+
+    $inPackage = ($source === 'package');
+    $isActivated = $inPackage
+        || $active
+        || !empty($entitlement['entitled'])
+        || in_array(strtolower($status), ['active', 'trial', 'licensed', 'expiring'], true);
+
+    $entry['source'] = $source;
+    $entry['package_slug'] = $packageSlug;
+    $entry['status'] = $status;
+    $entry['active'] = $active;
+    $entry['in_package'] = $inPackage;
+    $entry['is_activated'] = $isActivated;
+    $entry['purchase_monthly'] = shop_checkout_url($slug, 'monthly');
+    $entry['purchase_yearly'] = shop_checkout_url($slug, 'yearly');
+    $entry['purchase_lifetime'] = shop_checkout_url($slug, 'lifetime');
+
+    $catalog[] = $entry;
+}
+
 usort($catalog, static function (array $a, array $b): int {
     return strcasecmp($a['category'] . $a['name'], $b['category'] . $b['name']);
 });
@@ -927,8 +972,7 @@ body.dark .modal-close:hover {
     let frameOrigin = '';
     const closeCheckout = () => {
         checkout.hidden = true;
-        frame.src = 'about:blank';
-        frameOrigin = '';
+        frame.src = 'about:blank'; frameOrigin = '';
         if (details.hidden) document.body.style.overflow = '';
     };
     const closeDetails = () => {

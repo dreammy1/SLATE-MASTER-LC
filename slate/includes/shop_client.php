@@ -41,14 +41,230 @@ function shop_master_url(): string
     return rtrim($origin, '/');
 }
 
-/** Return true only for a local, explicitly licensable plugin manifest. */
+/** Canonical sellable plugins catalogue shipped with Slate. */
+function shop_canonical_plugins(): array
+{
+    return [
+        'booking' => [
+            'slug' => 'booking',
+            'name' => 'Booking',
+            'version' => '0.8.0',
+            'description' => 'Full appointment booking, including the practitioner-logic capabilities absorbed from the Booking+ plugin. Services with categories, locations, resources, add-ons, per-staff pricing and group tiers; provider schedules with breaks and date overrides; group, recurring and walk-in bookings; an embeddable /book widget with self-service cancel and reschedule; Stripe payments (free/full/deposit), coupons, gift cards, refunds and invoices; email and SMS/WhatsApp reminders.',
+            'category' => 'Operations',
+            'tagline' => 'Appointments, payments and reminders in one place',
+            'requires_core' => '>=1.0.0',
+            'monthly_cents' => 1900,
+            'yearly_cents' => 19000,
+            'lifetime_cents' => 49000,
+            'features' => [
+                'Services, categories, locations and resources',
+                'Provider schedules with breaks and overrides',
+                'Embeddable /book self-service widget',
+                'Stripe payments, deposits, coupons and gift cards',
+                'Email and SMS/WhatsApp reminders',
+            ],
+            'order' => 10,
+        ],
+        'coaching' => [
+            'slug' => 'coaching',
+            'name' => 'Coaching',
+            'version' => '0.6.0',
+            'description' => 'The 3-month Body & Soul Program — daily tracking, coaching, and communication for clients who have downloaded the program. Layers on top of the membership plugin (fixed-term access) and integrates with booking\'s follow-up service. Wave 1 ships profile + goals foundation. Wave 2 adds food diary (meals, foods with manual classification, photos), hydration log, physical activity, emotion tracking with hunger/satiety context, and a practitioner-side live feed.',
+            'category' => 'Operations',
+            'tagline' => 'Daily tracking and coaching for client programs',
+            'requires_core' => '>=1.0.0',
+            'monthly_cents' => 1700,
+            'yearly_cents' => 17000,
+            'lifetime_cents' => 44000,
+            'features' => [
+                'Food diary, hydration, physical activity & emotion logs',
+                'Practitioner live feed and client progress tracking',
+                'Template library and program enrolment',
+                'Integrates with Membership and Booking',
+            ],
+            'order' => 20,
+        ],
+        'membership' => [
+            'slug' => 'membership',
+            'name' => 'Membership',
+            'version' => '0.7.1',
+            'description' => 'Membership plans, lifecycle and the member layer on top of core customers — fixed-term plans (annual membership, insurance, course-specific) with FR/EN names + descriptions, pricing, duration and grace period; member profiles (gender, DOB, skill level, medical/allergies, emergency contact, consent) with a QR member card; a per-member wallet + transaction ledger; Stripe checkout via the stripe-payment plugin; admin manual/offline activation; and an active-membership gate that integrates with the Booking plugin.',
+            'category' => 'Operations',
+            'tagline' => 'Membership plans, member profiles, and digital cards',
+            'requires_core' => '>=1.0.0',
+            'monthly_cents' => 1500,
+            'yearly_cents' => 15000,
+            'lifetime_cents' => 39000,
+            'features' => [
+                'Members-only content gating',
+                'Tiered membership levels',
+                'Recurring billing support',
+                'Member self-service portal',
+            ],
+            'order' => 25,
+        ],
+        'stripe-payment' => [
+            'slug' => 'stripe-payment',
+            'name' => 'Stripe Payment Gateway',
+            'version' => '1.2.1',
+            'description' => 'Generic Stripe checkout for any Slate plugin (v1.2). Exposes StripePaymentAPI::createCheckout(lineItems, opts) so plugins don\'t need their own Stripe wiring. Fires a stripe_webhook_event action so consumers can react to events. Includes a Charges admin page with refund support and a test/live mode toggle. Continues to drive Shop checkout (hosted + embedded Payment Element).',
+            'category' => 'Payments',
+            'tagline' => 'Accept card payments across your site',
+            'requires_core' => '>=1.0.0',
+            'monthly_cents' => 1200,
+            'yearly_cents' => 12000,
+            'lifetime_cents' => 29000,
+            'features' => [
+                'Hosted and embedded checkout',
+                'Terminal / in-person payments',
+                'Refunds and invoices',
+                'Signed webhooks with idempotency',
+            ],
+            'order' => 30,
+        ],
+        'forms' => [
+            'slug' => 'forms',
+            'name' => 'Forms',
+            'version' => '0.7.5',
+            'description' => 'Public-facing forms — contact, quote requests, intake. Drop a form on any URL with /forms/<slug> or iframe-embed it. Submissions appear in the admin inbox; each submit fires an optional webhook and emails the admin + submitter.',
+            'category' => 'Content',
+            'tagline' => 'Build and embed contact and intake forms',
+            'requires_core' => '>=1.0.0',
+            'monthly_cents' => 900,
+            'yearly_cents' => 9000,
+            'lifetime_cents' => 24000,
+            'features' => [
+                'Drag-and-drop form builder',
+                'File uploads and spam protection',
+                'Per-form notification routing',
+                'Submissions inbox and export',
+            ],
+            'order' => 40,
+        ],
+        'multilang-translate' => [
+            'slug' => 'multilang-translate',
+            'name' => 'Slate Multi Language Visual Translation',
+            'version' => '1.3.0',
+            'description' => 'Visual multi-language translation manager. Auto-harvests every text string rendered across admin, customer portal, frontend and all active plugins into a spreadsheet-style grid (columns = languages), lets you translate, find & replace, import/export CSV, and serves live translations through a front-end language switcher.',
+            'category' => 'Content',
+            'tagline' => 'Visual translation for a multilingual site',
+            'requires_core' => '>=1.0.0',
+            'monthly_cents' => 1100,
+            'yearly_cents' => 11000,
+            'lifetime_cents' => 27000,
+            'features' => [
+                'Inline visual translation editor',
+                'Per-page language switching',
+                'Locale-aware routing and SEO tags',
+                'Translation memory reuse',
+            ],
+            'order' => 60,
+        ],
+        'backups' => [
+            'slug' => 'backups',
+            'name' => 'Backups',
+            'version' => '1.0.0',
+            'description' => 'Automated daily backup of the whole database and uploaded files, synced to Google Drive, with retention pruning and a manual "run now" option. Superadmin-only.',
+            'category' => 'System',
+            'tagline' => 'Scheduled backups to local or Google Drive',
+            'requires_core' => '>=1.0.0',
+            'monthly_cents' => 800,
+            'yearly_cents' => 8000,
+            'lifetime_cents' => 19000,
+            'features' => [
+                'Scheduled full and database backups',
+                'Google Drive remote storage',
+                'One-click restore',
+                'Retention policies',
+            ],
+            'order' => 70,
+        ],
+    ];
+}
+
+/**
+ * Returns available plugins catalogue from Master Dashboard API,
+ * falling back to local canonical definitions.
+ *
+ * @return array<string, array<string, mixed>>
+ */
+function shop_master_plugins_catalog(): array
+{
+    static $cached = null;
+    if ($cached !== null) {
+        return $cached;
+    }
+
+    $catalog = shop_canonical_plugins();
+    $masterUrl = shop_master_url();
+    if ($masterUrl !== '') {
+        $endpoint = rtrim($masterUrl, '/') . '/api/plugins/catalog';
+        $json = null;
+        if (function_exists('curl_init')) {
+            $ch = curl_init($endpoint);
+            if ($ch) {
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 3);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+                $resp = curl_exec($ch);
+                $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+                if ($code === 200 && is_string($resp)) {
+                    $json = $resp;
+                }
+            }
+        }
+        if (!$json) {
+            $ctx = stream_context_create(['http' => ['timeout' => 3]]);
+            $resp = @file_get_contents($endpoint, false, $ctx);
+            if (is_string($resp)) {
+                $json = $resp;
+            }
+        }
+        if ($json) {
+            $data = json_decode($json, true);
+            if (is_array($data) && !empty($data['success']) && is_array($data['plugins'] ?? null)) {
+                foreach ($data['plugins'] as $p) {
+                    if (empty($p['slug']) || empty($p['licensable']) || !empty($p['system'])) continue;
+                    $slug = (string)$p['slug'];
+                    $price = is_array($p['price'] ?? null) ? $p['price'] : [];
+                    $shop = is_array($p['shop'] ?? null) ? $p['shop'] : [];
+                    $catalog[$slug] = [
+                        'slug' => $slug,
+                        'name' => (string)($p['name'] ?? $slug),
+                        'version' => (string)($p['version'] ?? '—'),
+                        'description' => (string)($p['description'] ?? ''),
+                        'category' => (string)($shop['category'] ?? 'Other'),
+                        'tagline' => (string)($shop['tagline'] ?? $p['description'] ?? ''),
+                        'requires_core' => (string)($p['requires_core'] ?? '>=1.0.0'),
+                        'monthly_cents' => (int)($price['monthly_cents'] ?? 0),
+                        'yearly_cents' => (int)($price['yearly_cents'] ?? 0),
+                        'lifetime_cents' => (int)($price['lifetime_cents'] ?? 0),
+                        'features' => array_values(array_map('strval', is_array($shop['features'] ?? null) ? $shop['features'] : [])),
+                        'order' => (int)($shop['order'] ?? 100),
+                    ];
+                }
+            }
+        }
+    }
+
+    $cached = $catalog;
+    return $cached;
+}
+
+/** Return true only for a local, explicitly licensable plugin manifest, or canonical catalogue plugin. */
 function shop_is_valid_plugin_slug(string $slug): bool
 {
     if ($slug === '' || !preg_match('/^[a-z0-9][a-z0-9-]*$/', $slug)) return false;
     $manifestPath = (defined('SLATE_ROOT') ? SLATE_ROOT : dirname(__DIR__)) . '/plugins/' . $slug . '/plugin.json';
-    if (!is_file($manifestPath)) return false;
-    $manifest = json_decode((string) @file_get_contents($manifestPath), true);
-    return is_array($manifest) && ($manifest['slug'] ?? '') === $slug && !empty($manifest['licensable']) && empty($manifest['system']);
+    if (is_file($manifestPath)) {
+        $manifest = json_decode((string) @file_get_contents($manifestPath), true);
+        if (is_array($manifest) && ($manifest['slug'] ?? '') === $slug && !empty($manifest['licensable']) && empty($manifest['system'])) {
+            return true;
+        }
+    }
+    $canonical = shop_canonical_plugins();
+    return isset($canonical[$slug]);
 }
 
 /** Mint a short-lived checkout token for the current admin user. */

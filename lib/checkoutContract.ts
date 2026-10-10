@@ -60,10 +60,10 @@ export function normalizePurchaseContext(body: Record<string, unknown>): {
   if (!kind) return { error: "Unsupported purchase context" };
 
   const items = normalizeItems(rawContext.items || body.items);
-  const pluginSlug = text(rawContext.pluginSlug || rawContext.plugin_slug || body.plugin_slug || items[0]);
-  const packageSlug = text(rawContext.packageSlug || rawContext.package_slug || body.package_slug || (kind === "package" || kind === "package_renewal" ? items[0] : ""));
-  const licenseId = text(rawContext.licenseId || rawContext.license_id || body.license_id);
-  const orderId = text(rawContext.orderId || rawContext.order_id || body.order_id);
+  const pluginSlug = text(rawContext.pluginSlug || rawContext.plugin_slug || body.plugin_slug || body.pluginSlug || items[0]);
+  const packageSlug = text(rawContext.packageSlug || rawContext.package_slug || body.package_slug || body.packageSlug || (kind === "package" || kind === "package_renewal" ? items[0] : ""));
+  const licenseId = text(rawContext.licenseId || rawContext.license_id || body.license_id || body.licenseId);
+  const orderId = text(rawContext.orderId || rawContext.order_id || body.order_id || body.orderId);
 
   if ((kind === "standalone_plugin" || kind === "plugin_renewal") && !pluginSlug) {
     return { error: "Plugin purchase context requires plugin_slug" };
