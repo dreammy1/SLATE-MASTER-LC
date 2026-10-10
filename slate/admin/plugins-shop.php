@@ -702,7 +702,7 @@ body.dark .modal-close:hover {
                         'purchase_lifetime' => $plugin['purchase_lifetime'],
                     ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP), ENT_QUOTES, 'UTF-8');
                 ?>
-                    <article class="shop-card" data-plugin-card data-group="activated" data-name="<?= e(strtolower($plugin['name'])) ?>" data-category="<?= e(strtolower($plugin['category'])) ?>" data-price="<?= e((string)$plugin['yearly_cents']) ?>" data-price-monthly="<?= e((string)$plugin['monthly_cents']) ?>" data-price-yearly="<?= e((string)$plugin['yearly_cents']) ?>" data-price-lifetime="<?= e((string)$plugin['lifetime_cents']) ?>">
+                    <article class="shop-card" data-plugin-card data-group="activated" data-name="<?= e(strtolower($plugin['name'])) ?>" data-category="<?= e(strtolower($plugin['category'])) ?>" data-price="<?= e((string)$plugin['yearly_cents']) ?>">
                         <div class="shop-card-head">
                             <h2 class="shop-card-title">
                                 <span><?= e($plugin['name']) ?></span>
@@ -782,7 +782,7 @@ body.dark .modal-close:hover {
                         'purchase_lifetime' => $plugin['purchase_lifetime'],
                     ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP), ENT_QUOTES, 'UTF-8');
                 ?>
-                    <article class="shop-card" data-plugin-card data-group="available" data-name="<?= e(strtolower($plugin['name'])) ?>" data-category="<?= e(strtolower($plugin['category'])) ?>" data-price="<?= e((string)$plugin['yearly_cents']) ?>" data-price-monthly="<?= e((string)$plugin['monthly_cents']) ?>" data-price-yearly="<?= e((string)$plugin['yearly_cents']) ?>" data-price-lifetime="<?= e((string)$plugin['lifetime_cents']) ?>">
+                    <article class="shop-card" data-plugin-card data-group="available" data-name="<?= e(strtolower($plugin['name'])) ?>" data-category="<?= e(strtolower($plugin['category'])) ?>" data-price="<?= e((string)$plugin['yearly_cents']) ?>">
                         <div class="shop-card-head">
                             <h2 class="shop-card-title">
                                 <span><?= e($plugin['name']) ?></span>
@@ -800,7 +800,7 @@ body.dark .modal-close:hover {
                                     <?php foreach (array_slice($plugin['features'], 0, 3) as $feature): ?><li><?= e($feature) ?></li><?php endforeach; ?>
                                 </ul>
                             <?php endif; ?>
-                            <div class="shop-price" data-price-monthly="<?= e($money($plugin['monthly_cents'])) ?>" data-price-yearly="<?= e($money($plugin['yearly_cents'])) ?>" data-price-lifetime="<?= e($money($plugin['lifetime_cents'])) ?>">
+                            <div class="shop-price" data-price-display data-price-monthly="<?= e($money($plugin['monthly_cents'])) ?>" data-price-yearly="<?= e($money($plugin['yearly_cents'])) ?>" data-price-lifetime="<?= e($money($plugin['lifetime_cents'])) ?>">
                                 <?= e($money($plugin['yearly_cents'])) ?> <small>/ year</small>
                             </div>
                         </div>
@@ -1020,7 +1020,7 @@ body.dark .modal-close:hover {
 
         const cycleLabels = { monthly: 'month', yearly: 'year', lifetime: 'one-time' };
         const label = cycleLabels[cycle.value] || cycle.value;
-        document.querySelectorAll('[data-price-monthly]').forEach((price) => {
+        document.querySelectorAll('[data-price-display]').forEach((price) => {
             const cycleKey = 'price' + cycle.value.charAt(0).toUpperCase() + cycle.value.slice(1);
             const value = price.dataset[cycleKey];
             if (value) {
