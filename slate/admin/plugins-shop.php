@@ -369,52 +369,56 @@ require __DIR__ . '/partials/header.php';
 .checkout-modal, .details-modal {
     position: fixed;
     inset: 0;
-    z-index: 1050;
+    z-index: 9999;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 1.25rem;
-    background: rgba(15, 23, 42, 0.65);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
+    background: rgba(0, 0, 0, 0.65) !important;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
 }
 .checkout-dialog, .details-dialog {
     position: relative;
     background: #FFFFFF !important;
     background-color: #FFFFFF !important;
     color: var(--text-color, #16181D) !important;
-    border: 1px solid var(--border-strong-color);
+    border: 1px solid var(--border-strong-color, #E0E2E6);
     border-radius: 14px;
     box-shadow: 0 25px 60px -15px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,0,0,0.06);
     opacity: 1 !important;
-}
-.checkout-dialog {
-    width: min(960px, 100%);
-    height: min(760px, 92vh);
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
 }
+.checkout-dialog {
+    width: min(960px, 94vw);
+    height: min(760px, 92vh);
+}
 .details-dialog {
-    width: min(600px, 100%);
-    max-height: 90vh;
-    overflow-y: auto;
+    width: min(620px, 94vw);
+    max-height: 88vh;
 }
 .modal-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 1.1rem 1.3rem;
+    padding: 1.15rem 1.4rem;
     border-bottom: 1px solid var(--border-color);
-    background: #FFFFFF;
+    background: #FFFFFF !important;
+    flex-shrink: 0;
 }
 .modal-head strong {
     font-size: 1.15rem;
     font-weight: 700;
-    color: var(--text-color, #16181D);
+    color: #16181D !important;
 }
 .modal-body {
-    padding: 1.3rem;
-    background: #FFFFFF;
-    color: var(--text-color, #16181D);
+    padding: 1.4rem;
+    background: #FFFFFF !important;
+    color: #16181D !important;
+    overflow-y: auto;
+    flex: 1 1 auto;
 }
 .modal-close {
     border: 0;
@@ -428,14 +432,77 @@ require __DIR__ . '/partials/header.php';
     transition: background .15s, color .15s;
 }
 .modal-close:hover {
-    background: rgba(0,0,0,0.05);
-    color: var(--text-color);
+    background: rgba(0,0,0,0.06);
+    color: #16181D;
 }
 .checkout-frame {
     width: 100%;
-    height: calc(100% - 60px);
+    flex: 1 1 auto;
     border: 0;
     background: #fff;
+}
+
+/* Modal internal content classes for robust light & dark theme styling */
+.modal-plugin-title {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #16181D;
+}
+.modal-plugin-desc {
+    color: var(--text-muted);
+    margin: 0.5rem 0 1rem;
+    font-size: 0.95rem;
+    line-height: 1.55;
+}
+.modal-meta-row {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    flex-wrap: wrap;
+}
+.modal-meta-row strong {
+    color: #16181D;
+}
+.modal-section-title {
+    font-size: 1rem;
+    font-weight: 650;
+    margin: 1.15rem 0 0.5rem;
+    color: #16181D;
+}
+.modal-box {
+    margin-top: 1.25rem;
+    padding: 1rem 1.15rem;
+    border-radius: 10px;
+    background: var(--surface-secondary, #F5F6F8);
+    border: 1px solid var(--border-color);
+}
+.modal-box-title {
+    font-weight: 650;
+    margin-bottom: 0.5rem;
+    color: #16181D;
+}
+.modal-price-pill {
+    padding: 0.65rem 0.85rem;
+    border-radius: 8px;
+    background: #FFFFFF;
+    border: 1px solid var(--border-color);
+    font-size: 0.9rem;
+    color: #16181D;
+}
+.modal-price-pill strong {
+    display: block;
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-muted);
+    margin-bottom: 0.2rem;
+}
+.modal-price-pill.is-selected {
+    border-color: var(--accent, #7C3AED);
+    background: rgba(124, 58, 237, 0.08);
 }
 
 /* Dark mode overrides for modal and cards */
@@ -445,19 +512,46 @@ require __DIR__ . '/partials/header.php';
         background: #161e31 !important;
         background-color: #161e31 !important;
         color: #f1f5f9 !important;
-        border-color: rgba(255, 255, 255, 0.12) !important;
+        border-color: rgba(255, 255, 255, 0.14) !important;
     }
     :root:not([data-theme="light"]) .modal-head,
     :root:not([data-theme="light"]) .modal-body {
         background: #161e31 !important;
         color: #f1f5f9 !important;
     }
-    :root:not([data-theme="light"]) .modal-head strong {
+    :root:not([data-theme="light"]) .modal-head {
+        border-color: rgba(255, 255, 255, 0.12) !important;
+    }
+    :root:not([data-theme="light"]) .modal-head strong,
+    :root:not([data-theme="light"]) .modal-plugin-title,
+    :root:not([data-theme="light"]) .modal-meta-row strong,
+    :root:not([data-theme="light"]) .modal-section-title,
+    :root:not([data-theme="light"]) .modal-box-title {
         color: #ffffff !important;
     }
+    :root:not([data-theme="light"]) .modal-box {
+        background: #1e293b !important;
+        border-color: rgba(255, 255, 255, 0.12) !important;
+    }
+    :root:not([data-theme="light"]) .modal-price-pill {
+        background: #161e31 !important;
+        border-color: rgba(255, 255, 255, 0.12) !important;
+        color: #f1f5f9 !important;
+    }
+    :root:not([data-theme="light"]) .modal-price-pill.is-selected {
+        border-color: #8b5cf6 !important;
+        background: rgba(139, 92, 246, 0.18) !important;
+    }
+    :root:not([data-theme="light"]) .modal-plugin-desc,
+    :root:not([data-theme="light"]) .modal-meta-row {
+        color: #94a3b8 !important;
+    }
+    :root:not([data-theme="light"]) .modal-close {
+        color: #94a3b8 !important;
+    }
     :root:not([data-theme="light"]) .modal-close:hover {
-        background: rgba(255, 255, 255, 0.1);
-        color: #ffffff;
+        background: rgba(255, 255, 255, 0.1) !important;
+        color: #ffffff !important;
     }
 }
 :root[data-theme="dark"] .checkout-dialog,
@@ -469,7 +563,7 @@ body.dark .details-dialog {
     background: #161e31 !important;
     background-color: #161e31 !important;
     color: #f1f5f9 !important;
-    border-color: rgba(255, 255, 255, 0.12) !important;
+    border-color: rgba(255, 255, 255, 0.14) !important;
 }
 :root[data-theme="dark"] .modal-head,
 :root[data-theme="dark"] .modal-body,
@@ -480,10 +574,59 @@ body.dark .modal-body {
     background: #161e31 !important;
     color: #f1f5f9 !important;
 }
+:root[data-theme="dark"] .modal-head,
+html.dark .modal-head,
+body.dark .modal-head {
+    border-color: rgba(255, 255, 255, 0.12) !important;
+}
 :root[data-theme="dark"] .modal-head strong,
+:root[data-theme="dark"] .modal-plugin-title,
+:root[data-theme="dark"] .modal-meta-row strong,
+:root[data-theme="dark"] .modal-section-title,
+:root[data-theme="dark"] .modal-box-title,
 html.dark .modal-head strong,
-body.dark .modal-head strong {
+html.dark .modal-plugin-title,
+html.dark .modal-meta-row strong,
+html.dark .modal-section-title,
+html.dark .modal-box-title,
+body.dark .modal-head strong,
+body.dark .modal-plugin-title,
+body.dark .modal-meta-row strong,
+body.dark .modal-section-title,
+body.dark .modal-box-title {
     color: #ffffff !important;
+}
+:root[data-theme="dark"] .modal-box,
+html.dark .modal-box,
+body.dark .modal-box {
+    background: #1e293b !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+}
+:root[data-theme="dark"] .modal-price-pill,
+html.dark .modal-price-pill,
+body.dark .modal-price-pill {
+    background: #161e31 !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    color: #f1f5f9 !important;
+}
+:root[data-theme="dark"] .modal-price-pill.is-selected,
+html.dark .modal-price-pill.is-selected,
+body.dark .modal-price-pill.is-selected {
+    border-color: #8b5cf6 !important;
+    background: rgba(139, 92, 246, 0.18) !important;
+}
+:root[data-theme="dark"] .modal-plugin-desc,
+:root[data-theme="dark"] .modal-meta-row,
+html.dark .modal-plugin-desc,
+html.dark .modal-meta-row,
+body.dark .modal-plugin-desc,
+body.dark .modal-meta-row {
+    color: #94a3b8 !important;
+}
+:root[data-theme="dark"] .modal-close,
+html.dark .modal-close,
+body.dark .modal-close {
+    color: #94a3b8 !important;
 }
 :root[data-theme="dark"] .modal-close:hover,
 html.dark .modal-close:hover,
@@ -559,7 +702,7 @@ body.dark .modal-close:hover {
                         'purchase_lifetime' => $plugin['purchase_lifetime'],
                     ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP), ENT_QUOTES, 'UTF-8');
                 ?>
-                    <article class="shop-card" data-plugin-card data-group="activated" data-name="<?= e(strtolower($plugin['name'])) ?>" data-category="<?= e(strtolower($plugin['category'])) ?>" data-price="<?= e((string)$plugin['yearly_cents']) ?>">
+                    <article class="shop-card" data-plugin-card data-group="activated" data-name="<?= e(strtolower($plugin['name'])) ?>" data-category="<?= e(strtolower($plugin['category'])) ?>" data-price="<?= e((string)$plugin['yearly_cents']) ?>" data-price-monthly="<?= e((string)$plugin['monthly_cents']) ?>" data-price-yearly="<?= e((string)$plugin['yearly_cents']) ?>" data-price-lifetime="<?= e((string)$plugin['lifetime_cents']) ?>">
                         <div class="shop-card-head">
                             <h2 class="shop-card-title">
                                 <span><?= e($plugin['name']) ?></span>
@@ -639,7 +782,7 @@ body.dark .modal-close:hover {
                         'purchase_lifetime' => $plugin['purchase_lifetime'],
                     ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP), ENT_QUOTES, 'UTF-8');
                 ?>
-                    <article class="shop-card" data-plugin-card data-group="available" data-name="<?= e(strtolower($plugin['name'])) ?>" data-category="<?= e(strtolower($plugin['category'])) ?>" data-price="<?= e((string)$plugin['yearly_cents']) ?>">
+                    <article class="shop-card" data-plugin-card data-group="available" data-name="<?= e(strtolower($plugin['name'])) ?>" data-category="<?= e(strtolower($plugin['category'])) ?>" data-price="<?= e((string)$plugin['yearly_cents']) ?>" data-price-monthly="<?= e((string)$plugin['monthly_cents']) ?>" data-price-yearly="<?= e((string)$plugin['yearly_cents']) ?>" data-price-lifetime="<?= e((string)$plugin['lifetime_cents']) ?>">
                         <div class="shop-card-head">
                             <h2 class="shop-card-title">
                                 <span><?= e($plugin['name']) ?></span>
@@ -725,8 +868,16 @@ body.dark .modal-close:hover {
     const detailsBody = document.getElementById('detailsBody');
 
     let frameOrigin = '';
-    const closeCheckout = () => { checkout.hidden = true; frame.src = 'about:blank'; frameOrigin = ''; };
-    const closeDetails = () => { details.hidden = true; };
+    const closeCheckout = () => {
+        checkout.hidden = true;
+        frame.src = 'about:blank';
+        frameOrigin = '';
+        if (details.hidden) document.body.style.overflow = '';
+    };
+    const closeDetails = () => {
+        details.hidden = true;
+        if (checkout.hidden) document.body.style.overflow = '';
+    };
     const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
 
     const openCheckoutUrl = (url) => {
@@ -739,6 +890,7 @@ body.dark .modal-close:hover {
         frameOrigin = parsed.origin;
         checkoutTitle.textContent = 'Purchase plugin';
         frame.src = url;
+        document.body.style.overflow = 'hidden';
         checkout.hidden = false;
     };
 
@@ -757,35 +909,39 @@ body.dark .modal-close:hover {
 
         let priceSection = '';
         if (data.is_activated) {
-            priceSection = '<div style="margin-top:1.25rem;padding:0.9rem 1rem;border-radius:8px;background:var(--surface-secondary,#f5f6f8);border:1px solid var(--border-color);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">'
-                + '<div><strong style="color:var(--text-color);">License Status:</strong> ' + (data.in_package ? 'Included with package (' + escapeHtml(data.package_slug || 'Slate') + ')' : 'Activated on this instance') + '</div>'
+            priceSection = '<div class="modal-box" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;">'
+                + '<div><strong class="modal-box-title" style="margin-bottom:0;">License Status:</strong> ' + (data.in_package ? 'Included with package (' + escapeHtml(data.package_slug || 'Slate') + ')' : 'Activated on this instance') + '</div>'
                 + '<div>' + statusBadge + '</div>'
                 + '</div>';
         } else {
-            priceSection = '<div style="margin-top:1.25rem;padding:1rem;border-radius:8px;background:var(--surface-secondary,#f5f6f8);border:1px solid var(--border-color);">'
-                + '<div style="font-weight:650;margin-bottom:0.5rem;color:var(--text-color);">Pricing Options:</div>'
-                + '<div style="display:flex;gap:1.25rem;flex-wrap:wrap;font-size:0.92rem;margin-bottom:1rem;">'
-                + '<span><strong>Monthly:</strong> ' + escapeHtml(data.monthly) + '</span>'
-                + '<span><strong>Yearly:</strong> ' + escapeHtml(data.yearly) + '</span>'
-                + '<span><strong>Lifetime:</strong> ' + escapeHtml(data.lifetime) + '</span>'
+            const currentCycle = cycle ? cycle.value : 'yearly';
+            const cycleNames = { monthly: 'Monthly', yearly: 'Yearly', lifetime: 'Lifetime' };
+            const currentCycleName = cycleNames[currentCycle] || 'Yearly';
+
+            priceSection = '<div class="modal-box">'
+                + '<div class="modal-box-title">Pricing Options:</div>'
+                + '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:0.75rem;margin-bottom:1rem;">'
+                + '<div class="modal-price-pill' + (currentCycle === 'monthly' ? ' is-selected' : '') + '"><strong>Monthly</strong>' + escapeHtml(data.monthly) + '</div>'
+                + '<div class="modal-price-pill' + (currentCycle === 'yearly' ? ' is-selected' : '') + '"><strong>Yearly</strong>' + escapeHtml(data.yearly) + '</div>'
+                + '<div class="modal-price-pill' + (currentCycle === 'lifetime' ? ' is-selected' : '') + '"><strong>Lifetime</strong>' + escapeHtml(data.lifetime) + '</div>'
                 + '</div>'
                 + '<div style="display:flex;justify-content:flex-end;">'
-                + '<button class="btn btn-primary" type="button" id="modalBuyNowBtn">Buy Now</button>'
+                + '<button class="btn btn-primary" type="button" id="modalBuyNowBtn">Buy Now (' + escapeHtml(currentCycleName) + ')</button>'
                 + '</div>'
                 + '</div>';
         }
 
         detailsTitle.textContent = data.name;
         detailsBody.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;gap:0.5rem;flex-wrap:wrap;">'
-            + '<h2 style="margin:0;font-size:1.35rem;font-weight:700;color:var(--text-color);">' + escapeHtml(data.name) + ' <span class="badge badge-secondary" style="font-size:0.75rem;vertical-align:middle;">v' + escapeHtml(data.version) + '</span></h2>'
+            + '<h2 class="modal-plugin-title">' + escapeHtml(data.name) + ' <span class="badge badge-secondary" style="font-size:0.75rem;vertical-align:middle;">v' + escapeHtml(data.version) + '</span></h2>'
             + statusBadge
             + '</div>'
-            + '<p style="color:var(--text-muted);margin:0.5rem 0 1rem;font-size:0.95rem;line-height:1.55;">' + escapeHtml(data.description || data.tagline) + '</p>'
-            + '<div style="display:flex;gap:1.5rem;margin-bottom:1rem;font-size:0.88rem;color:var(--text-muted);flex-wrap:wrap;">'
-            + '<div><strong style="color:var(--text-color);">Category:</strong> ' + escapeHtml(data.category) + '</div>'
-            + (data.requires_core ? '<div><strong style="color:var(--text-color);">Requires:</strong> Slate ' + escapeHtml(data.requires_core) + '</div>' : '')
+            + '<p class="modal-plugin-desc">' + escapeHtml(data.description || data.tagline) + '</p>'
+            + '<div class="modal-meta-row">'
+            + '<div><strong>Category:</strong> ' + escapeHtml(data.category) + '</div>'
+            + (data.requires_core ? '<div><strong>Requires:</strong> Slate ' + escapeHtml(data.requires_core) + '</div>' : '')
             + '</div>'
-            + (features ? '<h3 style="font-size:1rem;font-weight:650;margin:1rem 0 0.5rem;color:var(--text-color);">Key Features</h3><ul class="shop-features" style="margin-bottom:1rem;">' + features + '</ul>' : '')
+            + (features ? '<h3 class="modal-section-title">Key Features</h3><ul class="shop-features" style="margin-bottom:1rem;">' + features + '</ul>' : '')
             + priceSection;
 
         const buyBtn = document.getElementById('modalBuyNowBtn');
@@ -798,13 +954,17 @@ body.dark .modal-close:hover {
             });
         }
 
+        document.body.style.overflow = 'hidden';
         details.hidden = false;
     };
 
     const sortCards = (cardsList) => {
         return cardsList.slice().sort((a, b) => {
             if (sort.value === 'price-low' || sort.value === 'price-high') {
-                const diff = Number(a.dataset.price || 0) - Number(b.dataset.price || 0);
+                const cycleKey = 'price' + cycle.value.charAt(0).toUpperCase() + cycle.value.slice(1);
+                const priceA = Number(a.dataset[cycleKey] || a.dataset.price || 0);
+                const priceB = Number(b.dataset[cycleKey] || b.dataset.price || 0);
+                const diff = priceA - priceB;
                 return sort.value === 'price-low' ? diff : -diff;
             }
             if (sort.value === 'category') {
@@ -828,6 +988,14 @@ body.dark .modal-close:hover {
         sorted.forEach((card) => grid.appendChild(card));
         grid.appendChild(emptyEl);
         emptyEl.hidden = visible.length !== 0;
+
+        const isFiltered = Boolean(q || cat);
+        if (emptyEl) {
+            emptyEl.textContent = isFiltered
+                ? (grid === activatedGrid ? 'No activated plugins match your filter.' : 'No available plugins match your filter.')
+                : (grid === activatedGrid ? 'No plugins are currently activated or included in your license.' : 'No available plugins found.');
+        }
+
         if (countEl) countEl.textContent = visible.length;
         return visible.length;
     };
@@ -837,15 +1005,26 @@ body.dark .modal-close:hover {
         const avlCount = filterCards(availableCards, availableGrid, availableEmpty, availableCount);
         const total = actCount + avlCount;
 
-        if (pluginEmpty) {
-            pluginEmpty.hidden = total !== 0;
+        const activatedSection = document.getElementById('activatedSection');
+        const availableSection = document.getElementById('availableSection');
+
+        if (total === 0) {
+            if (activatedSection) activatedSection.style.display = 'none';
+            if (availableSection) availableSection.style.display = 'none';
+            if (pluginEmpty) pluginEmpty.hidden = false;
+        } else {
+            if (activatedSection) activatedSection.style.display = '';
+            if (availableSection) availableSection.style.display = '';
+            if (pluginEmpty) pluginEmpty.hidden = true;
         }
 
+        const cycleLabels = { monthly: 'month', yearly: 'year', lifetime: 'one-time' };
+        const label = cycleLabels[cycle.value] || cycle.value;
         document.querySelectorAll('[data-price-monthly]').forEach((price) => {
             const cycleKey = 'price' + cycle.value.charAt(0).toUpperCase() + cycle.value.slice(1);
             const value = price.dataset[cycleKey];
             if (value) {
-                price.innerHTML = value + ' <small>/ ' + cycle.value.replace('lifetime', 'once') + '</small>';
+                price.innerHTML = value + ' <small>/ ' + label + '</small>';
             }
         });
     };
