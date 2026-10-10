@@ -76,4 +76,13 @@ unit('Plugins shop template contains solid modal backgrounds, backdrop blur, z-i
     assert_true(str_contains($content, 'Available Plugins / Not Installed Yet'), 'Available section heading present');
     assert_true(str_contains($content, 'View details'), 'View details button present');
     assert_true(str_contains($content, 'Buy Now'), 'Buy Now button present');
+
+    // Sorting & pricing isolation verification:
+    assert_true(str_contains($content, 'data-price-monthly='), 'Cards carry monthly price for cycle sorting');
+    assert_true(str_contains($content, 'data-price-yearly='), 'Cards carry yearly price for cycle sorting');
+    assert_true(str_contains($content, 'data-price-lifetime='), 'Cards carry lifetime price for cycle sorting');
+    assert_true(str_contains($content, 'data-price-display'), 'Dedicated price display element isolates text refresh from card container');
+    assert_true(str_contains($content, 'data-modal-cycle="monthly"'), 'Modal pricing pills support interactive billing cycle selection');
+    assert_true(str_contains($content, '[data-bs-theme="dark"]'), 'Dark theme selector covers Bootstrap / system theme variations');
 });
+
