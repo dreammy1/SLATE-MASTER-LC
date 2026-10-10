@@ -181,7 +181,7 @@ $coreNav = [
         'label' => 'My Licenses',
         'href'  => SLATE_URL . '/admin/my-licenses.php',
         'icon'  => 'key',
-        'perm'  => 'settings.view',
+        'perm'  => null,
         'order' => 845,
         'group' => 'licensing',
     ],
@@ -348,6 +348,9 @@ if (!$currentNav) {
         'settings.php'      => 'settings-general',
         'audit.php'         => 'audit',
         'help.php'          => 'help',
+        'my-licenses.php'   => 'my-licenses',
+        'plugins-shop.php'  => 'plugins-shop',
+        'billing.php'       => 'billing',
     ];
     $currentNav = $map[$script] ?? null;
     if ($script === 'posts.php') {
@@ -396,6 +399,7 @@ static $groupPriorities = [
     'form-builder'  => 55,
     'plugins'       => 60,
     'mcp-ai-hub'    => 65,
+    'licensing'     => 68,
     'settings'      => 70,
     'system'        => 80,
 ];
@@ -638,6 +642,7 @@ if (!function_exists('slate_admin_nav_icon')) {
             'clipboard'      => '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>',
             'target'         => '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.2"/><circle cx="12" cy="12" r="1.6"/>',
             'message-circle' => '<path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5z"/>',
+            'key'            => '<circle cx="8" cy="15" r="4"/><path d="M10.85 12.15L19 4"/><path d="M18 5l2 2"/><path d="M15 8l2 2"/>',
         ];
         $path = $icons[$name] ?? $icons['circle'];
         return '<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
@@ -2006,4 +2011,24 @@ if (!function_exists('slate_admin_nav_icon')) {
                 </a>
             </div>
         <?php endif; ?>
+        <?php
+        $_coreLicenseStatus = class_exists('\Slate\Services\Licensing\LicenseService')
+            ? \Slate\Services\Licensing\LicenseService::effectiveStatus(function_exists('current_tenant_id') ? current_tenant_id() : 1)
+            : 'none';
+        $_currentScriptBase = basename($_SERVER['SCRIPT_NAME'] ?? '');
+        if (!in_array(strtolower((string)$_coreLicenseStatus), ['active', 'trial'], true)
+            && !in_array($_currentScriptBase, ['my-licenses.php', 'billing.php', 'login.php', 'logout.php'], true)
+            && !isset($_SESSION['slate_override_tenant'])
+            && !empty($_SESSION['user_id'])):
+        ?>
+            <div class="alert alert-warning" role="alert" style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px;">
+                <span>
+                    <strong><?= __('license_activation_required', 'License required') ?>:</strong>
+                    <?= __('license_activation_prompt', 'Your Slate site is not yet activated. Paste your purchased license key to unlock your dashboard.') ?>
+                </span>
+                <a href="<?= e(defined('SLATE_URL') ? SLATE_URL . '/admin/my-licenses.php' : 'my-licenses.php') ?>" class="btn btn-sm btn-primary" style="white-space:nowrap; text-decoration:none;">
+                    <?= __('activate_license_now', 'Activate License') ?> &rarr;
+                </a>
+            </div>
+        <?php unset($_coreLicenseStatus, $_currentScriptBase); endif; ?>
 

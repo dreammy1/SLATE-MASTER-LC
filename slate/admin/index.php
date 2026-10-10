@@ -462,6 +462,13 @@ if (Auth::isPlatformSuperAdmin()):
     ?>
     <div class="page-header" style="margin-top:24px;">
         <div><h2><?= __('your_plan', 'Your plan') ?></h2></div>
+        <?php if (!$myLicense || !in_array(strtolower((string)\Slate\Services\Licensing\LicenseService::effectiveStatus($myTenantId)), ['active', 'trial'], true)): ?>
+            <div>
+                <a class="btn btn-primary" href="<?= e(defined('SLATE_URL') ? SLATE_URL : '') ?>/admin/my-licenses.php">
+                    <?= __('activate_license', 'Activate License') ?>
+                </a>
+            </div>
+        <?php endif; ?>
     </div>
     <div class="dash-stats">
         <?php slate_stat_card(['icon' => 'tag', 'number' => $myPlan['name'] ?? __('no_plan', 'No plan'), 'label' => __('plan', 'Plan')]); ?>

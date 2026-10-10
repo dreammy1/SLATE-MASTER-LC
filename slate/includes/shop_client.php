@@ -137,7 +137,12 @@ function shop_license_status(?string $status, ?string $expiresAt = null): string
  */
 function shop_activate_license_key(string $key): array
 {
-    $key = trim($key);
+    $key = strtoupper(trim($key));
+    $key = trim($key, '"\'');
+    $key = preg_replace('/[\s_]+/', '-', $key);
+    if (preg_match('/^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/i', $key)) {
+        $key = 'SLT-' . $key;
+    }
     if (!preg_match('/^SLT-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/i', $key)) {
         return ['ok' => false, 'error' => 'Invalid license key format. Expected SLT-XXXX-XXXX-XXXX-XXXX.'];
     }
@@ -284,6 +289,14 @@ function shop_activate_license_key(string $key): array
                     $restPath = $root . '/.slate_restrictions.json';
                     @file_put_contents($restPath, json_encode(array_values($pkg['restrictions']), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
                 }
+            }
+
+            if (empty($pluginEntitlements) && !empty($lic['package_slug']) && !$pkg) {
+                $pluginEntitlements[$lic['package_slug']] = [
+                    'source'     => 'single',
+                    'status'     => $status,
+                    'expires_at' => $expiresAt,
+                ];
             }
 
             if (!empty($pluginEntitlements) && is_array($pluginEntitlements)) {
