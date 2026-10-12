@@ -52,4 +52,17 @@ describe("License bulk selection and deletion feature", () => {
     assert.match(pageSrc, /setLicenses\(\(prev\) => prev\.filter/, "must update licenses optimistically");
     assert.match(pageSrc, /method: "DELETE"/, "must call DELETE on /api/licenses");
   });
+
+  it("UI supports filtered licenses, indeterminate select-all, and floating bulk action bar", () => {
+    assert.match(pageSrc, /filteredLicenses/, "must compute filtered licenses for active search/status filters");
+    assert.match(pageSrc, /indeterminate/, "must support indeterminate state for header checkbox");
+    assert.match(pageSrc, /FLOATING BULK ACTION BAR/, "must render floating bulk action bar when scrolled");
+    assert.match(pageSrc, /Escape/, "must support Escape key to cancel deletion modal");
+  });
+
+  it("storage exports bulk deleteLicenses function and API handles empty match 404", () => {
+    assert.match(storageSrc, /export async function deleteLicenses/, "must export deleteLicenses");
+    assert.match(routeSrc, /status: 404/, "must return 404 if no licenses were found to delete");
+    assert.match(routeSrc, /queryIds/, "must support query parameter ids");
+  });
 });

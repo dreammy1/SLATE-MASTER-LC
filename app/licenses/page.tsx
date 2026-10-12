@@ -82,7 +82,7 @@ export default function ClientConsolePage() {
       });
       const data = await res.json().catch(() => ({}));
 
-      if (!res.ok || !data.success) {
+      if (!res.ok || !data.success || data.deletedCount === 0) {
         setLicenses(prevLicenses);
         showToast(data.error || "Failed to delete selected license(s).", "error");
       } else {
@@ -97,6 +97,7 @@ export default function ClientConsolePage() {
       showToast(err?.message || "An unexpected error occurred while deleting.", "error");
     } finally {
       setBusy(false);
+      setLicenseToDelete(null);
     }
   };
 
@@ -126,8 +127,52 @@ export default function ClientConsolePage() {
       showToast(err?.message || "Failed to delete selected clients.", "error");
     } finally {
       setBusy(false);
+      setClientBulkModal(false);
     }
   };
+
+  const filteredLicenses = useMemo(() => {
+    return licenses.filter((l) => {
+      if (group !== "all") {
+        if (group === "active" && l.status !== "active") return false;
+        if (group === "expired" && l.status !== "expired") return false;
+        if (group === "expiring") {
+          if (!l.expires_at) return false;
+          const days = (new Date(l.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+          if (days < 0 || days > 14) return false;
+        }
+      }
+      if (q.trim()) {
+        const query = q.trim().toLowerCase();
+        const domain = (l.domain || "").toLowerCase();
+        const slug = (l.package_slug || "").toLowerCase();
+        const last4 = (l.key_last4 || "").toLowerCase();
+        const id = (l.id || "").toLowerCase();
+        const status = (l.status || "").toLowerCase();
+        if (
+          !domain.includes(query) &&
+          !slug.includes(query) &&
+          !last4.includes(query) &&
+          !id.includes(query) &&
+          !status.includes(query)
+        ) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [licenses, q, group]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !busy) {
+        if (licenseToDelete) setLicenseToDelete(null);
+        if (clientBulkModal) setClientBulkModal(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [busy, licenseToDelete, clientBulkModal]);
 
   const load = useCallback(async () => {
     const params = new URLSearchParams();
@@ -518,16 +563,38 @@ export default function ClientConsolePage() {
                   <th className="py-2 pr-3 w-8">
                     <input
                       type="checkbox"
-                      checked={licenses.length > 0 && selectedLicenseIds.length === licenses.length}
+                      checked={
+                        filteredLicenses.length > 0 &&
+                        filteredLicenses.every((l) => selectedLicenseIds.includes(l.id))
+                      }
+                      ref={(el) => {
+                        if (el) {
+                          const allSelected =
+                            filteredLicenses.length > 0 &&
+                            filteredLicenses.every((l) => selectedLicenseIds.includes(l.id));
+                          const someSelected = filteredLicenses.some((l) =>
+                            selectedLicenseIds.includes(l.id)
+                          );
+                          el.indeterminate = someSelected && !allSelected;
+                        }
+                      }}
                       onChange={(e) => {
                         if (e.target.checked) {
-                          setSelectedLicenseIds(licenses.map((l) => l.id));
+                          if (!q.trim() && group === "all") {
+                            setSelectedLicenseIds(licenses.map((l) => l.id));
+                          } else {
+                            setSelectedLicenseIds((prev) =>
+                              Array.from(new Set([...prev, ...filteredLicenses.map((l) => l.id)]))
+                            );
+                          }
                         } else {
-                          setSelectedLicenseIds([]);
+                          const filteredSet = new Set(filteredLicenses.map((l) => l.id));
+                          setSelectedLicenseIds((prev) => prev.filter((id) => !filteredSet.has(id)));
                         }
                       }}
                       className="rounded bg-[#0a0d14] border-slate-700 text-[#00f0ff] focus:ring-0 cursor-pointer"
                       title="Select All Licenses"
+                      aria-label="Select All Licenses"
                     />
                   </th>
                   <th className="py-2 pr-3">Domain</th>
@@ -540,7 +607,7 @@ export default function ClientConsolePage() {
                 </tr>
               </thead>
               <tbody>
-                {licenses.map((l) => {
+                {filteredLicenses.map((l) => {
                   const isChecked = selectedLicenseIds.includes(l.id);
                   return (
                     <tr
@@ -561,6 +628,7 @@ export default function ClientConsolePage() {
                             }
                           }}
                           className="rounded bg-[#0a0d14] border-slate-700 text-[#00f0ff] focus:ring-0 cursor-pointer"
+                          aria-label={`Select license for ${l.domain}`}
                         />
                       </td>
                       <td className="py-2 pr-3 text-white font-medium break-all max-w-[200px]">{l.domain}</td>
@@ -623,7 +691,11 @@ export default function ClientConsolePage() {
                 })}
               </tbody>
             </table>
-            {licenses.length === 0 && <div className="text-slate-500 py-3">No licenses yet.</div>}
+            {filteredLicenses.length === 0 && (
+              <div className="text-slate-500 py-3">
+                {licenses.length === 0 ? "No licenses yet." : "No licenses match your search query."}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -847,8 +919,14 @@ export default function ClientConsolePage() {
 
       {/* ════ CONFIRMATION MODAL (DELETE LICENSES) ════ */}
       {licenseToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="bg-[#0d1220] border border-[#1e293b] rounded-xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => { if (!busy) setLicenseToDelete(null); }}
+        >
+          <div
+            className="bg-[#0d1220] border border-[#1e293b] rounded-xl max-w-md w-full p-6 space-y-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center gap-3 text-rose-400">
               <AlertTriangle className="w-6 h-6 shrink-0" />
               <h3 className="text-lg font-bold text-white">Delete License{licenseToDelete.length > 1 ? "s" : ""}?</h3>
@@ -874,7 +952,7 @@ export default function ClientConsolePage() {
                 type="button"
                 disabled={busy}
                 onClick={() => setLicenseToDelete(null)}
-                className="px-4 py-2 border border-[#1e293b] hover:bg-[#121927] text-slate-300 rounded text-xs transition-colors"
+                className="px-4 py-2 border border-[#1e293b] hover:bg-[#121927] text-slate-300 rounded text-xs transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -883,10 +961,9 @@ export default function ClientConsolePage() {
                 disabled={busy}
                 onClick={async () => {
                   const toDelete = [...licenseToDelete];
-                  setLicenseToDelete(null);
                   await handleBulkDeleteLicenses(toDelete);
                 }}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-medium rounded text-xs transition-colors flex items-center gap-1.5"
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-medium rounded text-xs transition-colors flex items-center gap-1.5 disabled:opacity-50"
               >
                 {busy ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                 Confirm Delete
@@ -898,8 +975,14 @@ export default function ClientConsolePage() {
 
       {/* ════ CONFIRMATION MODAL (DELETE CLIENTS) ════ */}
       {clientBulkModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="bg-[#0d1220] border border-[#1e293b] rounded-xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => { if (!busy) setClientBulkModal(false); }}
+        >
+          <div
+            className="bg-[#0d1220] border border-[#1e293b] rounded-xl max-w-md w-full p-6 space-y-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center gap-3 text-rose-400">
               <AlertTriangle className="w-6 h-6 shrink-0" />
               <h3 className="text-lg font-bold text-white">Delete Selected Clients?</h3>
@@ -913,7 +996,7 @@ export default function ClientConsolePage() {
                 type="button"
                 disabled={busy}
                 onClick={() => setClientBulkModal(false)}
-                className="px-4 py-2 border border-[#1e293b] hover:bg-[#121927] text-slate-300 rounded text-xs transition-colors"
+                className="px-4 py-2 border border-[#1e293b] hover:bg-[#121927] text-slate-300 rounded text-xs transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -922,16 +1005,44 @@ export default function ClientConsolePage() {
                 disabled={busy}
                 onClick={async () => {
                   const toDelete = [...selectedClientIds];
-                  setClientBulkModal(false);
                   await handleBulkDeleteClients(toDelete);
                 }}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-medium rounded text-xs transition-colors flex items-center gap-1.5"
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-medium rounded text-xs transition-colors flex items-center gap-1.5 disabled:opacity-50"
               >
                 {busy ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                 Confirm Delete
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ════ FLOATING BULK ACTION BAR (LICENSES) ════ */}
+      {selectedLicenseIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#0d1220]/95 backdrop-blur border border-[#00f0ff]/40 shadow-2xl shadow-[#00f0ff]/10 rounded-xl px-4 py-2.5 flex items-center gap-3 sm:gap-4 animate-in fade-in slide-in-from-bottom-4">
+          <div className="flex items-center gap-2 text-white font-semibold text-xs">
+            <span className="w-2 h-2 rounded-full bg-[#00f0ff] animate-pulse" />
+            <span>
+              {selectedLicenseIds.length} license{selectedLicenseIds.length === 1 ? "" : "s"} selected
+            </span>
+          </div>
+          <div className="h-4 w-px bg-slate-700" />
+          <button
+            type="button"
+            onClick={() => setSelectedLicenseIds([])}
+            className="text-slate-400 hover:text-white text-xs transition-colors"
+          >
+            Deselect All
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setLicenseToDelete(selectedLicenseIds)}
+            className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-lg shadow-rose-950/50"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Delete Selected
+          </button>
         </div>
       )}
 

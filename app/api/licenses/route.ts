@@ -88,6 +88,7 @@ export async function DELETE(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const queryId = searchParams.get("id");
+    const queryIds = searchParams.get("ids");
 
     let ids: string[] = [];
     try {
@@ -101,9 +102,15 @@ export async function DELETE(req: NextRequest) {
       // Body may not be JSON or may be empty
     }
 
+    if (ids.length === 0 && queryIds) {
+      ids = queryIds.split(",").map((s) => s.trim()).filter(Boolean);
+    }
     if (ids.length === 0 && queryId) {
       ids = [queryId.trim()];
     }
+
+    // Deduplicate and trim
+    ids = Array.from(new Set(ids.map((id) => id.trim()).filter(Boolean)));
 
     if (ids.length === 0) {
       return NextResponse.json(
@@ -121,6 +128,15 @@ export async function DELETE(req: NextRequest) {
         deletedCount++;
         deletedIds.push(id);
       }
+    }
+
+    if (deletedCount === 0) {
+      return NextResponse.json({
+        success: false,
+        deletedCount: 0,
+        deletedIds: [],
+        error: "No matching licenses found to delete.",
+      }, { status: 404 });
     }
 
     return NextResponse.json({

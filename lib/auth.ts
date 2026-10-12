@@ -515,7 +515,13 @@ export function extractSession(req: Request): SessionPayload | null {
   }).cookies;
   const parsedToken = nextCookies?.get?.(TOKEN_COOKIE)?.value;
   const headerToken = getCookieFromHeaders(req.headers.get("cookie"));
-  const token = parsedToken || headerToken;
+  let token = parsedToken || headerToken;
+  if (!token) {
+    const authHeader = req.headers.get("authorization");
+    if (authHeader && authHeader.toLowerCase().startsWith("bearer ")) {
+      token = authHeader.slice(7).trim();
+    }
+  }
   return token ? verifyToken(token) : null;
 }
 

@@ -292,6 +292,19 @@ export async function deleteLicense(id: string): Promise<boolean> {
   return removed;
 }
 
+/** Bulk delete licenses by IDs and cleanly unlink referenced orders and sites. */
+export async function deleteLicenses(ids: string[]): Promise<{ deletedCount: number; deletedIds: string[] }> {
+  const uniqueIds = Array.from(new Set(ids.map((id) => (typeof id === "string" ? id.trim() : "")).filter(Boolean)));
+  if (uniqueIds.length === 0) return { deletedCount: 0, deletedIds: [] };
+
+  const deletedIds: string[] = [];
+  for (const id of uniqueIds) {
+    const ok = await deleteLicense(id);
+    if (ok) deletedIds.push(id);
+  }
+  return { deletedCount: deletedIds.length, deletedIds };
+}
+
 /* ===================================================
  *  Settings
  * =========================== */
