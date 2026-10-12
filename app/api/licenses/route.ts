@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getLicenses, getLicense, addLicense } from "@/lib/storage";
+import { getLicenses, getLicense, addLicense, deleteLicense } from "@/lib/storage";
 import { generateLicenseKey, hashLicenseKey, signLicensePayload, calcExpiry, maskLicenseKey } from "@/lib/licensing";
 import { getPackage, getOrder, updateOrder } from "@/lib/storage";
+import { extractSession, isAdmin } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   try {
@@ -75,5 +76,60 @@ export async function POST(req: NextRequest) {
     }, { status: 201 });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const session = extractSession(req);
+    if (!isAdmin(session)) {
+      return NextResponse.json({ success: false, error: "Admin authentication required." }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const queryId = searchParams.get("id");
+
+    let ids: string[] = [];
+    try {
+      const body = await req.json();
+      if (Array.isArray(body?.ids)) {
+        ids = body.ids.filter((id: any) => typeof id === "string" && id.trim().length > 0);
+      } else if (typeof body?.id === "string" && body.id.trim().length > 0) {
+        ids = [body.id.trim()];
+      }
+    } catch {
+      // Body may not be JSON or may be empty
+    }
+
+    if (ids.length === 0 && queryId) {
+      ids = [queryId.trim()];
+    }
+
+    if (ids.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "License ID or ids array is required." },
+        { status: 400 }
+      );
+    }
+
+    let deletedCount = 0;
+    const deletedIds: string[] = [];
+
+    for (const id of ids) {
+      const ok = await deleteLicense(id);
+      if (ok) {
+        deletedCount++;
+        deletedIds.push(id);
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      deletedCount,
+      deletedIds,
+      message: `Successfully deleted ${deletedCount} license${deletedCount === 1 ? "" : "s"}.`,
+    });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err?.message || "Failed to delete licenses." }, { status: 500 });
   }
 }

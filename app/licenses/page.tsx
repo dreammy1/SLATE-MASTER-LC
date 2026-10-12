@@ -53,6 +53,81 @@ export default function ClientConsolePage() {
   const [edit, setEdit] = useState<any>({});
   const [licenses, setLicenses] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
+  const [selectedLicenseIds, setSelectedLicenseIds] = useState<string[]>([]);
+  const [licenseToDelete, setLicenseToDelete] = useState<string[] | null>(null);
+  const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
+  const [clientBulkModal, setClientBulkModal] = useState<boolean>(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  const showToast = useCallback((message: string, type: "success" | "error" = "success") => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast((cur) => (cur?.message === message ? null : cur));
+    }, 4000);
+  }, []);
+
+  const handleBulkDeleteLicenses = async (ids: string[]) => {
+    if (!ids || ids.length === 0) return;
+    setBusy(true);
+
+    const prevLicenses = [...licenses];
+    setLicenses((prev) => prev.filter((l) => !ids.includes(l.id)));
+    setSelectedLicenseIds((prev) => prev.filter((id) => !ids.includes(id)));
+
+    try {
+      const res = await fetch("/api/licenses", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.success) {
+        setLicenses(prevLicenses);
+        showToast(data.error || "Failed to delete selected license(s).", "error");
+      } else {
+        showToast(
+          data.message || `Successfully deleted ${data.deletedCount ?? ids.length} license(s).`,
+          "success"
+        );
+        await load();
+      }
+    } catch (err: any) {
+      setLicenses(prevLicenses);
+      showToast(err?.message || "An unexpected error occurred while deleting.", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleBulkDeleteClients = async (ids: string[]) => {
+    if (!ids || ids.length === 0) return;
+    setBusy(true);
+
+    const prevClients = [...clients];
+    setClients((prev) => prev.filter((c) => !ids.includes(c.id)));
+    setSelectedClientIds([]);
+
+    try {
+      let failed = 0;
+      for (const id of ids) {
+        const res = await fetch(`/api/clients/${id}?site=0&revoke=0`, { method: "DELETE" });
+        const d = await res.json().catch(() => ({}));
+        if (!d.success) failed++;
+      }
+      if (failed > 0) {
+        showToast(`Deleted ${ids.length - failed} client(s); ${failed} failed.`, "error");
+      } else {
+        showToast(`Successfully deleted ${ids.length} client(s).`, "success");
+      }
+      await load();
+    } catch (err: any) {
+      setClients(prevClients);
+      showToast(err?.message || "Failed to delete selected clients.", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const load = useCallback(async () => {
     const params = new URLSearchParams();
@@ -269,10 +344,50 @@ export default function ClientConsolePage() {
           </div>
 
           {/* ── client table ──────────── */}
+          {selectedClientIds.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-2 bg-[#121927] border border-[#1e293b] p-3 rounded-lg mb-2">
+              <span className="text-[#00f0ff] font-semibold text-xs flex items-center gap-1.5">
+                <Check className="w-3.5 h-3.5" />
+                {selectedClientIds.length} client{selectedClientIds.length === 1 ? "" : "s"} selected
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedClientIds([])}
+                  className="text-slate-400 hover:text-white text-xs px-2 py-1"
+                >
+                  Deselect All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setClientBulkModal(true)}
+                  className="px-3 py-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/50 rounded flex items-center gap-1.5 font-medium text-xs transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Delete Selected
+                </button>
+              </div>
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px]">
               <thead>
                 <tr className="text-slate-500 text-left border-b border-[#1e293b]">
+                  <th className="py-2 pr-3 w-8">
+                    <input
+                      type="checkbox"
+                      checked={clients.length > 0 && selectedClientIds.length === clients.length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedClientIds(clients.map((c) => c.id));
+                        } else {
+                          setSelectedClientIds([]);
+                        }
+                      }}
+                      className="rounded bg-[#0a0d14] border-slate-700 text-[#00f0ff] focus:ring-0 cursor-pointer"
+                      title="Select All Clients"
+                    />
+                  </th>
                   <th className="py-2 pr-3">Client</th><th className="py-2 pr-3">Site</th><th className="py-2 pr-3">Package</th>
                   <th className="py-2 pr-3">Payment</th><th className="py-2 pr-3">License</th><th className="py-2 pr-3">Health</th>
                   <th className="py-2 pr-3">Access</th><th className="py-2 pr-3 text-right">Actions</th>
@@ -280,7 +395,21 @@ export default function ClientConsolePage() {
               </thead>
               <tbody>
                 {clients.map((c) => (
-                  <tr key={c.id} className="border-b border-[#1e293b]/60 hover:bg-[#0a0d14]/60">
+                  <tr key={c.id} className={`border-b border-[#1e293b]/60 hover:bg-[#0a0d14]/60 ${selectedClientIds.includes(c.id) ? "bg-[#00f0ff]/5" : ""}`}>
+                    <td className="py-2 pr-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedClientIds.includes(c.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedClientIds((prev) => [...prev, c.id]);
+                          } else {
+                            setSelectedClientIds((prev) => prev.filter((id) => id !== c.id));
+                          }
+                        }}
+                        className="rounded bg-[#0a0d14] border-slate-700 text-[#00f0ff] focus:ring-0 cursor-pointer"
+                      />
+                    </td>
                     <td className="py-2 pr-3">
                       <div className="text-white font-bold">{c.contactName || <span className="text-slate-500">(no name)</span>}</div>
                       <div className="text-slate-500">{c.contactEmailMasked || c.orderId}</div>
@@ -351,20 +480,151 @@ export default function ClientConsolePage() {
         </div>
 
         {/* ── raw licenses (quick lifecycle) ─────────── */}
-        <div className="glass-panel rounded-xl p-4 border-[#1e293b]">
-          <div className="text-slate-300 font-bold mb-2">LICENSE ROWS (quick lifecycle — full control is inside the client drawer)</div>
-          {licenses.map((l) => (
-            <div key={l.id} className="flex flex-wrap items-center gap-2 py-1.5 border-b border-[#1e293b]">
-              <span className="text-slate-300">{l.domain} · {l.package_slug} · ****{l.key_last4} · <b>{l.status}</b> · exp {l.expires_at ?? "lifetime"} · act {l.activation_count}/{l.activation_limit}</span>
-              <span className="flex gap-1 ml-auto shrink-0">
-                <button title="Suspend" onClick={() => licAct(l.id, "suspend")} className="p-2 min-w-[36px] min-h-[36px] border-amber-500 text-amber-400 rounded flex items-center justify-center"><Ban className="w-3.5 h-3.5 shrink-0" /></button>
-                <button title="Reactivate" onClick={() => licAct(l.id, "activate")} className="p-2 min-w-[36px] min-h-[36px] border-emerald-500 text-emerald-400 rounded flex items-center justify-center"><Play className="w-3.5 h-3.5 shrink-0" /></button>
-                <button title="Renew (new key)" onClick={() => licAct(l.id, "renew")} className="p-2 min-w-[36px] min-h-[36px] border-[#00f0ff] text-[#00f0ff] rounded flex items-center justify-center"><RefreshCw className="w-3.5 h-3.5 shrink-0" /></button>
-                <button title="Revoke" onClick={() => { if (confirm("Revoke this license?")) licAct(l.id, "revoke"); }} className="p-2 min-h-[36px] border-rose-500 text-rose-400 rounded flex items-center justify-center">Revoke</button>
-              </span>
+        <div className="glass-panel rounded-xl p-4 border-[#1e293b] space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-slate-300 font-bold flex items-center gap-2">
+              <KeyRound className="w-4 h-4 text-[#00f0ff]" />
+              LICENSES TABLE (quick lifecycle &amp; bulk management)
             </div>
-          ))}
-          {licenses.length === 0 && <div className="text-slate-500">No licenses yet.</div>}
+            {selectedLicenseIds.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 bg-[#121927] border border-[#1e293b] px-3 py-1.5 rounded-lg">
+                <span className="text-[#00f0ff] font-semibold text-xs flex items-center gap-1.5">
+                  <Check className="w-3.5 h-3.5" />
+                  {selectedLicenseIds.length} license{selectedLicenseIds.length === 1 ? "" : "s"} selected
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedLicenseIds([])}
+                  className="text-slate-400 hover:text-white text-xs px-2 py-0.5"
+                >
+                  Deselect All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLicenseToDelete(selectedLicenseIds)}
+                  className="px-3 py-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/50 rounded flex items-center gap-1.5 font-medium text-xs transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Delete Selected
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[700px]">
+              <thead>
+                <tr className="text-slate-500 text-left border-b border-[#1e293b]">
+                  <th className="py-2 pr-3 w-8">
+                    <input
+                      type="checkbox"
+                      checked={licenses.length > 0 && selectedLicenseIds.length === licenses.length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedLicenseIds(licenses.map((l) => l.id));
+                        } else {
+                          setSelectedLicenseIds([]);
+                        }
+                      }}
+                      className="rounded bg-[#0a0d14] border-slate-700 text-[#00f0ff] focus:ring-0 cursor-pointer"
+                      title="Select All Licenses"
+                    />
+                  </th>
+                  <th className="py-2 pr-3">Domain</th>
+                  <th className="py-2 pr-3">Package</th>
+                  <th className="py-2 pr-3">Key (Last 4)</th>
+                  <th className="py-2 pr-3">Status</th>
+                  <th className="py-2 pr-3">Expires</th>
+                  <th className="py-2 pr-3">Activations</th>
+                  <th className="py-2 pr-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {licenses.map((l) => {
+                  const isChecked = selectedLicenseIds.includes(l.id);
+                  return (
+                    <tr
+                      key={l.id}
+                      className={`border-b border-[#1e293b]/60 hover:bg-[#0a0d14]/60 transition-colors ${
+                        isChecked ? "bg-[#00f0ff]/5" : ""
+                      }`}
+                    >
+                      <td className="py-2 pr-3">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedLicenseIds((prev) => [...prev, l.id]);
+                            } else {
+                              setSelectedLicenseIds((prev) => prev.filter((id) => id !== l.id));
+                            }
+                          }}
+                          className="rounded bg-[#0a0d14] border-slate-700 text-[#00f0ff] focus:ring-0 cursor-pointer"
+                        />
+                      </td>
+                      <td className="py-2 pr-3 text-white font-medium break-all max-w-[200px]">{l.domain}</td>
+                      <td className="py-2 pr-3 text-slate-300">{l.package_slug}</td>
+                      <td className="py-2 pr-3 text-slate-400 font-mono">****{l.key_last4}</td>
+                      <td className="py-2 pr-3">
+                        <span className={`font-bold ${statusTone(l.status)}`}>
+                          {String(l.status).toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-3 text-slate-400">
+                        {l.expires_at ? new Date(l.expires_at).toLocaleDateString() : "lifetime"}
+                      </td>
+                      <td className="py-2 pr-3 text-slate-400">
+                        {l.activation_count}/{l.activation_limit}
+                      </td>
+                      <td className="py-2 pr-3">
+                        <div className="flex justify-end gap-1">
+                          <button
+                            title="Suspend"
+                            onClick={() => licAct(l.id, "suspend")}
+                            className="p-1.5 min-w-[32px] min-h-[32px] border border-amber-500/50 hover:bg-amber-500/10 text-amber-400 rounded flex items-center justify-center transition-colors"
+                          >
+                            <Ban className="w-3.5 h-3.5 shrink-0" />
+                          </button>
+                          <button
+                            title="Reactivate"
+                            onClick={() => licAct(l.id, "activate")}
+                            className="p-1.5 min-w-[32px] min-h-[32px] border border-emerald-500/50 hover:bg-emerald-500/10 text-emerald-400 rounded flex items-center justify-center transition-colors"
+                          >
+                            <Play className="w-3.5 h-3.5 shrink-0" />
+                          </button>
+                          <button
+                            title="Renew (new key)"
+                            onClick={() => licAct(l.id, "renew")}
+                            className="p-1.5 min-w-[32px] min-h-[32px] border border-[#00f0ff]/50 hover:bg-[#00f0ff]/10 text-[#00f0ff] rounded flex items-center justify-center transition-colors"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5 shrink-0" />
+                          </button>
+                          <button
+                            title="Revoke"
+                            onClick={() => {
+                              if (confirm("Revoke this license?")) licAct(l.id, "revoke");
+                            }}
+                            className="px-2 py-1 min-h-[32px] border border-rose-500/50 hover:bg-rose-500/10 text-rose-400 rounded flex items-center justify-center text-xs transition-colors"
+                          >
+                            Revoke
+                          </button>
+                          <button
+                            title="Delete license"
+                            onClick={() => setLicenseToDelete([l.id])}
+                            className="p-1.5 min-w-[32px] min-h-[32px] border border-rose-500/50 hover:bg-rose-500/20 text-rose-400 rounded flex items-center justify-center transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {licenses.length === 0 && <div className="text-slate-500 py-3">No licenses yet.</div>}
+          </div>
         </div>
       </div>
 
@@ -582,6 +842,106 @@ export default function ClientConsolePage() {
               </div>
             </Panel>
           </div>
+        </div>
+      )}
+
+      {/* ════ CONFIRMATION MODAL (DELETE LICENSES) ════ */}
+      {licenseToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="bg-[#0d1220] border border-[#1e293b] rounded-xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center gap-3 text-rose-400">
+              <AlertTriangle className="w-6 h-6 shrink-0" />
+              <h3 className="text-lg font-bold text-white">Delete License{licenseToDelete.length > 1 ? "s" : ""}?</h3>
+            </div>
+            <p className="text-slate-300 text-xs leading-relaxed">
+              You are about to delete <strong className="text-white font-semibold">{licenseToDelete.length}</strong> license{licenseToDelete.length > 1 ? "s" : ""}.
+              This will permanently revoke activation capability and remove the license record{licenseToDelete.length > 1 ? "s" : ""}. This action cannot be undone.
+            </p>
+            {licenseToDelete.length <= 5 && (
+              <ul className="bg-[#0a0d14] border border-[#1e293b] rounded p-2 text-xs text-slate-400 space-y-1">
+                {licenseToDelete.map((id) => {
+                  const lic = licenses.find((l) => l.id === id);
+                  return (
+                    <li key={id} className="font-mono text-[11px] truncate">
+                      • {lic ? `${lic.domain} (****${lic.key_last4})` : id}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setLicenseToDelete(null)}
+                className="px-4 py-2 border border-[#1e293b] hover:bg-[#121927] text-slate-300 rounded text-xs transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={async () => {
+                  const toDelete = [...licenseToDelete];
+                  setLicenseToDelete(null);
+                  await handleBulkDeleteLicenses(toDelete);
+                }}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-medium rounded text-xs transition-colors flex items-center gap-1.5"
+              >
+                {busy ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════ CONFIRMATION MODAL (DELETE CLIENTS) ════ */}
+      {clientBulkModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="bg-[#0d1220] border border-[#1e293b] rounded-xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center gap-3 text-rose-400">
+              <AlertTriangle className="w-6 h-6 shrink-0" />
+              <h3 className="text-lg font-bold text-white">Delete Selected Clients?</h3>
+            </div>
+            <p className="text-slate-300 text-xs leading-relaxed">
+              You are about to delete <strong className="text-white font-semibold">{selectedClientIds.length}</strong> client record{selectedClientIds.length > 1 ? "s" : ""} (orders + associated licenses).
+              This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setClientBulkModal(false)}
+                className="px-4 py-2 border border-[#1e293b] hover:bg-[#121927] text-slate-300 rounded text-xs transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={async () => {
+                  const toDelete = [...selectedClientIds];
+                  setClientBulkModal(false);
+                  await handleBulkDeleteClients(toDelete);
+                }}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-medium rounded text-xs transition-colors flex items-center gap-1.5"
+              >
+                {busy ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════ TOAST NOTIFICATION ════ */}
+      {toast && (
+        <div className={`fixed bottom-5 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg border text-xs font-mono bg-[#0a0d14] ${
+          toast.type === "success" ? "border-emerald-500/50 text-emerald-300 shadow-emerald-950/40" : "border-rose-500/50 text-rose-300 shadow-rose-950/40"
+        }`}>
+          {toast.type === "success" ? <Check className="w-4 h-4 text-emerald-400 shrink-0" /> : <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />}
+          <span>{toast.message}</span>
         </div>
       )}
     </FuturisticLayout>

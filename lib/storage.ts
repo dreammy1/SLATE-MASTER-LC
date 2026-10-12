@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SLATE DevOps OS - Storage facade (anti-corruption layer)
  *
  * ----------------------------------------------------------------
@@ -269,8 +269,27 @@ export function updateLicense(id: string, patch: Partial<LicenseRecord>): Promis
 }
 
 /** @deprecated Use `licenseRepository.remove(id)`. */
-export function deleteLicense(id: string): Promise<boolean> {
-  return licenseRepository.remove(id);
+export async function deleteLicense(id: string): Promise<boolean> {
+  const removed = await licenseRepository.remove(id);
+  if (removed) {
+    try {
+      const orders = await orderRepository.list();
+      for (const o of orders) {
+        if (o.licenseId === id) {
+          await orderRepository.patch(o.id, { licenseId: undefined });
+        }
+      }
+      const sites = await siteRepository.list();
+      for (const s of sites) {
+        if (s.licenseId === id) {
+          await siteRepository.update(s.id, { licenseId: undefined, licenseStatus: "NONE" as any });
+        }
+      }
+    } catch {
+      // Ignore unlink errors
+    }
+  }
+  return removed;
 }
 
 /* ===================================================
