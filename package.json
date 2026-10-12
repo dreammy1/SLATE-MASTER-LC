@@ -23,7 +23,7 @@
     "verify:deploy": "node scripts/preflight-render.js && node scripts/diagnose-login.js"
   },
   "dependencies": {
-    "@octokit/rest": "^20.1.1",
+    "@octokit/rest": "^22.0.1",
     "@stripe/react-stripe-js": "^7.0.0",
     "@stripe/stripe-js": "^10.0.0",
     "adm-zip": "^0.6.1",
