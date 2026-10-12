@@ -1,6 +1,29 @@
 "use client";
 import React, { useMemo, useState } from "react";
 import { fetchJson } from "@/lib/safeJson";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
+
+const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "";
+const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
+
+const CARD_ELEMENT_OPTIONS = {
+  style: {
+    base: {
+      color: "#f8fafc",
+      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+      fontSize: "13px",
+      "::placeholder": {
+        color: "#64748b",
+      },
+    },
+    invalid: {
+      color: "#f43f5e",
+      iconColor: "#f43f5e",
+    },
+  },
+  hidePostalCode: false,
+};
 
 function splitDomainInput(raw: string): { domain: string; subPath: string } {
   let s = String(raw || "").trim().replace(/^https?:\/\//i, "").trim().split(/[?#]/)[0].trim().replace(/\/+$/, "");
@@ -20,14 +43,21 @@ function derivedTarget(raw: string) {
   };
 }
 
-export function OrderForm({ pkg, cycle, onOrder }: { pkg: any; cycle: string; onOrder: (o: any) => void }) {
+function OrderFormInner({ pkg, cycle, onOrder }: { pkg: any; cycle: string; onOrder: (o: any) => void }) {
   const [form, setForm] = useState({
     siteDomain: "", hostingUsername: "", hostingServerUrl: "",
-    contactName: "", contactPhone: "", contactEmail: "", payMethod: "bank",
+    contactName: "", contactPhone: "", contactEmail: "", payMethod: "stripe",
   });
   const [busy, setBusy] = useState(false);
+  const [cardError, setCardError] = useState("");
   const target = useMemo(() => derivedTarget(form.siteDomain), [form.siteDomain]);
   const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  const stripe = useStripe();
+  const elements = useElements();
+
+  const priceCents = cycle === "monthly" ? pkg?.pricing?.monthly_cents : cycle === "yearly" ? pkg?.pricing?.yearly_cents : pkg?.pricing?.lifetime_cents;
+  const priceLabel = typeof priceCents === "number" ? `${(priceCents / 100).toFixed(2)} ${pkg?.pricing?.currency || "USD"}` : "";
 
   const inputCls = "bg-[#0a0d14] border border-[#1e293b] rounded px-3 py-2 text-white text-xs w-full";
   const labelCls = "block text-[11px] text-slate-400 mb-1";
@@ -36,25 +66,114 @@ export function OrderForm({ pkg, cycle, onOrder }: { pkg: any; cycle: string; on
     e.preventDefault();
     if (busy) return;
     setBusy(true);
+    setCardError("");
+
     try {
+      if (form.payMethod === "stripe") {
+        if (!stripePublishableKey || !stripe || !elements) {
+          alert("Stripe card payment is not configured (NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY missing). Please set the key or choose Bank transfer / Cash on delivery.");
+          setBusy(false);
+          return;
+        }
+        const cardElement = elements.getElement(CardElement);
+        if (!cardElement) {
+          alert("Card input field could not be found. Please refresh and try again.");
+          setBusy(false);
+          return;
+        }
+      }
+
+      // 1. Create order
       const { data: d } = await fetchJson("/api/orders", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ package_id: pkg.id, billing_cycle: cycle, ...form }),
       });
-      if (!d?.success) { alert(d?.error || "Order failed"); return; }
+      if (!d?.success || !d.order) {
+        alert(d?.error || "Order placement failed.");
+        setBusy(false);
+        return;
+      }
+
+      let currentOrder = d.order;
+
+      // 2. If Stripe payment method selected, process card payment
+      if (form.payMethod === "stripe") {
+        const cardElement = elements!.getElement(CardElement)!;
+
+        // 2a. Request payment intent creation on the backend
+        const { data: intentData } = await fetchJson(`/api/orders/${currentOrder.id}/pay`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "create-intent" }),
+        });
+
+        if (!intentData?.success || !intentData?.clientSecret) {
+          const msg = intentData?.error || "Could not initialize Stripe payment intent.";
+          setCardError(msg);
+          alert(msg);
+          setBusy(false);
+          return;
+        }
+
+        // 2b. Confirm card payment with Stripe
+        const paymentResult = await stripe!.confirmCardPayment(intentData.clientSecret, {
+          payment_method: {
+            card: cardElement,
+            billing_details: {
+              name: form.contactName,
+              email: form.contactEmail,
+              phone: form.contactPhone || undefined,
+            },
+          },
+        });
+
+        if (paymentResult.error) {
+          const msg = paymentResult.error.message || "Card payment failed.";
+          setCardError(msg);
+          alert(`Payment failed: ${msg}`);
+          setBusy(false);
+          return;
+        }
+
+        if (paymentResult.paymentIntent?.status !== "succeeded") {
+          const msg = `Payment incomplete (Status: ${paymentResult.paymentIntent?.status || "unknown"}).`;
+          setCardError(msg);
+          alert(msg);
+          setBusy(false);
+          return;
+        }
+
+        // 2c. Confirm payment callback with backend to mark order 'paid' automatically
+        const { data: confirmData } = await fetchJson(`/api/orders/${currentOrder.id}/pay`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "confirm",
+            paymentIntentId: paymentResult.paymentIntent.id,
+          }),
+        });
+
+        if (confirmData?.success && confirmData?.order) {
+          currentOrder = confirmData.order;
+        } else {
+          currentOrder = { ...currentOrder, status: "paid" };
+        }
+      }
+
       // The server check rides along as a banner, never as a purchase refusal.
       if (d?.serverVerified === "needs_help") {
         alert(
-          `Order ${d.order?.id || ""} saved and sent for review. One thing needs you: the server login did not pass its check (${d?.serverCheckMessage || "could not be verified"}). Your payment is safe — fix the login here or support will contact you.`
+          `Order ${currentOrder?.id || ""} saved and sent for review. One thing needs you: the server login did not pass its check (${d?.serverCheckMessage || "could not be verified"}). Your payment is safe — fix the login here or support will contact you.`
         );
       }
-      onOrder({ ...d.order, serverVerified: d?.serverVerified, serverCheckMessage: d?.serverCheckMessage });
+      onOrder({ ...currentOrder, serverVerified: d?.serverVerified, serverCheckMessage: d?.serverCheckMessage });
     } catch (err: any) {
       alert(err?.message || "Could not place the order. Please try again.");
     } finally {
       setBusy(false);
     }
   };
+
   return (
     <form onSubmit={submit} className="max-w-2xl mx-auto mt-6 rounded-xl p-5 border border-[#1e293b] bg-[#111625] grid grid-cols-1 md:grid-cols-2 gap-3">
       <div className="md:col-span-2 text-white font-bold">Checkout → {pkg.name} / {cycle}</div>
@@ -100,17 +219,82 @@ export function OrderForm({ pkg, cycle, onOrder }: { pkg: any; cycle: string; on
       <div className="md:col-span-2">
         <label className={labelCls}>7. Payment method</label>
         <select value={form.payMethod} onChange={(e) => set("payMethod", e.target.value)} className={inputCls}>
-          <option value="stripe">Stripe</option>
+          <option value="stripe">Stripe (Credit / Debit Card)</option>
           <option value="bank">Bank transfer (manual approve)</option>
           <option value="cod">Cash on delivery (manual approve)</option>
         </select>
       </div>
+
+      {form.payMethod === "stripe" && (
+        <>
+          {stripePublishableKey ? (
+            <div className="md:col-span-2 space-y-2 rounded-lg border border-[#00f0ff]/30 bg-[#0a0d14]/80 p-3.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-bold text-white flex items-center gap-1.5">
+                  <span>💳 Card Details (Stripe)</span>
+                </label>
+                <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
+                  <span>🔒 256-bit SSL encrypted</span>
+                </span>
+              </div>
+              <div className="rounded border border-[#1e293b] bg-[#0a0d14] p-3 focus-within:border-[#00f0ff] transition-colors">
+                <CardElement
+                  options={CARD_ELEMENT_OPTIONS}
+                  onChange={(e) => {
+                    if (e.error) {
+                      setCardError(e.error.message);
+                    } else {
+                      setCardError("");
+                    }
+                  }}
+                />
+              </div>
+              {cardError && (
+                <div className="text-[11px] text-rose-400 font-medium">
+                  {cardError}
+                </div>
+              )}
+              <div className="text-[10px] text-slate-400 flex items-center justify-between pt-1">
+                <span>Card details are processed securely by Stripe.</span>
+                {priceLabel && <span>Total: <b className="text-white">{priceLabel}</b></span>}
+              </div>
+            </div>
+          ) : (
+            <div className="md:col-span-2 rounded border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-200">
+              <div className="font-bold text-amber-300 mb-1">⚠️ Stripe Publishable Key Not Configured</div>
+              <div>
+                Stripe card payments require <code className="font-mono bg-[#0a0d14] px-1 py-0.5 rounded text-white">NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY</code> in environment variables.
+              </div>
+              <div className="mt-1 text-slate-300">
+                Please configure your Stripe publishable key to accept live card payments, or select <b>Bank transfer</b> or <b>Cash on delivery</b> to proceed with manual approval.
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
       <div className="md:col-span-2 flex justify-end">
-        <button disabled={busy} className="px-5 py-2 rounded bg-[#00f0ff] text-black font-bold disabled:opacity-50">
-          {busy ? "Placing order…" : "Place order & continue →"}
+        <button
+          type="submit"
+          disabled={busy}
+          className="px-5 py-2 rounded bg-[#00f0ff] text-black font-bold disabled:opacity-50 hover:bg-[#00d0df] transition-colors"
+        >
+          {busy
+            ? "Processing…"
+            : form.payMethod === "stripe" && priceLabel
+              ? `Pay with Card (${priceLabel}) →`
+              : "Place order & continue →"}
         </button>
       </div>
     </form>
+  );
+}
+
+export function OrderForm({ pkg, cycle, onOrder }: { pkg: any; cycle: string; onOrder: (o: any) => void }) {
+  return (
+    <Elements stripe={stripePromise}>
+      <OrderFormInner pkg={pkg} cycle={cycle} onOrder={onOrder} />
+    </Elements>
   );
 }
 

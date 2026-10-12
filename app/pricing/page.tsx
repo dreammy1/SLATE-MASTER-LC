@@ -31,7 +31,22 @@ export default function PricingPage() {
         ))}
         {pkgs.length===0 && <div className="text-slate-500 col-span-2 text-center">No packages yet. Create them in Master Packages page.</div>}
       </div>
-      {selected && <OrderForm pkg={selected} cycle={cycle} onOrder={(o)=>{setOrder(o);setProgress(5);setLog([`Order ${o.id} created (${o.status}). Approve then Run bootstrap.`]);}} />}
+      {selected && (
+        <OrderForm
+          pkg={selected}
+          cycle={cycle}
+          onOrder={(o) => {
+            setOrder(o);
+            setProgress(5);
+            const isPaid = o.status === "paid";
+            setLog([
+              `Order ${o.id} created (${o.status}). ${
+                isPaid ? "Payment confirmed! Ready to run deploy & install." : "Approve then Run bootstrap."
+              }`,
+            ]);
+          }}
+        />
+      )}
       {order && <BootstrapRunner order={order} progress={progress} setProgress={setProgress} log={log} setLog={setLog} />}
     </div>
   );

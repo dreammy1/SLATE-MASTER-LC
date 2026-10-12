@@ -15,6 +15,7 @@
     "test:phase3": "node --experimental-strip-types --test tests/e2e/checkout-phase3.test.mjs",
     "test:phase4": "node --test tests/e2e/checkout-phase4.test.mjs",
     "test:phase5": "node --experimental-strip-types --test tests/e2e/checkout-phase5.test.mjs",
+    "test:pricing-stripe": "node --test tests/e2e/pricing-stripe-checkout.test.mjs",
     "selftest": "node -e \"fetch((process.env.E2E_BASE_URL||'http://localhost:3000')+'/api/selftest').then(r=>r.json()).then(d=>{console.log(d.summary);d.checks.filter(c=>!c.ok).forEach(c=>console.log('FAIL',c.name,c.detail));process.exit(d.failed?1:0)})\"",
     "keepalive": "node scripts/keepalive.js",
     "keepalive:loop": "node scripts/keepalive.js --loop",
@@ -23,6 +24,8 @@
   },
   "dependencies": {
     "@octokit/rest": "^20.1.1",
+    "@stripe/react-stripe-js": "^7.0.0",
+    "@stripe/stripe-js": "^10.0.0",
     "adm-zip": "^0.6.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.460.0",
