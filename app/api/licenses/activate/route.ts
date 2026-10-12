@@ -24,12 +24,12 @@ export async function OPTIONS() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    let rawKey = String(body.key || "").trim().replace(/^["']|["']$/g, "").toUpperCase();
+    let rawKey = String(body.key || body.license_key || body.licenseKey || "").trim().replace(/^["']|["']$/g, "").toUpperCase();
     rawKey = rawKey.replace(/[\s_]+/g, "-");
     if (/^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(rawKey)) {
       rawKey = `SLT-${rawKey}`;
     }
-    const domain = String(body.domain || "").trim().replace(/\/+$/, "");
+    const domain = String(body.domain || body.site || body.siteUrl || body.site_url || "").trim().replace(/\/+$/, "");
     const siteLabel = domain || "your site";
 
     if (!isValidKeyFormat(rawKey)) {

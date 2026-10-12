@@ -39,7 +39,12 @@ class PackageRepository extends CollectionRepository<"packages", Package> {
     if (input.id) {
       const index = list.findIndex((pkg) => pkg.id === input.id);
       if (index >= 0) {
-        list[index] = { ...list[index], ...input, updatedAt: new Date().toISOString() };
+        list[index] = {
+          ...list[index],
+          ...input,
+          productType: input.productType || list[index].productType || "custom_php",
+          updatedAt: new Date().toISOString(),
+        };
         await this.persist();
         return list[index];
       }
@@ -47,6 +52,7 @@ class PackageRepository extends CollectionRepository<"packages", Package> {
 
     const created: Package = {
       ...(input as Package),
+      productType: input.productType || "custom_php",
       id: input.id || this.generateId(),
       createdAt: new Date().toISOString(),
     };

@@ -58,7 +58,61 @@ const id = (await ctx.params).id;
     const pkg = await withStorageTimeout(getPackage(order.package_id), "load the package");
     const activateUrl = `${String(order.siteUrl || "").replace(/\/+$/, "")}/activate.php`;
 
+    let rawLicenseKey: string | undefined = undefined;
+    const isPaidOrder = ["paid", "bootstrap_running", "bootstrap_done", "install_running", "completed"].includes(order.status);
+    if (isPaidOrder) {
+      const { getLicense, getLicenses, addLicense, updateOrder } = await import("@/lib/storage");
+      let lic = order.licenseId ? await getLicense(order.licenseId) : null;
+      if (!lic) {
+        const allLics = await getLicenses();
+        lic = allLics.find((l) => l.orderId === order.id) || null;
+      }
+
+      if (!lic && pkg && (pkg.productType === "wordpress_plugin" || pkg.productType === "digital_product")) {
+        const { generateLicenseKey, hashLicenseKey, calcExpiry, signLicensePayload } = await import("@/lib/licensing");
+        const rawKey = generateLicenseKey();
+        const keyHash = hashLicenseKey(rawKey);
+        const keyLast4 = rawKey.slice(-4);
+        const keyEncrypted = encryptSecret(rawKey);
+        const expiresAt = calcExpiry(new Date(), order.billing_cycle);
+        const signature = signLicensePayload(order.siteUrl || "", pkg.slug, expiresAt);
+
+        lic = await addLicense({
+          key_hash: keyHash,
+          key_last4: keyLast4,
+          key_encrypted: keyEncrypted,
+          key_signature: signature,
+          domain: order.siteUrl || "",
+          package_id: pkg.id,
+          package_slug: pkg.slug,
+          billing_cycle: order.billing_cycle,
+          status: "active",
+          starts_at: new Date().toISOString(),
+          expires_at: expiresAt,
+          activation_limit: 1,
+          activation_count: 0,
+          orderId: order.id,
+        });
+
+        await updateOrder(order.id, { licenseId: lic.id, licenseKeyLast4: keyLast4 });
+      }
+
+      if (lic?.key_encrypted) {
+        const { decryptSecret } = await import("@/lib/crypto");
+        rawLicenseKey = decryptSecret(lic.key_encrypted);
+      }
+    }
+
     const nextStep = (() => {
+      if (pkg?.productType === "wordpress_plugin" && isPaidOrder) {
+        return {
+          kind: "download_and_activate",
+          title: "WordPress Plugin Ready to Install",
+          description: "Download the ready-to-install distribution ZIP and use your license key to activate premium features.",
+          actionUrl: `/api/orders/${order.id}/download`,
+          actionLabel: "Download Plugin ZIP",
+        };
+      }
       switch (order.status) {
         case "pending_payment":
           return {
@@ -138,12 +192,23 @@ const id = (await ctx.params).id;
         dbUser: order.dbUser,
         dbHost: order.dbHost,
         licenseKeyLast4: order.licenseKeyLast4,
+        licenseKey: rawLicenseKey || (order.licenseKeyLast4 ? `****${order.licenseKeyLast4}` : undefined),
         activateUrl,
         createdAt: order.createdAt,
         clientEditedAt: order.clientEditedAt || null,
         clientEditCount: order.clientEditCount || 0,
       },
-      package: pkg ? { name: pkg.name, slug: pkg.slug, pluginSet: pkg.pluginSet } : null,
+      package: pkg
+        ? {
+            name: pkg.name,
+            slug: pkg.slug,
+            pluginSet: pkg.pluginSet,
+            productType: pkg.productType || "custom_php",
+            version: pkg.version,
+            assetPath: pkg.assetPath,
+            vaultSha256: pkg.vaultSha256,
+          }
+        : null,
       nextStep,
     });
   } catch (err: any) {

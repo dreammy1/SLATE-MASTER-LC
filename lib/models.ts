@@ -175,11 +175,17 @@ export interface PackagePricing {
   stripe_price_lifetime?: string;
 }
 
+export type ProductType = "custom_php" | "wordpress_plugin" | "digital_product";
+
 export interface Package {
   id: string;
   slug: string;
   name: string;
   description: string;
+  productType?: ProductType;
+  assetPath?: string;
+  version?: string;
+  vaultSha256?: string;
   is_active: boolean;
   sort_order: number;
   pluginSet: string[];

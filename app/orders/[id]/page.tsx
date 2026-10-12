@@ -2,6 +2,7 @@
 import React, { use, useCallback, useEffect, useState } from "react";
 import { BootstrapRunner } from "@/app/pricing/order-form";
 import { fetchJson } from "@/lib/safeJson";
+import { Download, Key, Copy, Check, Globe, BookOpen } from "lucide-react";
 
 /**
  * Customer order tracking / resume page: /orders/<orderId>
@@ -38,6 +39,7 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
   const [progress, setProgress] = useState(0);
   const [log, setLog] = useState<string[]>([]);
   const [showRunner, setShowRunner] = useState(false);
+  const [copiedKey, setCopiedKey] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -97,7 +99,7 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
   const o = data.order;
   const next: NextStep = data.nextStep || {};
   const badge = STATUS_STYLE[o.status] || "border-slate-600 text-slate-300";
-
+  const isWordpressPlugin = data.package?.productType === "wordpress_plugin" || Boolean(data.package?.assetPath);
 
   return (
     <div className="min-h-screen bg-[#0a0d14] text-slate-100 font-mono text-sm p-4 sm:p-6 w-full overflow-x-hidden">
@@ -115,16 +117,86 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
             <Row label="Billing" value={o.billing_cycle} />
             <Row label="Site URL" value={o.siteUrl} />
             <Row label="Server path" value={o.fileManagerPath} />
-            <Row label="Database" value={o.dbName || "not created yet"} />
+            {!isWordpressPlugin && <Row label="Database" value={o.dbName || "not created yet"} />}
             <Row label="Email" value={o.contactEmail} />
-            <Row label="License key" value={o.licenseKeyLast4 ? `****${o.licenseKeyLast4}` : "not issued yet"} />
+            <Row label="License key" value={o.licenseKey || (o.licenseKeyLast4 ? `****${o.licenseKeyLast4}` : "not issued yet")} />
           </div>
-          {data.package?.pluginSet?.length ? (
+          {data.package?.pluginSet?.length && !isWordpressPlugin ? (
             <div className="text-xs text-[#00f0ff] mt-3">
               Plugins included: {data.package.pluginSet.join(" + ")}
             </div>
           ) : null}
         </div>
+
+        {isWordpressPlugin && (
+          <div className="rounded-xl border border-[#00f0ff] bg-[#00f0ff]/5 p-5 space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <Globe className="w-5 h-5 text-[#00f0ff]" />
+                <span className="font-bold text-white text-base">Your WordPress Plugin &amp; License</span>
+              </div>
+              <span className="text-xs px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40">
+                Ready to Install
+              </span>
+            </div>
+
+            <div className="rounded-lg border border-[#1e293b] bg-[#0a0d14] p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <div className="text-[11px] text-slate-400 uppercase tracking-wide font-semibold mb-1 flex items-center gap-1.5">
+                  <Key className="w-3.5 h-3.5 text-[#00f0ff]" /> License Key
+                </div>
+                <div className="font-mono text-base font-bold text-white tracking-wider">
+                  {o.licenseKey || (o.licenseKeyLast4 ? `****${o.licenseKeyLast4}` : "Issued upon payment completion")}
+                </div>
+              </div>
+              {o.licenseKey && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(o.licenseKey);
+                    setCopiedKey(true);
+                    setTimeout(() => setCopiedKey(false), 2500);
+                  }}
+                  className="px-4 py-2 rounded border border-[#00f0ff] bg-[#00f0ff]/10 hover:bg-[#00f0ff] hover:text-black text-[#00f0ff] font-bold text-xs flex items-center gap-1.5 transition"
+                >
+                  {copiedKey ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copiedKey ? "Copied to Clipboard!" : "Copy License Key"}
+                </button>
+              )}
+            </div>
+
+            {["paid", "completed", "bootstrap_done"].includes(o.status) && (
+              <div className="flex flex-wrap gap-3 items-center">
+                <a
+                  href={`/api/orders/${o.id}/download`}
+                  className="px-5 py-2.5 rounded bg-[#00f0ff] text-black font-bold text-xs flex items-center gap-2 shadow-lg shadow-[#00f0ff]/20 hover:opacity-90 transition"
+                >
+                  <Download className="w-4 h-4" /> Download Plugin ZIP (Ready to Install)
+                </a>
+              </div>
+            )}
+
+            <div className="rounded-lg border border-[#1e293b] bg-[#0a0d14]/70 p-4 space-y-2 text-xs">
+              <div className="font-bold text-white flex items-center gap-1.5 mb-2">
+                <BookOpen className="w-4 h-4 text-[#00f0ff]" /> 3-Step WordPress Setup Guide:
+              </div>
+              <div className="space-y-1.5 text-slate-300">
+                <div className="flex items-start gap-2">
+                  <span className="rounded-full bg-[#00f0ff]/20 text-[#00f0ff] w-5 h-5 flex items-center justify-center font-bold text-[10px] shrink-0">1</span>
+                  <span>Download the ready-to-install distribution ZIP using the button above.</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="rounded-full bg-[#00f0ff]/20 text-[#00f0ff] w-5 h-5 flex items-center justify-center font-bold text-[10px] shrink-0">2</span>
+                  <span>In WordPress Admin, go to <strong>Plugins &gt; Add New &gt; Upload Plugin</strong>, select the ZIP, and click <strong>Activate Plugin</strong>.</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="rounded-full bg-[#00f0ff]/20 text-[#00f0ff] w-5 h-5 flex items-center justify-center font-bold text-[10px] shrink-0">3</span>
+                  <span>Go to the plugin&apos;s <strong>License</strong> settings menu, paste your license key, and click <strong>Activate License</strong>.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="rounded-xl border border-[#1e293b] bg-[#111625] p-5 space-y-3">
           <div className="font-bold text-white">{next.title}</div>
@@ -149,7 +221,7 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
                 {next.actionLabel || "Continue"}
               </a>
             )}
-            {(next.kind === "setup" || next.kind === "running" || next.kind === "activate" || next.kind === "install") && (
+            {!isWordpressPlugin && (next.kind === "setup" || next.kind === "running" || next.kind === "activate" || next.kind === "install") && (
               <button
                 onClick={() => setShowRunner(true)}
                 className="px-4 py-2 rounded border border-[#00f0ff] text-[#00f0ff] font-bold text-xs"
@@ -160,7 +232,7 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
             <button onClick={load} className="px-4 py-2 rounded border border-[#1e293b] text-slate-300 text-xs">
               Refresh status
             </button>
-            {Boolean(o.dbName || o.status === "failed") && (
+            {!isWordpressPlugin && Boolean(o.dbName || o.status === "failed") && (
               <button
                 onClick={async () => {
                   if (!confirm("Reset database credentials for this order? This allows re-provisioning or fresh database setup.")) return;
@@ -190,10 +262,12 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
               className="px-4 py-2 rounded border border-[#1e293b] text-slate-300 text-xs">
               🧾 Invoice
             </a>
-            <a href={`/api/orders/${o.id}/download-auth`}
-              className="px-4 py-2 rounded border border-[#1e293b] text-slate-300 text-xs">
-              ⬇ auth.php
-            </a>
+            {!isWordpressPlugin && (
+              <a href={`/api/orders/${o.id}/download-auth`}
+                className="px-4 py-2 rounded border border-[#1e293b] text-slate-300 text-xs">
+                ⬇ auth.php
+              </a>
+            )}
           </div>
         </div>
 
@@ -207,7 +281,7 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
           />
         )}
 
-        <SelfEditPanel order={o} onSaved={load} />
+        {!isWordpressPlugin && <SelfEditPanel order={o} onSaved={load} />}
 
         <div className="text-[11px] text-slate-500">
           Bookmark this page - you can return any time to check progress, fix your details or retry the setup. Nothing is lost on a retry.

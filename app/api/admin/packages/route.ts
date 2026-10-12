@@ -52,6 +52,10 @@ export async function POST(req: NextRequest) {
         currency: body.pricing?.currency || "USD",
       },
       githubRef: body.githubRef || "main",
+      productType: body.productType || "custom_php",
+      assetPath: body.assetPath || undefined,
+      version: body.version || undefined,
+      vaultSha256: body.vaultSha256 || undefined,
     });
     return NextResponse.json({ success: true, package: pkg });
   } catch (err: any) {
