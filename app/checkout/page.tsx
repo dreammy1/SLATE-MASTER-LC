@@ -3,6 +3,12 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { loadStripe } from "@stripe/stripe-js";
+import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
+
+const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+  : null;
 
 /**
  * `useSearchParams()` forces a client-side bailout during static prerender, so
@@ -115,19 +121,23 @@ function CheckoutContent() {
     );
   }
 
-  // If we had the real Stripe elements loaded:
   return (
-    <div className="p-4 md:p-8 max-w-3xl mx-auto">
-      {/* 
-        Here we would render <EmbeddedCheckoutProvider> and <EmbeddedCheckout>
-        from @stripe/react-stripe-js.
-        Since we only have the backend API for now and Stripe is missing a key,
-        we just show a placeholder that it's ready.
-      */}
-      <div className="bg-emerald-500/10 text-emerald-500 p-8 rounded-lg border border-emerald-500/20 text-center">
-        <p className="font-semibold text-lg mb-2">Stripe Session Ready</p>
-        <p className="text-sm">Client Secret generated: {clientSecret.substring(0, 15)}...</p>
-      </div>
+    <div className="w-full min-h-screen bg-slate-900 text-slate-100 p-2 sm:p-4 flex items-center justify-center">
+      {stripePromise ? (
+        <div id="checkout" className="w-full max-w-3xl rounded-xl overflow-hidden bg-slate-950 p-2 sm:p-6 shadow-2xl border border-slate-800">
+          <EmbeddedCheckoutProvider
+            stripe={stripePromise}
+            options={{ clientSecret }}
+          >
+            <EmbeddedCheckout />
+          </EmbeddedCheckoutProvider>
+        </div>
+      ) : (
+        <div className="max-w-md mx-auto my-12 bg-emerald-500/10 text-emerald-500 p-8 rounded-lg border border-emerald-500/20 text-center">
+          <p className="font-semibold text-lg mb-2">Stripe Session Ready</p>
+          <p className="text-sm">Client Secret generated: {clientSecret.substring(0, 15)}...</p>
+        </div>
+      )}
     </div>
   );
 }

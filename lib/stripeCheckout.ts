@@ -32,7 +32,7 @@ export async function createCheckoutSession(input: CheckoutSessionInput) {
   const stripe = getStripe();
 
   const session = await stripe.checkout.sessions.create({
-    ui_mode: "embedded",
+    ui_mode: "embedded_page",
     mode: "payment",
     customer_email: input.prefill?.email || undefined,
     line_items: input.lineItems.map((item) => ({
