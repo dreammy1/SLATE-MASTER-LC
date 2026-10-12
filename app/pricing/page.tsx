@@ -47,7 +47,7 @@ export default function PricingPage() {
           }}
         />
       )}
-      {order && <BootstrapRunner order={order} progress={progress} setProgress={setProgress} log={log} setLog={setLog} />}
+      {order && <BootstrapRunner order={order} pkg={selected} progress={progress} setProgress={setProgress} log={log} setLog={setLog} />}
     </div>
   );
 }

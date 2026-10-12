@@ -44,13 +44,15 @@ export async function GET(
       );
     }
 
-    const baseDir = path.resolve(process.cwd());
-    const fullPath = path.resolve(baseDir, pkg.assetPath);
+    const vaultDir = path.resolve(process.cwd(), "vault");
+    const fullPath = path.resolve(process.cwd(), pkg.assetPath);
 
-    // Prevent directory traversal
-    if (!fullPath.startsWith(baseDir)) {
+    // Prevent directory traversal and ensure file is strictly inside vault/
+    const normalizedVault = vaultDir.toLowerCase().replace(/\\/g, "/");
+    const normalizedFull = fullPath.toLowerCase().replace(/\\/g, "/");
+    if (!normalizedFull.startsWith(normalizedVault)) {
       return NextResponse.json(
-        { success: false, error: "Forbidden path access." },
+        { success: false, error: "Forbidden path access: file must be located in vault." },
         { status: 403 }
       );
     }

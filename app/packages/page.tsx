@@ -254,6 +254,29 @@ export default function PackagesPage() {
     }
   };
 
+  const editPackage = (p: Pkg) => {
+    setForm({
+      productType: p.productType || "custom_php",
+      slug: p.slug,
+      name: p.name,
+      description: p.description || "",
+      version: p.version || "1.0.0",
+      assetPath: p.assetPath || "",
+      vaultSha256: p.vaultSha256 || "",
+      monthly: String(p.pricing?.monthly_cents ?? "2900"),
+      yearly: String(p.pricing?.yearly_cents ?? "29000"),
+      lifetime: String(p.pricing?.lifetime_cents ?? "49000"),
+      githubRef: p.githubRef || "main",
+    });
+    if (p.productType === "custom_php" && Array.isArray(p.pluginSet)) {
+      const newSel: Record<string, boolean> = {};
+      for (const s of p.pluginSet) newSel[s] = true;
+      setSelected(newSel);
+    }
+    setNotice({ kind: "ok", text: `Loaded package "${p.name}". Edit details and click Save.` });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const byCategory = useMemo(() => {
     const groups: Record<string, CatalogPlugin[]> = {};
     for (const p of sellable) {
@@ -638,9 +661,18 @@ export default function PackagesPage() {
                       {isWp ? "WP Plugin" : isDigital ? "Digital Asset" : "Custom PHP"}
                     </span>
                   </div>
-                  <span className={p.is_active ? "text-emerald-400" : "text-slate-500"}>
-                    {p.is_active ? "ACTIVE" : "OFF"}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => editPackage(p)}
+                      className="px-2 py-0.5 rounded border border-[#1e293b] hover:border-[#00f0ff] hover:text-[#00f0ff] text-slate-400 text-[10px] font-bold transition"
+                    >
+                      Edit
+                    </button>
+                    <span className={p.is_active ? "text-emerald-400 font-bold text-[11px]" : "text-slate-500 text-[11px]"}>
+                      {p.is_active ? "ACTIVE" : "OFF"}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="text-slate-400 mt-1">{p.description}</div>

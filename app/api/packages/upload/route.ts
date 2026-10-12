@@ -85,29 +85,38 @@ export async function POST(req: NextRequest) {
     let mainHeaders: WpPluginHeaders | null = null;
     let topFolder = "";
 
-    // Check if the zip has a single root directory
-    const rootFolders = new Set<string>();
-    for (const e of entries) {
-      const parts = e.entryName.replace(/\\/g, "/").split("/").filter(Boolean);
-      if (parts.length > 1) {
-        rootFolders.add(parts[0]);
+    // Check if the ZIP has a common single top-level root directory
+    const nonDirEntries = entries.filter((e) => !e.isDirectory);
+    if (nonDirEntries.length > 0) {
+      const firstEntryParts = nonDirEntries[0].entryName.replace(/\\/g, "/").split("/").filter(Boolean);
+      if (firstEntryParts.length > 1) {
+        const candidate = firstEntryParts[0];
+        const allShareCandidate = nonDirEntries.every((e) => {
+          const parts = e.entryName.replace(/\\/g, "/").split("/").filter(Boolean);
+          return parts.length > 1 && parts[0] === candidate;
+        });
+        if (allShareCandidate) {
+          topFolder = candidate;
+        }
       }
     }
-    if (rootFolders.size === 1) {
-      topFolder = Array.from(rootFolders)[0];
-    }
 
-    for (const entry of entries) {
-      if (entry.isDirectory) continue;
-      const normalizedPath = entry.entryName.replace(/\\/g, "/");
-      if (normalizedPath.endsWith(".php")) {
-        const text = entry.getData().toString("utf8");
-        const headers = parseWpPluginHeader(text);
-        if (headers) {
-          mainEntry = entry;
-          mainHeaders = headers;
-          break;
-        }
+    // Sort PHP entries: shallowest paths first to prioritize the canonical root plugin file
+    const phpEntries = entries
+      .filter((e) => !e.isDirectory && e.entryName.replace(/\\/g, "/").endsWith(".php"))
+      .sort((a, b) => {
+        const depthA = a.entryName.replace(/\\/g, "/").split("/").length;
+        const depthB = b.entryName.replace(/\\/g, "/").split("/").length;
+        return depthA - depthB;
+      });
+
+    for (const entry of phpEntries) {
+      const text = entry.getData().toString("utf8");
+      const headers = parseWpPluginHeader(text);
+      if (headers) {
+        mainEntry = entry;
+        mainHeaders = headers;
+        break;
       }
     }
 
@@ -163,13 +172,19 @@ export async function POST(req: NextRequest) {
 
     // Prepare destination ZIP
     const outZip = new AdmZip();
-    const prefix = topFolder ? `${topFolder}/` : `${slug}/`;
-    const includesPrefix = `${prefix}includes/`;
+
+    // Determine target path of the main plugin entry
+    const normalizedMainEntryPath = mainEntry.entryName.replace(/\\/g, "/");
+    const targetMainPath = !topFolder
+      ? `${slug}/${normalizedMainEntryPath.replace(/^\/+/, "")}`
+      : normalizedMainEntryPath;
+    const targetMainDir = path.posix.dirname(targetMainPath);
+    const includesPrefix = `${targetMainDir}/includes/`;
 
     // Process all existing entries
     for (const entry of entries) {
       if (entry.isDirectory) continue;
-      let relPath = entry.entryName.replace(/\\/g, "/");
+      const relPath = entry.entryName.replace(/\\/g, "/");
 
       // Normalize into plugin folder if missing top folder
       let targetPath = relPath;
@@ -177,11 +192,13 @@ export async function POST(req: NextRequest) {
         targetPath = `${slug}/${relPath.replace(/^\/+/, "")}`;
       }
 
-      if (entry.entryName === mainEntry.entryName) {
+      if (relPath === normalizedMainEntryPath) {
         let content = entry.getData().toString("utf8");
 
         // Inject bootstrap if not already present
         if (!content.includes("Slate_WP_License::init")) {
+          const escapedName = mainHeaders.name.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+          const escapedMasterUrl = masterUrl.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
           const bootstrapCode = `
 
 // --- SLATE LICENSE SHIELD AUTO-INJECTED ---
@@ -191,16 +208,29 @@ if (!defined('ABSPATH')) {
 require_once plugin_dir_path(__FILE__) . 'includes/class-slate-wp-license.php';
 Slate_WP_License::init(array(
     'slug'       => '${slug}',
-    'name'       => '${mainHeaders.name.replace(/'/g, "\\'")}',
+    'name'       => '${escapedName}',
     'version'    => '${mainHeaders.version}',
-    'master_url' => '${masterUrl.replace(/'/g, "\\'")}',
+    'master_url' => '${escapedMasterUrl}',
 ));
 `;
 
+          let insertIdx = -1;
           const headerEndMatch = content.match(/\/\*[\s\S]*?Plugin\s+Name\s*:[\s\S]*?\*\//i);
           if (headerEndMatch && headerEndMatch.index !== undefined) {
-            const cutIdx = headerEndMatch.index + headerEndMatch[0].length;
-            content = content.slice(0, cutIdx) + bootstrapCode + content.slice(cutIdx);
+            insertIdx = headerEndMatch.index + headerEndMatch[0].length;
+          }
+
+          // If declare(strict_types=1); exists, it MUST remain the very first PHP statement
+          const declareMatch = content.match(/declare\s*\([^)]*\)\s*;/i);
+          if (declareMatch && declareMatch.index !== undefined) {
+            const declareEnd = declareMatch.index + declareMatch[0].length;
+            if (declareEnd > insertIdx) {
+              insertIdx = declareEnd;
+            }
+          }
+
+          if (insertIdx >= 0) {
+            content = content.slice(0, insertIdx) + bootstrapCode + content.slice(insertIdx);
           } else {
             content += bootstrapCode;
           }
@@ -212,7 +242,7 @@ Slate_WP_License::init(array(
       }
     }
 
-    // Add SDK template files into includes/ directory
+    // Add SDK template files into includes/ directory relative to main plugin entry
     outZip.addFile(`${includesPrefix}class-slate-wp-license.php`, Buffer.from(clientSdkCode, "utf8"));
     outZip.addFile(`${includesPrefix}class-slate-wp-license-admin.php`, Buffer.from(adminSdkCode, "utf8"));
 

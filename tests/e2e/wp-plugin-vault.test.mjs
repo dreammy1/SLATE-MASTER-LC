@@ -12,10 +12,13 @@ describe("WordPress Plugin Automated Licensing & Vault Pipeline", () => {
   const pkgRepoSrc = fs.readFileSync(path.join(root, "lib/repositories/packageRepository.ts"), "utf8");
   const uploadSrc = fs.readFileSync(path.join(root, "app/api/packages/upload/route.ts"), "utf8");
   const downloadSrc = fs.readFileSync(path.join(root, "app/api/orders/[id]/download/route.ts"), "utf8");
+  const licenseDownloadSrc = fs.readFileSync(path.join(root, "app/api/orders/[id]/license/route.ts"), "utf8");
   const checkSrc = fs.readFileSync(path.join(root, "app/api/licenses/check/route.ts"), "utf8");
   const activateSrc = fs.readFileSync(path.join(root, "app/api/licenses/activate/route.ts"), "utf8");
   const packagesPageSrc = fs.readFileSync(path.join(root, "app/packages/page.tsx"), "utf8");
   const orderPageSrc = fs.readFileSync(path.join(root, "app/orders/[id]/page.tsx"), "utf8");
+  const invoiceSrc = fs.readFileSync(path.join(root, "app/api/orders/[id]/invoice/route.ts"), "utf8");
+  const orderFormSrc = fs.readFileSync(path.join(root, "app/pricing/order-form.tsx"), "utf8");
 
   it("1. verifies Model & Repository extensibility for product types and vault metadata", () => {
     assert.match(modelSrc, /export type ProductType = "custom_php" \| "wordpress_plugin" \| "digital_product"/);
@@ -48,6 +51,8 @@ describe("WordPress Plugin Automated Licensing & Vault Pipeline", () => {
     assert.match(clientCode, /72\s*\*\s*HOUR_IN_SECONDS/, "must enforce 72-hour offline grace period");
     assert.match(clientCode, /\/api\/licenses\/activate/, "must point to Master activate API");
     assert.match(clientCode, /\/api\/licenses\/check/, "must point to Master check API");
+    assert.match(clientCode, /apply_filters\('slate_license_is_active_/, "must offer developer filter hook");
+    assert.match(clientCode, /do_action\('slate_license_activated_/, "must fire activation action hook");
 
     // Admin SDK requirements
     assert.match(adminCode, /class\s+Slate_WP_License_Admin/, "must declare Slate_WP_License_Admin class");
@@ -66,11 +71,13 @@ describe("WordPress Plugin Automated Licensing & Vault Pipeline", () => {
     assert.match(uploadSrc, /Slate_WP_License::init/, "must inject bootstrap require and init call");
     assert.match(uploadSrc, /vault\/wp-plugins/, "must save distribution files into vault/wp-plugins/");
     assert.match(uploadSrc, /vaultSha256/, "must compute and return vaultSha256");
+    assert.match(uploadSrc, /declare\s*\([^)]*\)\s*;/, "must preserve strict_types declaration precedence");
   });
 
   it("4. performs real ZIP packaging, header extraction, SDK injection, and SHA256 validation", async () => {
     const slug = "test-e2e-plugin";
     const samplePluginPhp = `<?php
+declare(strict_types=1);
 /*
  * Plugin Name: Test E2E WordPress Suite
  * Version: 3.2.0
@@ -154,7 +161,7 @@ Slate_WP_License::init(array(
     assert.match(downloadSrc, /status:\s*403/, "must return 403 when not paid");
     assert.match(downloadSrc, /Content-Type":\s*"application\/zip"/, "must set ZIP content type");
     assert.match(downloadSrc, /Content-Disposition":\s*`attachment;\s*filename=/, "must set attachment header");
-    assert.match(downloadSrc, /startsWith\(baseDir\)/, "must prevent directory traversal attacks");
+    assert.match(downloadSrc, /startsWith\(normalizedVault\)/, "must prevent directory traversal and confine to vault");
   });
 
   it("6. verifies WordPress verification heartbeat endpoint /api/licenses/check", () => {
@@ -176,12 +183,34 @@ Slate_WP_License::init(array(
     assert.match(packagesPageSrc, /vaultSha256/, "must handle vault SHA256");
   });
 
-  it("8. verifies Order Delivery Page renders Download Plugin ZIP and Copy License Key", () => {
+  it("8. verifies Order Delivery Page and Invoice render Download Plugin ZIP, Copy License Key, and License File", () => {
     assert.match(orderPageSrc, /isWordpressPlugin/, "must detect wordpress_plugin orders");
     assert.match(orderPageSrc, /Your WordPress Plugin/i, "must display WordPress delivery panel");
     assert.match(orderPageSrc, /Download Plugin ZIP \(Ready to Install\)/, "must render ready-to-install download button");
     assert.match(orderPageSrc, /\/api\/orders\/.*\/download/, "download button must link to download endpoint");
+    assert.match(orderPageSrc, /\/api\/orders\/.*\/license/, "license download button must link to license file endpoint");
     assert.match(orderPageSrc, /Copy License Key/, "must provide 1-click license key copying");
     assert.match(orderPageSrc, /3-Step WordPress Setup Guide/, "must provide 3-step installation guide");
+
+    // License certificate endpoint
+    assert.match(licenseDownloadSrc, /Content-Disposition":\s*`attachment;\s*filename="license-\${order\.id}\.txt"/);
+    assert.match(licenseDownloadSrc, /ensureOrderLicense/);
+
+    // Invoice route
+    assert.match(invoiceSrc, /ensureOrderLicense/);
+    assert.match(invoiceSrc, /WordPress Plugin Ready to Install/);
+    assert.match(invoiceSrc, /Download Plugin ZIP/);
+  });
+
+  it("9. verifies Pricing Page order form adapts dynamically for WordPress plugins", () => {
+    assert.match(orderFormSrc, /isWpPlugin/);
+    assert.match(orderFormSrc, /WordPressDeliveryWidget/);
+    assert.match(orderFormSrc, /Download Plugin ZIP \(Ready to Install\)/);
+    assert.match(orderFormSrc, /Download \.txt/);
+  });
+
+  it("10. verifies activation endpoint binds previously unbound license on first site", () => {
+    assert.match(activateSrc, /isUnbound\s*=\s*!lic\.domain/);
+    assert.match(activateSrc, /domain:\s*lic\.domain\s*\|\|\s*domain\s*\|\|\s*undefined/);
   });
 });

@@ -150,18 +150,26 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
                 </div>
               </div>
               {o.licenseKey && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(o.licenseKey);
-                    setCopiedKey(true);
-                    setTimeout(() => setCopiedKey(false), 2500);
-                  }}
-                  className="px-4 py-2 rounded border border-[#00f0ff] bg-[#00f0ff]/10 hover:bg-[#00f0ff] hover:text-black text-[#00f0ff] font-bold text-xs flex items-center gap-1.5 transition"
-                >
-                  {copiedKey ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  {copiedKey ? "Copied to Clipboard!" : "Copy License Key"}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(o.licenseKey);
+                      setCopiedKey(true);
+                      setTimeout(() => setCopiedKey(false), 2500);
+                    }}
+                    className="px-4 py-2 rounded border border-[#00f0ff] bg-[#00f0ff]/10 hover:bg-[#00f0ff] hover:text-black text-[#00f0ff] font-bold text-xs flex items-center gap-1.5 transition"
+                  >
+                    {copiedKey ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedKey ? "Copied to Clipboard!" : "Copy License Key"}
+                  </button>
+                  <a
+                    href={`/api/orders/${o.id}/license`}
+                    className="px-3 py-2 rounded border border-slate-600 bg-slate-800 hover:border-slate-400 text-slate-200 font-bold text-xs transition"
+                  >
+                    Download .txt
+                  </a>
+                </div>
               )}
             </div>
 
@@ -172,6 +180,14 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
                   className="px-5 py-2.5 rounded bg-[#00f0ff] text-black font-bold text-xs flex items-center gap-2 shadow-lg shadow-[#00f0ff]/20 hover:opacity-90 transition"
                 >
                   <Download className="w-4 h-4" /> Download Plugin ZIP (Ready to Install)
+                </a>
+                <a
+                  href={`/api/orders/${o.id}/invoice`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2.5 rounded border border-slate-600 bg-slate-800/80 hover:bg-slate-700 text-white font-bold text-xs transition"
+                >
+                  View / Print Invoice
                 </a>
               </div>
             )}

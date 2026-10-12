@@ -73,7 +73,8 @@ export async function POST(req: NextRequest) {
     const domainNorm = norm(domain);
     const licHost = licNorm.split("/")[0];
     const reqHost = domainNorm.split("/")[0];
-    const matchesDomain = !domain || licNorm === domainNorm || (licHost && reqHost && licHost === reqHost);
+    const isUnbound = !lic.domain;
+    const matchesDomain = isUnbound || !domain || licNorm === domainNorm || (licHost && reqHost && licHost === reqHost);
 
     if (!matchesDomain) {
       return fail(
@@ -148,6 +149,7 @@ export async function POST(req: NextRequest) {
     const updated = await updateLicense(lic.id, {
       activation_count: isRerunOnSameDomain ? lic.activation_count : lic.activation_count + 1,
       status: "active",
+      domain: lic.domain || domain || undefined,
       last_seen_at: new Date().toISOString(),
     });
     const pkg = updated ? await getPackage(updated.package_id) : null;

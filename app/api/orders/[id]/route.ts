@@ -61,45 +61,10 @@ const id = (await ctx.params).id;
     let rawLicenseKey: string | undefined = undefined;
     const isPaidOrder = ["paid", "bootstrap_running", "bootstrap_done", "install_running", "completed"].includes(order.status);
     if (isPaidOrder) {
-      const { getLicense, getLicenses, addLicense, updateOrder } = await import("@/lib/storage");
-      let lic = order.licenseId ? await getLicense(order.licenseId) : null;
-      if (!lic) {
-        const allLics = await getLicenses();
-        lic = allLics.find((l) => l.orderId === order.id) || null;
-      }
-
-      if (!lic && pkg && (pkg.productType === "wordpress_plugin" || pkg.productType === "digital_product")) {
-        const { generateLicenseKey, hashLicenseKey, calcExpiry, signLicensePayload } = await import("@/lib/licensing");
-        const rawKey = generateLicenseKey();
-        const keyHash = hashLicenseKey(rawKey);
-        const keyLast4 = rawKey.slice(-4);
-        const keyEncrypted = encryptSecret(rawKey);
-        const expiresAt = calcExpiry(new Date(), order.billing_cycle);
-        const signature = signLicensePayload(order.siteUrl || "", pkg.slug, expiresAt);
-
-        lic = await addLicense({
-          key_hash: keyHash,
-          key_last4: keyLast4,
-          key_encrypted: keyEncrypted,
-          key_signature: signature,
-          domain: order.siteUrl || "",
-          package_id: pkg.id,
-          package_slug: pkg.slug,
-          billing_cycle: order.billing_cycle,
-          status: "active",
-          starts_at: new Date().toISOString(),
-          expires_at: expiresAt,
-          activation_limit: 1,
-          activation_count: 0,
-          orderId: order.id,
-        });
-
-        await updateOrder(order.id, { licenseId: lic.id, licenseKeyLast4: keyLast4 });
-      }
-
-      if (lic?.key_encrypted) {
-        const { decryptSecret } = await import("@/lib/crypto");
-        rawLicenseKey = decryptSecret(lic.key_encrypted);
+      const { ensureOrderLicense } = await import("@/lib/orderLicense");
+      const licRes = await ensureOrderLicense(order, pkg);
+      if (licRes?.rawLicenseKey) {
+        rawLicenseKey = licRes.rawLicenseKey;
       }
     }
 

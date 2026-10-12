@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getOrder, getPackage, updateOrder } from "@/lib/storage";
 import { markOrderPaid } from "@/lib/stripeFulfillment";
+import { ensureOrderLicense } from "@/lib/orderLicense";
 
 function getStripeInstance() {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -117,9 +118,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       }
 
       const updated = await getOrder(order.id);
+      const pkg = await getPackage(order.package_id).catch(() => null);
+      const licRes = await ensureOrderLicense(updated || order, pkg).catch(() => null);
       return NextResponse.json({
         success: true,
         order: updated || order,
+        licenseKey: licRes?.rawLicenseKey || undefined,
         status: "paid",
         deduped: result.kind === "deduped",
       });

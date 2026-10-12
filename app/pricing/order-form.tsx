@@ -1,5 +1,5 @@
 "use client";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { fetchJson } from "@/lib/safeJson";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
@@ -158,6 +158,9 @@ function OrderFormInner({ pkg, cycle, onOrder }: { pkg: any; cycle: string; onOr
         } else {
           currentOrder = { ...currentOrder, status: "paid" };
         }
+        if (confirmData?.licenseKey) {
+          currentOrder.licenseKey = confirmData.licenseKey;
+        }
       }
 
       // The server check rides along as a banner, never as a purchase refusal.
@@ -166,7 +169,7 @@ function OrderFormInner({ pkg, cycle, onOrder }: { pkg: any; cycle: string; onOr
           `Order ${currentOrder?.id || ""} saved and sent for review. One thing needs you: the server login did not pass its check (${d?.serverCheckMessage || "could not be verified"}). Your payment is safe — fix the login here or support will contact you.`
         );
       }
-      onOrder({ ...currentOrder, serverVerified: d?.serverVerified, serverCheckMessage: d?.serverCheckMessage });
+      onOrder({ ...currentOrder, pkg, serverVerified: d?.serverVerified, serverCheckMessage: d?.serverCheckMessage });
     } catch (err: any) {
       alert(err?.message || "Could not place the order. Please try again.");
     } finally {
@@ -174,33 +177,48 @@ function OrderFormInner({ pkg, cycle, onOrder }: { pkg: any; cycle: string; onOr
     }
   };
 
+  const isWpPlugin = pkg?.productType === "wordpress_plugin" || Boolean(pkg?.assetPath);
+  const isDigital = pkg?.productType === "digital_product";
+
   return (
     <form onSubmit={submit} className="max-w-2xl mx-auto mt-6 rounded-xl p-5 border border-[#1e293b] bg-[#111625] grid grid-cols-1 md:grid-cols-2 gap-3">
       <div className="md:col-span-2 text-white font-bold">Checkout → {pkg.name} / {cycle}</div>
       <div className="md:col-span-2 text-[11px] text-slate-400">
-        No API token needed. Upload one file, press Test Connection, then deploy — fully guided below.
+        {isWpPlugin
+          ? "Instant automated delivery. Get your license key, invoice, and ready-to-install WordPress plugin ZIP immediately after payment."
+          : isDigital
+          ? "Instant automated digital product delivery. Download your asset and license certificate upon payment."
+          : "No API token needed. Upload one file, press Test Connection, then deploy — fully guided below."}
       </div>
       <div className="md:col-span-2">
-        <label className={labelCls}>1. Site domain * (client.com or client.com/crm)</label>
+        <label className={labelCls}>
+          {isWpPlugin
+            ? "1. WordPress Site URL / Domain * (e.g. yoursite.com)"
+            : "1. Site domain * (client.com or client.com/crm)"}
+        </label>
         <input value={form.siteDomain} onChange={(e) => set("siteDomain", e.target.value)} required
-          placeholder="client.com  or  client.com/crm" className={inputCls} />
-        {form.siteDomain.trim() !== "" && target.siteUrl && (
+          placeholder={isWpPlugin ? "yoursite.com" : "client.com  or  client.com/crm"} className={inputCls} />
+        {form.siteDomain.trim() !== "" && target.siteUrl && !isWpPlugin && !isDigital && (
           <div className="mt-1 rounded border border-[#00f0ff]/30 bg-[#00f0ff]/5 px-3 py-2 text-[11px] text-slate-300">
             Will install at <span className="text-[#00f0ff] font-mono">{target.siteUrl}</span>
             {" "}· upload to <span className="font-mono">📂 {target.uploadPath}</span>
           </div>
         )}
       </div>
-      <div>
-        <label className={labelCls}>2. Hosting username * (cPanel username)</label>
-        <input value={form.hostingUsername} onChange={(e) => set("hostingUsername", e.target.value)} required
-          placeholder="e.g. clientuser" className={inputCls} />
-      </div>
-      <div>
-        <label className={labelCls}>3. Hosting server URL * (cPanel / n0c panel URL)</label>
-        <input value={form.hostingServerUrl} onChange={(e) => set("hostingServerUrl", e.target.value)} required
-          placeholder="https://cpanel.client.com:2083" className={inputCls} />
-      </div>
+      {!isWpPlugin && !isDigital && (
+        <>
+          <div>
+            <label className={labelCls}>2. Hosting username * (cPanel username)</label>
+            <input value={form.hostingUsername} onChange={(e) => set("hostingUsername", e.target.value)} required
+              placeholder="e.g. clientuser" className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>3. Hosting server URL * (cPanel / n0c panel URL)</label>
+            <input value={form.hostingServerUrl} onChange={(e) => set("hostingServerUrl", e.target.value)} required
+              placeholder="https://cpanel.client.com:2083" className={inputCls} />
+          </div>
+        </>
+      )}
       <div>
         <label className={labelCls}>4. Full name *</label>
         <input value={form.contactName} onChange={(e) => set("contactName", e.target.value)} required
@@ -212,7 +230,11 @@ function OrderFormInner({ pkg, cycle, onOrder }: { pkg: any; cycle: string; onOr
           placeholder="Phone number" className={inputCls} />
       </div>
       <div className="md:col-span-2">
-        <label className={labelCls}>6. Email * (this becomes your admin password)</label>
+        <label className={labelCls}>
+          {isWpPlugin || isDigital
+            ? "6. Email * (license key & invoice will be sent here)"
+            : "6. Email * (this becomes your admin password)"}
+        </label>
         <input type="email" value={form.contactEmail} onChange={(e) => set("contactEmail", e.target.value)} required
           placeholder="you@example.com" className={inputCls} />
       </div>
@@ -366,7 +388,173 @@ const RETRY_STEPS = [
   "If it fails again, copy the red error text and send it to support with your order ID.",
 ];
 
-export function BootstrapRunner({ order, progress, setProgress, log, setLog }: any) {
+export function WordPressDeliveryWidget({ order, pkg }: { order: any; pkg?: any }) {
+  const [copied, setCopied] = useState(false);
+  const [loadingKey, setLoadingKey] = useState(false);
+  const [key, setKey] = useState(order.licenseKey || "");
+
+  useEffect(() => {
+    if (!key && order.id) {
+      setLoadingKey(true);
+      fetch(`/api/orders/${order.id}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d?.order?.licenseKey) setKey(d.order.licenseKey);
+        })
+        .catch(() => {})
+        .finally(() => setLoadingKey(false));
+    }
+  }, [order.id, key]);
+
+  const copyKey = async () => {
+    if (!key) return;
+    try {
+      await navigator.clipboard.writeText(key);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const downloadKeyTxt = () => {
+    const content = [
+      "=======================================================",
+      "  SLATE DevOps OS — Official License Key Certificate",
+      "=======================================================",
+      `Product:       ${pkg?.name || order.packageName || "WordPress Plugin"}`,
+      `Order ID:      ${order.id}`,
+      `License Key:   ${key || "Issued upon confirmation"}`,
+      `Site Domain:   ${order.siteUrl || "Active"}`,
+      `Date:          ${new Date().toISOString()}`,
+      "=======================================================",
+      "",
+      "WordPress Installation:",
+      "1. Download and install plugin ZIP in WP Admin.",
+      "2. Go to Settings > [Plugin] License and enter key.",
+      "=======================================================",
+    ].join("\r\n");
+
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `license-${order.id}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const isPaid = ["paid", "completed", "bootstrap_done", "install_running"].includes(order.status);
+
+  return (
+    <div className="max-w-2xl mx-auto mt-6 rounded-xl p-5 border border-[#00f0ff] bg-[#00f0ff]/5 space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 rounded-full bg-[#00f0ff] animate-pulse"></span>
+          <span className="font-extrabold text-white text-base">
+            {isPaid ? "Payment Confirmed — WordPress Plugin Ready!" : "WordPress Plugin Order Created"}
+          </span>
+        </div>
+        <span className="text-xs px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40">
+          {isPaid ? "READY TO INSTALL" : String(order.status).toUpperCase()}
+        </span>
+      </div>
+
+      <div className="rounded-lg border border-[#1e293b] bg-[#0a0d14] p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-slate-400">Order #{order.id}</span>
+          <span className="text-xs text-[#00f0ff] font-bold">{pkg?.name || "WordPress Plugin"}</span>
+        </div>
+
+        <div className="border-t border-[#1e293b] pt-3">
+          <div className="text-[11px] text-slate-400 uppercase tracking-wide font-semibold mb-1">
+            Your License Key
+          </div>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="font-mono text-base font-bold text-white tracking-wider bg-[#111625] px-3 py-1.5 rounded border border-[#1e293b]">
+              {key ? key : loadingKey ? "Loading key..." : order.licenseKeyLast4 ? `****${order.licenseKeyLast4}` : "Issued upon payment"}
+            </div>
+            {key && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={copyKey}
+                  className="px-3 py-1.5 rounded border border-[#00f0ff] bg-[#00f0ff]/10 hover:bg-[#00f0ff] hover:text-black text-[#00f0ff] font-bold text-xs transition"
+                >
+                  {copied ? "Copied!" : "Copy Key"}
+                </button>
+                <button
+                  type="button"
+                  onClick={downloadKeyTxt}
+                  className="px-3 py-1.5 rounded border border-slate-600 bg-slate-800 hover:border-slate-400 text-slate-200 font-bold text-xs transition"
+                >
+                  Download .txt
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {isPaid && (
+        <div className="flex flex-wrap gap-3 items-center">
+          <a
+            href={`/api/orders/${order.id}/download`}
+            className="px-5 py-2.5 rounded bg-[#00f0ff] text-black font-bold text-xs flex items-center gap-2 shadow-lg shadow-[#00f0ff]/20 hover:opacity-90 transition"
+          >
+            <span>📥 Download Plugin ZIP (Ready to Install)</span>
+          </a>
+          <a
+            href={`/api/orders/${order.id}/invoice`}
+            target="_blank"
+            rel="noreferrer"
+            className="px-4 py-2.5 rounded border border-slate-600 bg-slate-800/80 hover:bg-slate-700 text-white font-bold text-xs transition"
+          >
+            <span>📄 View / Print Invoice</span>
+          </a>
+          <a
+            href={`/orders/${order.id}`}
+            className="px-4 py-2.5 rounded border border-[#1e293b] text-slate-400 hover:text-white text-xs transition"
+          >
+            Full Order Details →
+          </a>
+        </div>
+      )}
+
+      <div className="rounded-lg border border-[#1e293b] bg-[#0a0d14]/70 p-4 space-y-2 text-xs">
+        <div className="font-bold text-white flex items-center gap-1.5 mb-1">
+          <span>📖 3-Step WordPress Setup Guide:</span>
+        </div>
+        <div className="space-y-1.5 text-slate-300">
+          <div className="flex items-start gap-2">
+            <span className="rounded-full bg-[#00f0ff]/20 text-[#00f0ff] w-5 h-5 flex items-center justify-center font-bold text-[10px] shrink-0">1</span>
+            <span>Download the ready-to-install distribution ZIP using the button above.</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="rounded-full bg-[#00f0ff]/20 text-[#00f0ff] w-5 h-5 flex items-center justify-center font-bold text-[10px] shrink-0">2</span>
+            <span>In your WordPress Admin, go to <b>Plugins &gt; Add New &gt; Upload Plugin</b>, select the file, and click <b>Activate Plugin</b>.</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="rounded-full bg-[#00f0ff]/20 text-[#00f0ff] w-5 h-5 flex items-center justify-center font-bold text-[10px] shrink-0">3</span>
+            <span>Navigate to the plugin&apos;s <b>License</b> settings page in WordPress Admin, paste your License Key, and click <b>Activate License</b>.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function BootstrapRunner({ order, progress, setProgress, log, setLog, pkg }: any) {
+  const isWp =
+    order?.productType === "wordpress_plugin" ||
+    order?.package?.productType === "wordpress_plugin" ||
+    order?.pkg?.productType === "wordpress_plugin" ||
+    pkg?.productType === "wordpress_plugin" ||
+    Boolean(order?.assetPath || order?.package?.assetPath || pkg?.assetPath);
+
+  if (isWp) {
+    return <WordPressDeliveryWidget order={order} pkg={pkg || order.pkg || order.package} />;
+  }
   return <InstallerWidget order={order} progress={progress} setProgress={setProgress} log={log} setLog={setLog} />;
 }
 

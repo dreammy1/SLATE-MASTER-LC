@@ -162,11 +162,11 @@ class Slate_WP_License {
             $elapsed = time() - intval($data['last_checked']);
             if ($elapsed > (72 * HOUR_IN_SECONDS)) {
                 // Heartbeat missed for over 72 hours
-                return false;
+                return apply_filters('slate_license_is_active_' . $this->config['slug'], false, $data);
             }
         }
 
-        return true;
+        return apply_filters('slate_license_is_active_' . $this->config['slug'], true, $data);
     }
 
     /**
@@ -247,13 +247,15 @@ class Slate_WP_License {
                 $expires_at = $json['license']['expires_at'];
             }
 
-            $this->save_data(array(
+            $saved_data = array(
                 'key'          => $raw_key,
                 'status'       => 'active',
                 'expires_at'   => $expires_at,
                 'last_checked' => time(),
                 'server_msg'   => 'License activated successfully.',
-            ));
+            );
+            $this->save_data($saved_data);
+            do_action('slate_license_activated_' . $this->config['slug'], $saved_data);
 
             return array('success' => true, 'message' => 'License activated successfully!');
         }
@@ -277,13 +279,15 @@ class Slate_WP_License {
      * @return array
      */
     public function deactivate() {
-        $this->save_data(array(
+        $data = array(
             'key'          => '',
             'status'       => 'inactive',
             'expires_at'   => null,
             'last_checked' => time(),
             'server_msg'   => 'License deactivated.',
-        ));
+        );
+        $this->save_data($data);
+        do_action('slate_license_deactivated_' . $this->config['slug'], $data);
 
         return array('success' => true, 'message' => 'License deactivated.');
     }
