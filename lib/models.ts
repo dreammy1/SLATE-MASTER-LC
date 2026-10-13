@@ -43,8 +43,8 @@ export interface Site {
   licenseId?: string;
   licenseStatus?: "ACTIVE" | "EXPIRED" | "SUSPENDED" | "REVOKED" | "NONE" | "OFFLINE";
   package_id?: string;
-  /** Master-pushed remote access mode (agent .env SLATE_ACCESS_MODE). */
-  remoteAccess?: "full" | "readonly";
+  /** Master-pushed remote access mode (agent .env SLATE_ACCESS_MODE or wp_plugin). */
+  remoteAccess?: "full" | "readonly" | "wp_plugin";
   remoteAccessUpdatedAt?: string;
   /** Last values reported by the live agent (cached for the client list). */
   agentVersion?: string;

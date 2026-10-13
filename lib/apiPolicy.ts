@@ -63,7 +63,8 @@ const PUBLIC_RULES: PublicRule[] = [
 
   // ── remote Slate installs and third parties, each with its own credential ─
   { methods: ["POST"], pattern: /^\/api\/deploy\/bootstrap$/, why: "order bootstrap setup (validates orderId in handler)" },
-  { methods: ["POST", "OPTIONS"], pattern: /^\/api\/licenses\/(activate|heartbeat|update-request)$/, why: "called by client sites; authenticated by license key hash" },
+  { methods: ["GET", "POST", "OPTIONS"], pattern: /^\/api\/licenses\/(activate|check|heartbeat|update-request)$/, why: "called by client sites; authenticated by license key hash" },
+  { methods: ["GET", "POST", "OPTIONS"], pattern: /^\/api\/wp\/(update|download)$/, why: "WordPress plugin update checks and package downloads authenticated by license key" },
   { methods: ["POST", "OPTIONS"], pattern: /^\/api\/deploy\/full-install$/, why: "activate.php install; authenticated by license key" },
   { methods: ["POST"], pattern: /^\/api\/deploy\/webhook$/, why: "GitHub Actions; authenticated by X-Slate-Token" },
   { methods: ["POST"], pattern: /^\/api\/stripe\/webhook$/, why: "Stripe; authenticated by webhook signature" },

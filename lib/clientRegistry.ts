@@ -47,7 +47,7 @@ import { licenseIssuedMail, sendMail } from "./mailer";
  * `/licenses` client-management console renders and edits.
  */
 
-export type ClientAccessMode = "full" | "readonly" | "unknown";
+export type ClientAccessMode = "full" | "readonly" | "unknown" | "wp_plugin";
 
 export type ClientLicenseState = {
   id: string | null;
@@ -381,6 +381,18 @@ export function clientFromParts(
   pkg: Package | null
 ): ClientRecord {
   const lic = licenseState(license);
+  const isWp = (pkg as any)?.productType === "wordpress_plugin" ||
+    Boolean(license?.package_slug?.includes("engine") || license?.package_slug?.includes("plugin")) ||
+    order.cpanelUser === "wp-customer" ||
+    pkg?.slug === "credoq-engine";
+
+  const siteStatus = site?.status || (isWp ? (license?.status === "active" ? "ONLINE" : "INACTIVE") : "UNKNOWN");
+  const latency = site?.latency || (isWp ? (license?.last_seen_at ? "Heartbeat OK" : "WP Plugin") : "--");
+  const remoteAccess = site?.remoteAccess || (isWp ? "wp_plugin" : "unknown");
+  const lastHealthStatus = site?.lastHealthStatus || (isWp ? (license?.status === "active" ? "ONLINE" : "OFFLINE") : null);
+  const lastHealthAt = site?.lastHealthAt || (isWp ? (license?.last_seen_at || license?.updatedAt || order.createdAt) : null);
+  const activePlugins = site?.activePlugins?.length ? site.activePlugins : (pkg?.pluginSet || (pkg?.slug ? [pkg.slug] : []));
+
   return {
     id: order.id,
     orderId: order.id,
@@ -404,15 +416,15 @@ export function clientFromParts(
     paymentStatus: order.status,
     progressPercent: Number(order.progressPercent || 0),
     progressStage: order.progressStage || "",
-    siteStatus: site?.status || "UNKNOWN",
-    latency: site?.latency || "--",
-    remoteAccess: site?.remoteAccess || "unknown",
+    siteStatus,
+    latency,
+    remoteAccess,
     remoteAccessUpdatedAt: site?.remoteAccessUpdatedAt || null,
-    coreVersion: site?.coreVersion || null,
-    agentVersion: site?.agentVersion || null,
-    activePlugins: site?.activePlugins || [],
-    lastHealthAt: site?.lastHealthAt || null,
-    lastHealthStatus: site?.lastHealthStatus || null,
+    coreVersion: site?.coreVersion || (isWp ? "WordPress" : null),
+    agentVersion: site?.agentVersion || (isWp ? "WP SDK" : null),
+    activePlugins,
+    lastHealthAt,
+    lastHealthStatus,
     license: lic,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt || null,

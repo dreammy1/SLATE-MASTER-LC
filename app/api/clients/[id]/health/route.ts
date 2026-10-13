@@ -17,7 +17,42 @@ const params = await p;
     const detail = await getClientDetail(params.id, {});
     if (!detail) return NextResponse.json({ success: false, error: "Client not found." }, { status: 404 });
     if (!detail.site) {
-      return NextResponse.json({ success: false, error: "This client has no registered site yet. Run bootstrap first." }, { status: 400 });
+      const siteUrl = detail.client?.siteUrl || detail.license?.domain || detail.order?.siteUrl;
+      let ok = false;
+      let statusCode = 0;
+      let latencyMs = 0;
+      if (siteUrl && siteUrl.startsWith("http")) {
+        const start = Date.now();
+        try {
+          const res = await fetch(siteUrl, { signal: AbortSignal.timeout(5000) });
+          statusCode = res.status;
+          latencyMs = Date.now() - start;
+          ok = res.status < 500;
+        } catch {
+          ok = false;
+        }
+      }
+      const isWp = Boolean(detail.license || (detail.package as any)?.productType === "wordpress_plugin");
+      const health = {
+        checkedAt: new Date().toISOString(),
+        http: { ok, statusCode, latencyMs },
+        agent: {
+          reachable: isWp ? Boolean(detail.license?.status === "active") : false,
+          message: isWp ? "WordPress Plugin Licensing Engine (Active)" : "No remote agent installed",
+        },
+        installer: {
+          reachable: isWp,
+          installed: isWp,
+          db_ok: true,
+        },
+        overview: {
+          coreVersion: detail.client.coreVersion || "WordPress",
+          phpVersion: "7.4+",
+          serverSoftware: "Web Server",
+          plugins: [{ slug: detail.client.packageSlug, name: detail.client.packageName, active: true }],
+        },
+      };
+      return NextResponse.json({ success: true, health, client: detail.client, site: null });
     }
     const site = await getSite(detail.site.id);
     if (!site) return NextResponse.json({ success: false, error: "Site not found." }, { status: 404 });

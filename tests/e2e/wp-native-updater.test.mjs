@@ -5,6 +5,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import AdmZip from "adm-zip";
 import { compareVersions } from "../../lib/versionCompare.ts";
+import { decideApiAccess } from "../../lib/apiPolicy.ts";
 
 const root = process.cwd();
 
@@ -451,5 +452,27 @@ Slate_WP_License::init(array(
     assert.ok(existingTransient.response[pluginFile], "our plugin must be injected into response");
     assert.equal(existingTransient.response[pluginFile].new_version, "1.2.0");
     assert.equal(existingTransient.no_update[pluginFile], undefined, "our plugin must be removed from no_update");
+  });
+
+  it("16. verifies apiPolicy grants public access to /api/wp/update, /api/wp/download, and /api/licenses/check", () => {
+    // /api/wp/update (GET and OPTIONS)
+    assert.equal(decideApiAccess("GET", "/api/wp/update").access, "public");
+    assert.equal(decideApiAccess("OPTIONS", "/api/wp/update").access, "public");
+
+    // /api/wp/download (GET and OPTIONS)
+    assert.equal(decideApiAccess("GET", "/api/wp/download").access, "public");
+    assert.equal(decideApiAccess("OPTIONS", "/api/wp/download").access, "public");
+
+    // /api/licenses/check (GET and POST)
+    assert.equal(decideApiAccess("GET", "/api/licenses/check").access, "public");
+    assert.equal(decideApiAccess("POST", "/api/licenses/check").access, "public");
+
+    // /api/licenses/activate & heartbeat
+    assert.equal(decideApiAccess("POST", "/api/licenses/activate").access, "public");
+    assert.equal(decideApiAccess("POST", "/api/licenses/heartbeat").access, "public");
+
+    // Sensitive routes must remain protected
+    assert.equal(decideApiAccess("GET", "/api/clients").access, "admin");
+    assert.equal(decideApiAccess("POST", "/api/admin/deploy").access, "admin");
   });
 });
