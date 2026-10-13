@@ -274,4 +274,49 @@ Slate_WP_License::init(array(
       fs.rmSync(vaultDir, { recursive: true, force: true });
     }
   });
+
+  it("9. verifies /api/wp/notify-update endpoint contracts, bulk license marking, and remote ping logic", () => {
+    const notifyRoutePath = path.join(root, "app/api/wp/notify-update/route.ts");
+    assert.ok(fs.existsSync(notifyRoutePath), "notify-update route must exist");
+    const notifyRouteSrc = fs.readFileSync(notifyRoutePath, "utf8");
+
+    assert.match(notifyRouteSrc, /export\s+async\s+function\s+POST/, "must export POST handler");
+    assert.match(notifyRouteSrc, /export\s+async\s+function\s+OPTIONS/, "must export OPTIONS handler for CORS");
+    assert.match(notifyRouteSrc, /clientIds/, "must handle clientIds array");
+    assert.match(notifyRouteSrc, /licenseIds/, "must handle licenseIds array");
+    assert.match(notifyRouteSrc, /packageSlug/, "must handle packageSlug filter");
+    assert.match(notifyRouteSrc, /last_update_notified_at/, "must update last_update_notified_at");
+    assert.match(notifyRouteSrc, /force_update_version/, "must update force_update_version");
+    assert.match(notifyRouteSrc, /slate_update_ping/, "must dispatch slate_update_ping query parameter");
+    assert.match(notifyRouteSrc, /slate_wp_notify_update/, "must dispatch slate_wp_notify_update action");
+  });
+
+  it("10. verifies client actions route handles wp_plugin_health and wp_plugin_push_notify", () => {
+    const actionsRoutePath = path.join(root, "app/api/clients/[id]/actions/route.ts");
+    const actionsSrc = fs.readFileSync(actionsRoutePath, "utf8");
+
+    assert.match(actionsSrc, /wp_plugin_health:\s*handleWpPluginHealth/, "must register wp_plugin_health handler");
+    assert.match(actionsSrc, /wp_plugin_push_notify:\s*handleWpPluginPushNotify/, "must register wp_plugin_push_notify handler");
+    assert.match(actionsSrc, /getVaultAsset/, "must inspect vault asset in health check");
+    assert.match(actionsSrc, /compareVersions/, "must compare versions in health check");
+    assert.match(actionsSrc, /overallStatus/, "must calculate overall health status (ok, warning, error)");
+    assert.match(actionsSrc, /slate_update_ping/, "must dispatch slate_update_ping in push notify");
+  });
+
+  it("11. verifies WordPress SDK handles remote update pings, transient flushing, and forced checks", () => {
+    assert.match(sdkClassSrc, /slate_update_ping/, "SDK must listen for slate_update_ping query parameter");
+    assert.match(sdkClassSrc, /wp_ajax_slate_wp_notify_update/, "SDK must register ajax handler for update notifications");
+    assert.match(sdkClassSrc, /wp_ajax_nopriv_slate_wp_notify_update/, "SDK must register nopriv ajax handler for update notifications");
+    assert.match(sdkClassSrc, /public\s+function\s+force_check_updates\(\)/, "SDK must implement force_check_updates");
+    assert.match(sdkClassSrc, /delete_site_transient\(\s*['"]update_plugins['"]\s*\)/, "SDK must delete update_plugins transient on forced check");
+    assert.match(sdkClassSrc, /ltrim\(.*['"]vV['"]\)/, "SDK must strip leading v from version strings before comparison");
+    assert.doesNotMatch(sdkClassSrc, /isset\(\s*\$transient->no_update\[\$plugin_file\]\s*\)/, "SDK must not short-circuit on transient no_update");
+  });
+
+  it("12. verifies admin controller triggers force_check_updates on license check and activate", () => {
+    const adminClassSrc = fs.readFileSync(path.join(root, "lib/wpSdk/class-slate-wp-license-admin.php"), "utf8");
+
+    assert.match(adminClassSrc, /force_check_updates/, "admin controller must invoke force_check_updates");
+    assert.match(adminClassSrc, /plugins\.php|update-core\.php/, "admin notice should link to update page when update is available");
+  });
 });

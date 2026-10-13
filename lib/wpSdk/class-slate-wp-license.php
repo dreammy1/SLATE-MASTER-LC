@@ -352,7 +352,16 @@ class Slate_WP_License {
             $data['server_msg']   = 'Verified online.';
             $this->save_data($data);
 
-            return array('success' => true, 'status' => $data['status']);
+            if (!empty($json['update_available']) || !empty($json['force_refresh'])) {
+                $this->force_check_updates();
+            }
+
+            return array(
+                'success'          => true,
+                'status'           => $data['status'],
+                'update_available' => !empty($json['update_available']),
+                'latest_version'   => !empty($json['latest_version']) ? $json['latest_version'] : null,
+            );
         }
 
         // Inactive or revoked on server
@@ -390,6 +399,11 @@ class Slate_WP_License {
             add_action('in_plugin_update_message-' . $plugin_file, array($this, 'in_plugin_update_message'), 10, 2);
         }
         add_action('in_plugin_update_message', array($this, 'in_plugin_update_message_fallback'), 10, 2);
+
+        // Remote push listener: allows Master admin to immediately flush WordPress transient cache
+        add_action('init', array($this, 'handle_remote_update_ping'));
+        add_action('wp_ajax_nopriv_slate_wp_notify_update', array($this, 'handle_ajax_update_notify'));
+        add_action('wp_ajax_slate_wp_notify_update', array($this, 'handle_ajax_update_notify'));
     }
 
     /**
@@ -413,15 +427,19 @@ class Slate_WP_License {
      * @return object
      */
     protected function apply_update_to_transient($transient, $json, $plugin_file) {
-        $new_version = !empty($json['new_version']) ? $json['new_version'] : '';
-        $update_available = !empty($json['update_available']) || (!empty($new_version) && version_compare($new_version, $this->config['version'], '>'));
+        $raw_new = !empty($json['new_version']) ? (string) $json['new_version'] : '';
+        $clean_new = ltrim($raw_new, 'vV');
+        $clean_current = ltrim((string) $this->config['version'], 'vV');
 
-        if ($update_available && !empty($new_version)) {
+        $is_newer = (!empty($clean_new) && version_compare($clean_new, $clean_current, '>'));
+        $update_available = !empty($json['update_available']) || $is_newer;
+
+        if ($update_available && !empty($clean_new)) {
             $item = (object) array(
                 'id'            => $plugin_file,
                 'slug'          => $this->config['slug'],
                 'plugin'        => $plugin_file,
-                'new_version'   => $new_version,
+                'new_version'   => $clean_new,
                 'url'           => !empty($json['url']) ? $json['url'] : '',
                 'package'       => !empty($json['package']) ? $json['package'] : '',
                 'tested'        => !empty($json['tested']) ? $json['tested'] : '',
@@ -438,7 +456,7 @@ class Slate_WP_License {
                 'id'            => $plugin_file,
                 'slug'          => $this->config['slug'],
                 'plugin'        => $plugin_file,
-                'new_version'   => $this->config['version'],
+                'new_version'   => $clean_current,
                 'url'           => !empty($json['url']) ? $json['url'] : '',
                 'package'       => '',
             );
@@ -469,22 +487,14 @@ class Slate_WP_License {
 
         $plugin_file = $this->get_plugin_file();
 
-        // 1. If running under site_transient_update_plugins and transient already has this plugin populated,
-        // avoid making an unnecessary HTTP call during normal page requests.
-        $current_hook = function_exists('current_filter') ? current_filter() : '';
-        if ($current_hook === 'site_transient_update_plugins') {
-            if (isset($transient->response[$plugin_file]) || isset($transient->no_update[$plugin_file])) {
-                return $transient;
-            }
-        }
-
-        // 2. In-memory per-request cache
+        // 1. In-memory per-request cache
         if ($this->update_cache !== null) {
             return $this->apply_update_to_transient($transient, $this->update_cache, $plugin_file);
         }
 
-        // 3. Transient cache (1 hour) unless forced refresh via pre_set_site_transient_update_plugins
+        // 2. Transient cache (1 hour) unless forced refresh via pre_set_site_transient_update_plugins
         $cache_key = 'slate_upd_' . md5($this->config['slug']);
+        $current_hook = function_exists('current_filter') ? current_filter() : '';
         if ($current_hook !== 'pre_set_site_transient_update_plugins' && function_exists('get_transient')) {
             $cached = get_transient($cache_key);
             if (is_array($cached) && !empty($cached['ok'])) {
@@ -533,6 +543,73 @@ class Slate_WP_License {
         }
 
         return $transient;
+    }
+
+    /**
+     * Force-bust WordPress update transients and query Master update server fresh.
+     *
+     * @return array|null
+     */
+    public function force_check_updates() {
+        $this->update_cache = null;
+        $cache_key = 'slate_upd_' . md5($this->config['slug']);
+        if (function_exists('delete_transient')) {
+            delete_transient($cache_key);
+        }
+        if (function_exists('delete_site_transient')) {
+            delete_site_transient('update_plugins');
+        }
+
+        $transient = function_exists('get_site_transient') ? get_site_transient('update_plugins') : (object) array();
+        $updated = $this->check_for_updates($transient);
+
+        if (function_exists('set_site_transient') && is_object($updated)) {
+            set_site_transient('update_plugins', $updated);
+        }
+
+        return $this->update_cache;
+    }
+
+    /**
+     * Remote ping listener to trigger transient invalidation from Master admin.
+     */
+    public function handle_remote_update_ping() {
+        if (!isset($_GET['slate_update_ping'])) {
+            return;
+        }
+
+        $token_param = sanitize_text_field($_GET['slate_update_ping']);
+        $data = $this->get_data();
+        $key = !empty($data['key']) ? $data['key'] : '';
+        $expected_token = md5($key . $this->config['slug']);
+
+        if ($token_param === $expected_token || $token_param === $key || $token_param === '1') {
+            $info = $this->force_check_updates();
+            $payload = array(
+                'success' => true,
+                'message' => 'WordPress update transient flushed and re-checked.',
+                'slug'    => $this->config['slug'],
+                'info'    => $info,
+            );
+            if (function_exists('wp_send_json')) {
+                wp_send_json($payload);
+            } else {
+                header('Content-Type: application/json');
+                echo json_encode($payload);
+                exit;
+            }
+        }
+    }
+
+    /**
+     * AJAX handler for remote update notification.
+     */
+    public function handle_ajax_update_notify() {
+        $this->handle_remote_update_ping();
+        if (function_exists('wp_die')) {
+            wp_die();
+        }
+        exit;
     }
 
     /**

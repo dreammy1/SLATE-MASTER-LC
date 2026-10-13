@@ -7,7 +7,7 @@ export async function OPTIONS() {
   return corsPreflight();
 }
 
-async function handleCheck(keyRaw: string, domainRaw: string, slugRaw?: string) {
+async function handleCheck(keyRaw: string, domainRaw: string, slugRaw?: string, versionRaw?: string) {
   let rawKey = String(keyRaw || "").trim().toUpperCase();
   rawKey = rawKey.replace(/[\s_]+/g, "-");
   if (/^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(rawKey)) {
@@ -78,6 +78,33 @@ async function handleCheck(keyRaw: string, domainRaw: string, slugRaw?: string) 
     last_seen_at: new Date().toISOString(),
   }).catch(() => null);
 
+  // Check if update is available for this package
+  let updateAvailable = false;
+  let latestVersion = "";
+  const effectiveSlug = slugRaw || lic.package_slug;
+
+  if (effectiveSlug) {
+    try {
+      const { packageRepository } = await import("@/lib/repositories/packageRepository");
+      const { compareVersions } = await import("@/lib/versionCompare");
+      const packages = await packageRepository.list();
+      const pkg = packages.find(
+        (p) => p.slug.toLowerCase() === effectiveSlug.toLowerCase() || p.id === effectiveSlug
+      );
+      if (pkg?.version) {
+        latestVersion = pkg.version.replace(/^v/i, "").trim();
+        const cleanClientVer = String(versionRaw || "").replace(/^v/i, "").trim();
+        if (cleanClientVer && compareVersions(latestVersion, cleanClientVer) > 0) {
+          updateAvailable = true;
+        }
+      }
+    } catch {
+      // non-fatal
+    }
+  }
+
+  const forceRefresh = Boolean((lic as any).force_update_version || (lic as any).last_update_notified_at);
+
   return withCors(
     NextResponse.json({
       ok: true,
@@ -86,6 +113,9 @@ async function handleCheck(keyRaw: string, domainRaw: string, slugRaw?: string) 
       expires_at: lic.expires_at,
       slug: lic.package_slug,
       billing_cycle: lic.billing_cycle,
+      update_available: updateAvailable,
+      latest_version: latestVersion || undefined,
+      force_refresh: forceRefresh,
     })
   );
 }
@@ -96,8 +126,9 @@ export async function GET(req: NextRequest) {
     const key = url.searchParams.get("key") || url.searchParams.get("license_key") || "";
     const site = url.searchParams.get("site") || url.searchParams.get("domain") || url.searchParams.get("site_url") || "";
     const slug = url.searchParams.get("slug") || "";
+    const version = url.searchParams.get("version") || "";
 
-    return await handleCheck(key, site, slug);
+    return await handleCheck(key, site, slug, version);
   } catch (err: any) {
     return withCors(NextResponse.json({ ok: false, success: false, error: err?.message || "Check error." }, { status: 500 }));
   }
@@ -109,8 +140,9 @@ export async function POST(req: NextRequest) {
     const key = body.key || body.license_key || body.licenseKey || "";
     const site = body.site || body.domain || body.siteUrl || body.site_url || "";
     const slug = body.slug || "";
+    const version = body.version || "";
 
-    return await handleCheck(key, site, slug);
+    return await handleCheck(key, site, slug, version);
   } catch (err: any) {
     return withCors(NextResponse.json({ ok: false, success: false, error: err?.message || "Check error." }, { status: 500 }));
   }

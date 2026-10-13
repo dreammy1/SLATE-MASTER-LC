@@ -57,6 +57,12 @@ export default function ClientConsolePage() {
   const [licenseToDelete, setLicenseToDelete] = useState<string[] | null>(null);
   const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
   const [clientBulkModal, setClientBulkModal] = useState<boolean>(false);
+  const [availablePackages, setAvailablePackages] = useState<any[]>([]);
+  const [packageFilter, setPackageFilter] = useState<string>("all");
+  const [bulkNotifyBusy, setBulkNotifyBusy] = useState(false);
+  const [wpHealthResult, setWpHealthResult] = useState<any>(null);
+  const [wpHealthBusy, setWpHealthBusy] = useState(false);
+  const [wpPushBusy, setWpPushBusy] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   const showToast = useCallback((message: string, type: "success" | "error" = "success") => {
@@ -131,8 +137,109 @@ export default function ClientConsolePage() {
     }
   };
 
+  const handleBulkPushUpdateNotify = async (ids: string[]) => {
+    if (!ids || ids.length === 0) return;
+    const targetPkg = packageFilter !== "all" ? packageFilter : "";
+    const confirmMsg = targetPkg
+      ? `Push WordPress update notification to ${ids.length} selected client(s) for package "${targetPkg}"?`
+      : `Push WordPress update notification to ${ids.length} selected client(s)?`;
+    if (!confirm(confirmMsg)) return;
+
+    setBulkNotifyBusy(true);
+    try {
+      const res = await fetch("/api/wp/notify-update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientIds: ids,
+          packageSlug: targetPkg || undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        showToast(data.error || "Failed to push update notification.", "error");
+      } else {
+        showToast(
+          data.message || `Notified ${data.count} client(s) (${data.pingSuccessCount} live pinged).`,
+          "success"
+        );
+        await load();
+      }
+    } catch (err: any) {
+      showToast(err?.message || "Failed to push update notification.", "error");
+    } finally {
+      setBulkNotifyBusy(false);
+    }
+  };
+
+  const runWpPluginHealthTest = async (clientId: string) => {
+    setWpHealthBusy(true);
+    setWpHealthResult(null);
+    try {
+      const res = await fetch(`/api/clients/${clientId}/actions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "wp_plugin_health" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        showToast(data.error || "WP Plugin Health check failed.", "error");
+        setWpHealthResult({ health: { overallStatus: "error" }, message: data.error || "Health test failed" });
+      } else {
+        setWpHealthResult(data);
+        showToast("WP Plugin Health test completed.", "success");
+      }
+    } catch (err: any) {
+      showToast(err?.message || "WP Plugin Health test encountered an error.", "error");
+    } finally {
+      setWpHealthBusy(false);
+    }
+  };
+
+  const runWpPluginPushNotify = async (clientId: string) => {
+    setWpPushBusy(true);
+    try {
+      const res = await fetch(`/api/clients/${clientId}/actions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "wp_plugin_push_notify" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        showToast(data.error || "Failed to push update notification.", "error");
+      } else {
+        showToast(data.message || "Update notification dispatched to WordPress site.", "success");
+        await load();
+        if (detail) openDetail(clientId);
+      }
+    } catch (err: any) {
+      showToast(err?.message || "Failed to push update notification.", "error");
+    } finally {
+      setWpPushBusy(false);
+    }
+  };
+
+  const filteredClients = useMemo(() => {
+    return clients.filter((c) => {
+      if (packageFilter && packageFilter !== "all") {
+        const target = packageFilter.toLowerCase();
+        const pSlug = (c.packageSlug || "").toLowerCase();
+        const pId = (c.packageId || "").toLowerCase();
+        const pName = (c.packageName || "").toLowerCase();
+        if (pSlug !== target && pId !== target && !pName.includes(target)) return false;
+      }
+      return true;
+    });
+  }, [clients, packageFilter]);
+
   const filteredLicenses = useMemo(() => {
     return licenses.filter((l) => {
+      if (packageFilter && packageFilter !== "all") {
+        const target = packageFilter.toLowerCase();
+        const slug = (l.package_slug || "").toLowerCase();
+        const pkgId = (l.package_id || "").toLowerCase();
+        if (slug !== target && pkgId !== target) return false;
+      }
       if (group !== "all") {
         if (group === "active" && l.status !== "active") return false;
         if (group === "expired" && l.status !== "expired") return false;
@@ -161,7 +268,7 @@ export default function ClientConsolePage() {
       }
       return true;
     });
-  }, [licenses, q, group]);
+  }, [licenses, q, group, packageFilter]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -180,12 +287,14 @@ export default function ClientConsolePage() {
     if (group !== "all") params.set("status", group);
     const c = await fetch(`/api/clients?${params}`).then((r) => r.json()).catch(() => ({}));
     if (c.success) { setClients(c.clients); setTotals(c.totals); if (c.groups) setGroups(c.groups); }
-    const [l, o] = await Promise.all([
+    const [l, o, p] = await Promise.all([
       fetch("/api/licenses").then((r) => r.json()).catch(() => ({})),
       fetch("/api/orders").then((r) => r.json()).catch(() => ({})),
+      fetch("/api/packages").then((r) => r.json()).catch(() => ({})),
     ]);
     if (l.success) setLicenses(l.licenses);
     if (o.success) setOrders(o.orders);
+    if (p.success && Array.isArray(p.packages)) setAvailablePackages(p.packages);
   }, [q, group]);
 
   useEffect(() => { const t = setTimeout(load, 250); return () => clearTimeout(t); }, [load]);
@@ -199,7 +308,7 @@ export default function ClientConsolePage() {
   }, [detail]);
 
   const openDetail = useCallback(async (id: string) => {
-    setDetail(null); setLive(null); setStreamLog([]); setEdit({});
+    setDetail(null); setLive(null); setStreamLog([]); setEdit({}); setWpHealthResult(null);
     const d = await fetch(`/api/clients/${id}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({}));
     if (!d.success) { alert(d.error || "Could not open the client."); return; }
     setDetail(d);
@@ -376,10 +485,32 @@ export default function ClientConsolePage() {
 
         {/* ── search + groups ─────────── */}
         <div className="glass-panel rounded-xl p-4 border-[#1e293b] space-y-3">
-          <div className="flex items-center gap-2">
-            <Search className="w-4 h-4 text-slate-500" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name / email / site / package / key…"
-              className="flex-1 bg-[#0a0d14] border-[#1e293b] rounded px-3 py-2 text-white" />
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div className="flex-1 flex items-center gap-2 bg-[#0a0d14] border border-[#1e293b] rounded px-3 py-2">
+              <Search className="w-4 h-4 text-slate-500 shrink-0" />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search name / email / site / package / key…"
+                className="w-full bg-transparent text-white focus:outline-none"
+              />
+            </div>
+            <div className="flex items-center gap-2 bg-[#0a0d14] border border-[#1e293b] rounded px-3 py-2">
+              <PkgIcon className="w-4 h-4 text-[#00f0ff] shrink-0" />
+              <select
+                value={packageFilter}
+                onChange={(e) => setPackageFilter(e.target.value)}
+                className="bg-transparent text-xs text-white focus:outline-none cursor-pointer"
+                title="Filter by WP Plugin / Package"
+              >
+                <option value="all" className="bg-[#0d1220] text-slate-300">All WP Plugins / Packages</option>
+                {availablePackages.map((p) => (
+                  <option key={p.id || p.slug} value={p.slug || p.id} className="bg-[#0d1220] text-white">
+                    {p.name} ({p.slug}) {p.version ? `[v${p.version.replace(/^v/i, "")}]` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {groups.map((g) => (
@@ -394,14 +525,29 @@ export default function ClientConsolePage() {
               <span className="text-[#00f0ff] font-semibold text-xs flex items-center gap-1.5">
                 <Check className="w-3.5 h-3.5" />
                 {selectedClientIds.length} client{selectedClientIds.length === 1 ? "" : "s"} selected
+                {packageFilter !== "all" && (
+                  <span className="text-slate-400 font-normal">
+                    (Filtered by: <span className="text-purple-300 font-mono">{packageFilter}</span>)
+                  </span>
+                )}
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setSelectedClientIds([])}
                   className="text-slate-400 hover:text-white text-xs px-2 py-1"
                 >
                   Deselect All
+                </button>
+                <button
+                  type="button"
+                  disabled={bulkNotifyBusy}
+                  onClick={() => handleBulkPushUpdateNotify(selectedClientIds)}
+                  className="px-3 py-1 bg-[#00f0ff]/20 hover:bg-[#00f0ff]/30 text-[#00f0ff] border border-[#00f0ff]/50 rounded flex items-center gap-1.5 font-medium text-xs transition-colors disabled:opacity-50"
+                  title="Push version update notification to all selected WordPress client sites"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${bulkNotifyBusy ? "animate-spin" : ""}`} />
+                  {bulkNotifyBusy ? "Sending Update Notice…" : "Send Version Updated Notify"}
                 </button>
                 <button
                   type="button"
@@ -421,12 +567,13 @@ export default function ClientConsolePage() {
                   <th className="py-2 pr-3 w-8">
                     <input
                       type="checkbox"
-                      checked={clients.length > 0 && selectedClientIds.length === clients.length}
+                      checked={filteredClients.length > 0 && filteredClients.every((c) => selectedClientIds.includes(c.id))}
                       onChange={(e) => {
                         if (e.target.checked) {
-                          setSelectedClientIds(clients.map((c) => c.id));
+                          setSelectedClientIds(Array.from(new Set([...selectedClientIds, ...filteredClients.map((c) => c.id)])));
                         } else {
-                          setSelectedClientIds([]);
+                          const fSet = new Set(filteredClients.map((c) => c.id));
+                          setSelectedClientIds((prev) => prev.filter((id) => !fSet.has(id)));
                         }
                       }}
                       className="rounded bg-[#0a0d14] border-slate-700 text-[#00f0ff] focus:ring-0 cursor-pointer"
@@ -439,7 +586,7 @@ export default function ClientConsolePage() {
                 </tr>
               </thead>
               <tbody>
-                {clients.map((c) => (
+                {filteredClients.map((c) => (
                   <tr key={c.id} className={`border-b border-[#1e293b]/60 hover:bg-[#0a0d14]/60 ${selectedClientIds.includes(c.id) ? "bg-[#00f0ff]/5" : ""}`}>
                     <td className="py-2 pr-3">
                       <input
@@ -500,7 +647,7 @@ export default function ClientConsolePage() {
                 ))}
               </tbody>
             </table>
-            {clients.length === 0 && <div className="text-slate-500 py-3">No clients in this view. Orders placed at /pricing appear here automatically.</div>}
+            {filteredClients.length === 0 && <div className="text-slate-500 py-3">{clients.length === 0 ? "No clients in this view. Orders placed at /pricing appear here automatically." : "No clients match the selected search or package filter."}</div>}
           </div>
         </div>
 
@@ -780,6 +927,89 @@ export default function ClientConsolePage() {
               )}
             </Panel>
 
+            {/* WP Plugin Health Diagnostics Panel */}
+            {wpHealthResult && (
+              <Panel
+                icon={<HeartPulse className="w-4 h-4 text-purple-400" />}
+                title="WP PLUGIN HEALTH DIAGNOSTICS"
+                right={
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => runWpPluginPushNotify(detail.client.id)}
+                      disabled={wpPushBusy}
+                      className="px-2.5 py-1 text-xs border border-[#00f0ff] text-[#00f0ff] rounded hover:bg-[#00f0ff]/10 flex items-center gap-1 disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${wpPushBusy ? "animate-spin" : ""}`} />
+                      Push Update Notice
+                    </button>
+                    <button
+                      onClick={() => setWpHealthResult(null)}
+                      className="text-slate-400 hover:text-white text-xs px-2 py-1"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                }
+              >
+                <div className="space-y-3">
+                  <div className={`p-3 rounded-lg border flex items-center justify-between gap-2 ${
+                    wpHealthResult.health?.overallStatus === "ok"
+                      ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-300"
+                      : wpHealthResult.health?.overallStatus === "warning"
+                      ? "border-amber-500/50 bg-amber-500/10 text-amber-300"
+                      : "border-rose-500/50 bg-rose-500/10 text-rose-300"
+                  }`}>
+                    <div className="font-semibold text-xs flex items-center gap-2">
+                      <span className={`w-2.5 h-2.5 rounded-full ${
+                        wpHealthResult.health?.overallStatus === "ok" ? "bg-emerald-400" :
+                        wpHealthResult.health?.overallStatus === "warning" ? "bg-amber-400" : "bg-rose-400"
+                      }`} />
+                      {wpHealthResult.message}
+                    </div>
+                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-black/40">
+                      {wpHealthResult.health?.overallStatus || "STATUS"}
+                    </span>
+                  </div>
+
+                  {wpHealthResult.health && (
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                      <Stat
+                        label="WP Package"
+                        value={wpHealthResult.health.package?.name || "Missing"}
+                        tone={wpHealthResult.health.package?.found ? "text-white" : "text-rose-400"}
+                      />
+                      <Stat
+                        label="Vault ZIP Asset"
+                        value={wpHealthResult.health.vault?.assetFound ? `${wpHealthResult.health.vault.filename} (${Math.round((wpHealthResult.health.vault.sizeBytes || 0)/1024)} KB)` : "Missing"}
+                        tone={wpHealthResult.health.vault?.assetFound ? "text-emerald-400" : "text-rose-400"}
+                      />
+                      <Stat
+                        label="License Status"
+                        value={`${String(wpHealthResult.health.license?.status).toUpperCase()} · v${wpHealthResult.health.license?.clientVersion || "?"}`}
+                        tone={wpHealthResult.health.license?.active ? "text-emerald-400" : "text-amber-400"}
+                      />
+                      <Stat
+                        label="Live Ping"
+                        value={wpHealthResult.health.connectivity?.reachable ? `HTTP ${wpHealthResult.health.connectivity.httpCode} (Reachable)` : "Ping Blocked/Offline"}
+                        tone={wpHealthResult.health.connectivity?.reachable ? "text-emerald-400" : "text-amber-400"}
+                      />
+                    </div>
+                  )}
+
+                  {wpHealthResult.health?.update && (
+                    <div className="text-xs bg-[#0a0d14] border border-[#1e293b] rounded p-2.5 flex items-center justify-between">
+                      <div className="text-slate-300">
+                        Version Status: Client has <b className="text-[#00f0ff]">v{wpHealthResult.health.update.clientVersion}</b> · Vault has <b className="text-emerald-400">v{wpHealthResult.health.update.latestVersion}</b>
+                      </div>
+                      <div className={wpHealthResult.health.update.updateAvailable ? "text-amber-400 font-bold" : "text-emerald-400"}>
+                        {wpHealthResult.health.update.updateAvailable ? "★ Update Available for Client" : "✓ Client is Up to Date"}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Panel>
+            )}
+
             {/* remote management */}
             <Panel icon={<Radio className="w-4 h-4 text-[#00f0ff]" />} title="REMOTE MANAGEMENT (AGENT)">
               <div className="flex flex-wrap items-center gap-2">
@@ -795,6 +1025,20 @@ export default function ClientConsolePage() {
                   className="px-3 py-1 border-amber-500 text-amber-400 rounded flex items-center gap-1 disabled:opacity-50"><EyeOff className="w-3.5 h-3.5" /> Set READ-ONLY</button>
                 <button disabled={busy} onClick={() => action(detail.client.id, { action: "remote_access", mode: "full" })}
                   className="px-3 py-1 border-emerald-500 text-emerald-400 rounded flex items-center gap-1 disabled:opacity-50"><ShieldCheck className="w-3.5 h-3.5" /> Set FULL ACCESS</button>
+                <button disabled={wpHealthBusy}
+                  title="Test WP plugin package, vault zip asset, license status, domain match, and remote ping connectivity"
+                  onClick={() => runWpPluginHealthTest(detail.client.id)}
+                  className="px-3 py-1 border-purple-500/80 hover:bg-purple-500/20 text-purple-300 rounded disabled:opacity-50 flex items-center gap-1 transition-colors">
+                  <HeartPulse className={`w-3.5 h-3.5 text-purple-400 ${wpHealthBusy ? "animate-pulse" : ""}`} />
+                  {wpHealthBusy ? "Testing WP Health…" : "WP Plugin Health Test"}
+                </button>
+                <button disabled={wpPushBusy}
+                  title="Push WordPress plugin update notice and flush remote transients"
+                  onClick={() => runWpPluginPushNotify(detail.client.id)}
+                  className="px-3 py-1 border-[#00f0ff]/80 hover:bg-[#00f0ff]/20 text-[#00f0ff] rounded disabled:opacity-50 flex items-center gap-1 transition-colors">
+                  <RefreshCw className={`w-3.5 h-3.5 text-[#00f0ff] ${wpPushBusy ? "animate-spin" : ""}`} />
+                  {wpPushBusy ? "Notifying WP Site…" : "Push WP Update Notice"}
+                </button>
                 <button disabled={busy} onClick={() => action(detail.client.id, { action: "rotate_key", notify: true })}
                   className="px-3 py-1 border-[#00f0ff] text-[#00f0ff] rounded disabled:opacity-50">Rotate license key</button>
                 <button disabled={busy} onClick={() => action(detail.client.id, { action: "sync_license" })}
@@ -907,6 +1151,16 @@ export default function ClientConsolePage() {
               </div>
               <div className="flex flex-wrap gap-2 mt-1">
                 <button disabled={busy} onClick={saveEdit} className="px-5 py-2 rounded bg-[#00f0ff] text-black font-bold disabled:opacity-50">{busy ? "Saving…" : "Save all changes"}</button>
+                <button
+                  type="button"
+                  disabled={wpHealthBusy}
+                  onClick={() => runWpPluginHealthTest(detail.client.id)}
+                  className="px-4 py-2 rounded border border-purple-500 text-purple-300 font-bold disabled:opacity-50 flex items-center gap-1.5 hover:bg-purple-500/20 transition-colors"
+                  title="Run WP-Plugins Health Test for this customer"
+                >
+                  <HeartPulse className={`w-4 h-4 text-purple-400 ${wpHealthBusy ? "animate-pulse" : ""}`} />
+                  {wpHealthBusy ? "Testing WP Health…" : "WP-Plugins Health Test"}
+                </button>
                 <button disabled={busy} onClick={() => removeClient(detail.client.id)} className="px-4 py-2 rounded border-rose-500 text-rose-400 font-bold disabled:opacity-50">Delete client</button>
                 {detail.client.orderId && (
                   <a href={`/orders/${detail.client.orderId}`} target="_blank" rel="noreferrer" className="px-4 py-2 rounded border-[#1e293b] text-slate-300">Client order page</a>

@@ -301,6 +301,8 @@ export interface LicenseRecord {
   siteId?: string;
   orderId?: string;
   last_seen_at?: string;
+  last_update_notified_at?: string;
+  force_update_version?: string;
   createdAt: string;
   updatedAt?: string;
 }

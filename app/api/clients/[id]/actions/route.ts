@@ -21,7 +21,7 @@ import {
 } from "@/lib/clientRegistry";
 import { cpanelTestConnection, decryptCpanelToken } from "@/lib/cpanel";
 import { encryptSecret, decryptSecret } from "@/lib/crypto";
-import { randomBytes } from "crypto";
+import crypto, { randomBytes } from "crypto";
 import { updateOrder } from "@/lib/storage";
 import { targetWriteConfig } from "@/lib/migrationExecutor";
 import { repairAgentFiles } from "@/lib/agentUpload";
@@ -30,6 +30,8 @@ import { handshakeEndpoint } from "@/lib/migrationExecutor";
 import { resolveMasterOrigin } from "@/lib/masterOrigin";
 import { getAuthPhpUrl } from "@/lib/githubWorkflow";
 import { executeClientPushUpdate } from "@/lib/clientUpdate";
+import { getVaultAsset } from "@/lib/vaultStorage";
+import { compareVersions } from "@/lib/versionCompare";
 import type { FolderCandidate } from "@/lib/migrationPaths";
 
 /**
@@ -383,6 +385,173 @@ async function handleResetDatabase({ order, lic, site }: Ctx): Promise<NextRespo
   });
 }
 
+async function handleWpPluginHealth(c: Ctx) {
+  const lic = c.lic;
+  const order = c.order;
+  const pkgSlug = (lic?.package_slug || (order as any)?.packageSlug || (order as any)?.package_id || c.pkg?.slug || "").trim();
+  const pkg = c.pkg || (pkgSlug ? await getPackage(pkgSlug) : null);
+
+  const siteUrl = (lic?.domain || order?.siteUrl || c.site?.domain || "").trim();
+  const currentVersion = (String((lic as any)?.current_version || (order as any)?.clientVersion || (c.site as any)?.coreVersion || "unknown")).replace(/^v/i, "");
+  const targetVersion = (pkg?.version || "unknown").replace(/^v/i, "");
+
+  // 1. Package existence
+  const pkgFound = !!pkg;
+
+  // 2. Vault Asset check
+  let vaultAssetExists = false;
+  let vaultFilename = "";
+  let vaultSize = 0;
+  if (pkg?.slug && pkg?.version) {
+    try {
+      const asset = await getVaultAsset(pkg.slug, pkg.version);
+      if (asset) {
+        vaultAssetExists = true;
+        vaultFilename = asset.fileName;
+        vaultSize = asset.buffer.length;
+      }
+    } catch {
+      vaultAssetExists = false;
+    }
+  }
+
+  // 3. License check
+  const licenseValid = lic ? lic.status === "active" : false;
+  const licenseStatus = lic?.status || "missing";
+  const licenseDomain = lic?.domain || "";
+
+  // 4. Update check status
+  let updateAvailable = false;
+  if (targetVersion !== "unknown" && currentVersion !== "unknown") {
+    try {
+      updateAvailable = compareVersions(targetVersion, currentVersion) > 0;
+    } catch {
+      updateAvailable = targetVersion !== currentVersion;
+    }
+  }
+
+  // 5. Remote site connectivity
+  let siteReachable = false;
+  let siteHttpCode = 0;
+  if (siteUrl && siteUrl.startsWith("http")) {
+    try {
+      const pingRes = await fetch(siteUrl, {
+        method: "HEAD",
+        signal: AbortSignal.timeout(4000),
+      }).catch(async () => {
+        return await fetch(siteUrl, { signal: AbortSignal.timeout(4000) });
+      });
+      if (pingRes) {
+        siteHttpCode = pingRes.status;
+        siteReachable = pingRes.status < 500;
+      }
+    } catch {
+      siteReachable = false;
+    }
+  }
+
+  const overallStatus = (!pkgFound || !vaultAssetExists || !licenseValid)
+    ? "error"
+    : (!siteReachable ? "warning" : "ok");
+
+  return NextResponse.json({
+    success: true,
+    health: {
+      package: {
+        found: pkgFound,
+        slug: pkgSlug,
+        name: pkg?.name || pkgSlug,
+        latestVersion: targetVersion,
+      },
+      vault: {
+        assetFound: vaultAssetExists,
+        filename: vaultFilename,
+        sizeBytes: vaultSize,
+      },
+      license: {
+        id: lic?.id || null,
+        status: licenseStatus,
+        domain: licenseDomain,
+        active: licenseValid,
+        clientVersion: currentVersion,
+        lastNotifiedAt: lic?.last_update_notified_at || null,
+        forceUpdateVersion: lic?.force_update_version || null,
+      },
+      update: {
+        updateAvailable,
+        clientVersion: currentVersion,
+        latestVersion: targetVersion,
+      },
+      connectivity: {
+        siteUrl,
+        reachable: siteReachable,
+        httpCode: siteHttpCode,
+      },
+      overallStatus,
+    },
+    message: overallStatus === "ok"
+      ? "WP Plugin environment is healthy and ready for auto-updates."
+      : overallStatus === "warning"
+      ? "WP Plugin configuration is valid, but remote WordPress site could not be reached directly."
+      : "Issues detected in plugin package, vault zip file, or license state.",
+  });
+}
+
+async function handleWpPluginPushNotify(c: Ctx) {
+  const lic = c.lic;
+  const order = c.order;
+  if (!lic) {
+    return NextResponse.json(
+      { success: false, error: "No license associated with this client to notify." },
+      { status: 400 }
+    );
+  }
+
+  const pkgSlug = (lic.package_slug || (order as any)?.packageSlug || (order as any)?.package_id || c.pkg?.slug || "").trim();
+  const pkg = c.pkg || (pkgSlug ? await getPackage(pkgSlug) : null);
+  const version = (c.body?.forceVersion || pkg?.version || "1.0.0").replace(/^v/i, "").trim();
+  const domain = (lic.domain || order?.siteUrl || "").trim().replace(/\/+$/, "");
+
+  await updateLicense(lic.id, {
+    last_update_notified_at: new Date().toISOString(),
+    force_update_version: version,
+  });
+
+  let pingOk = false;
+  let pingMessage = "License marked for forced update on next heartbeat.";
+
+  if (domain && domain.startsWith("http")) {
+    const rawKeyHint = lic.key_last4 || "";
+    const pingToken = crypto.createHash("md5").update(rawKeyHint + (lic.package_slug || "")).digest("hex");
+    try {
+      const pingUrl = `${domain}/?slate_update_ping=${pingToken}`;
+      const ajaxUrl = `${domain}/wp-admin/admin-ajax.php?action=slate_wp_notify_update&slate_update_ping=${pingToken}`;
+      const res = await Promise.race([
+        fetch(pingUrl, { signal: AbortSignal.timeout(3500) }).catch(() => null),
+        fetch(ajaxUrl, { signal: AbortSignal.timeout(3500) }).catch(() => null),
+      ]);
+      if (res && res.status < 500) {
+        pingOk = true;
+        pingMessage = `Live WordPress site reached (HTTP ${res.status}). Update transient flushed.`;
+      } else {
+        pingMessage = "Remote ping timed out or blocked. Update notice queued for client's next admin check.";
+      }
+    } catch {
+      pingMessage = "Remote ping failed. Update notice queued for client's next admin check.";
+    }
+  }
+
+  if (c.site) {
+    await audit(c.site, `wp plugin update notify sent: v${version}, ping=${pingOk ? "ok" : "queued"}`);
+  }
+
+  return NextResponse.json({
+    success: true,
+    message: pingMessage,
+    ping: { ok: pingOk, version, domain },
+  });
+}
+
 const HANDLERS: Record<string, (c: Ctx) => Promise<NextResponse>> = {
   remote_access: handleRemoteAccess,
   rotate_key: handleRotateKey,
@@ -394,5 +563,7 @@ const HANDLERS: Record<string, (c: Ctx) => Promise<NextResponse>> = {
   write_config: handleWriteConfig,
   push_update: handlePushUpdate,
   reset_database: handleResetDatabase,
+  wp_plugin_health: handleWpPluginHealth,
+  wp_plugin_push_notify: handleWpPluginPushNotify,
 };
 

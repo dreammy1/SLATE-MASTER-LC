@@ -92,6 +92,9 @@ class Slate_WP_License_Admin {
         if ($action === 'activate') {
             $key = isset($_POST['slate_license_key']) ? sanitize_text_field($_POST['slate_license_key']) : '';
             $res = $this->license->activate($key);
+            if (!empty($res['success']) && method_exists($this->license, 'force_check_updates')) {
+                $this->license->force_check_updates();
+            }
             $this->notice = array(
                 'type'    => !empty($res['success']) ? 'success' : 'error',
                 'message' => !empty($res['success']) ? $res['message'] : ($res['error'] ?? 'Activation failed.'),
@@ -104,10 +107,26 @@ class Slate_WP_License_Admin {
             );
         } elseif ($action === 'check') {
             $res = $this->license->check_license();
-            $this->notice = array(
-                'type'    => !empty($res['success']) ? 'success' : 'error',
-                'message' => !empty($res['success']) ? 'License status verified: Active' : ($res['error'] ?? 'License check failed.'),
-            );
+            $upd = method_exists($this->license, 'force_check_updates') ? $this->license->force_check_updates() : null;
+            $has_update = !empty($upd['update_available']) || (!empty($upd['new_version']) && version_compare(ltrim($upd['new_version'], 'vV'), ltrim($this->config['version'], 'vV'), '>'));
+
+            if (!empty($res['success'])) {
+                $msg = 'License status verified: Active.';
+                if ($has_update && !empty($upd['new_version'])) {
+                    $msg .= ' <strong>Update Available: v' . esc_html(ltrim($upd['new_version'], 'vV')) . '!</strong> <a href="' . esc_url(admin_url('plugins.php')) . '" style="text-decoration:underline;margin-left:5px;font-weight:600;">Go to Plugins page to update now &rarr;</a>';
+                } else {
+                    $msg .= ' Plugin is up to date (v' . esc_html(ltrim($this->config['version'], 'vV')) . ').';
+                }
+                $this->notice = array(
+                    'type'    => 'success',
+                    'message' => $msg,
+                );
+            } else {
+                $this->notice = array(
+                    'type'    => 'error',
+                    'message' => !empty($res['error']) ? $res['error'] : 'License check failed.',
+                );
+            }
         }
     }
 

@@ -72,8 +72,12 @@ async function handleUpdateCheck(
   const site = String(siteRaw || "").trim();
   const pluginFile = String(pluginRaw || "").trim() || `${slug}/${slug}.php`;
 
+  // Clean versions (strip leading 'v' / 'V' for reliable semver comparison)
+  pkgVersion = pkgVersion.replace(/^v/i, "").trim();
+  const cleanClientVersion = clientVersion.replace(/^v/i, "").trim() || "0.0.0";
+
   // Determine update availability
-  const isNewer = compareVersions(pkgVersion, clientVersion) > 0;
+  const isNewer = compareVersions(pkgVersion, cleanClientVersion) > 0;
   const updateAvailable = isNewer;
 
   // Determine master origin
@@ -129,7 +133,7 @@ async function handleUpdateCheck(
         update_available: false,
         slug: slug,
         plugin: pluginFile,
-        version: clientVersion,
+        version: cleanClientVersion,
         latest_version: pkgVersion,
         url: `${masterOrigin}/packages/${slug}`,
         requires: "5.8",
