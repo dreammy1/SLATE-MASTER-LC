@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOrder, getPackage } from "@/lib/storage";
+import { getVaultAsset } from "@/lib/vaultStorage";
 import fs from "fs";
 import path from "path";
 
@@ -57,23 +58,25 @@ export async function GET(
       );
     }
 
-    if (!fs.existsSync(fullPath)) {
+    const asset = await getVaultAsset(pkg.assetPath, pkg.pluginSet?.[0]);
+    if (!asset) {
       return NextResponse.json(
-        { success: false, error: "The vaulted distribution file could not be found on disk." },
+        {
+          success: false,
+          error: "The vaulted distribution file could not be found. Please re-upload the plugin ZIP on the Packages page (/packages) to restore it.",
+        },
         { status: 404 }
       );
     }
 
-    const fileStat = await fs.promises.stat(fullPath);
-    const fileBuffer = await fs.promises.readFile(fullPath);
-    const fileName = path.basename(fullPath);
+    const { buffer: fileBuffer, fileName } = asset;
 
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(new Uint8Array(fileBuffer), {
       status: 200,
       headers: {
         "Content-Type": "application/zip",
         "Content-Disposition": `attachment; filename="${fileName}"`,
-        "Content-Length": String(fileStat.size),
+        "Content-Length": String(fileBuffer.length),
         "Cache-Control": "private, no-cache, no-store, must-revalidate",
       },
     });

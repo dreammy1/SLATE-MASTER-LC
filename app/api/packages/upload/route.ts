@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import { resolveMasterOrigin } from "@/lib/masterOrigin";
+import { saveVaultAsset } from "@/lib/vaultStorage";
 
 function sanitizeSlug(str: string): string {
   return str
@@ -250,16 +251,12 @@ Slate_WP_License::init(array(
     const vaultedZipBuffer = outZip.toBuffer();
     const vaultSha256 = crypto.createHash("sha256").update(vaultedZipBuffer).digest("hex");
 
-    // Save to disk under vault/wp-plugins/{slug}/
-    const vaultDir = path.join(process.cwd(), "vault", "wp-plugins", slug);
-    await fs.promises.mkdir(vaultDir, { recursive: true });
-
     const safeVersion = mainHeaders.version.replace(/[^a-zA-Z0-9._-]/g, "");
     const fileName = `${slug}-v${safeVersion}.zip`;
-    const fullDiskPath = path.join(vaultDir, fileName);
-    await fs.promises.writeFile(fullDiskPath, vaultedZipBuffer);
-
     const assetPath = `vault/wp-plugins/${slug}/${fileName}`.replace(/\\/g, "/");
+
+    // Save to disk and persistent KV
+    await saveVaultAsset(assetPath, vaultedZipBuffer);
 
     return NextResponse.json({
       success: true,

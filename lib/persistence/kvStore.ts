@@ -52,6 +52,24 @@ export class KvStore implements PersistenceAdapter {
     return new KvStore(url, token);
   }
 
+  async setRaw(key: string, value: string): Promise<boolean> {
+    try {
+      const res = await this.command(["SET", key, value]);
+      return res === "OK";
+    } catch {
+      return false;
+    }
+  }
+
+  async getRaw(key: string): Promise<string | null> {
+    try {
+      const res = await this.command(["GET", key]);
+      return typeof res === "string" ? res : null;
+    } catch {
+      return null;
+    }
+  }
+
   /**
    * The Upstash/Vercel REST protocol is a POST of a JSON command array, e.g.
    * ["SET", "slate:db", "<json>"]. Response shape is `{ result: ... }`.
