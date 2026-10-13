@@ -212,6 +212,7 @@ Slate_WP_License::init(array(
     'name'       => '${escapedName}',
     'version'    => '${mainHeaders.version}',
     'master_url' => '${escapedMasterUrl}',
+    'file'       => __FILE__,
 ));
 `;
 
