@@ -33,13 +33,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "billing_cycle must be monthly|yearly|lifetime." }, { status: 400 });
     }
 
+    const isWpOrDigital = pkg.productType === "wordpress_plugin" || pkg.productType === "digital_product";
+
     // ── Frictionless checkout: ONE domain input drives URL + file path ──
     // Accepts siteDomain ("client.com" or "client.com/crm") or legacy
     // siteUrl + fileManagerPath (old form / API callers keep working).
-    const rawDomain = String(body.siteDomain || body.siteUrl || "").trim();
+    let rawDomain = String(body.siteDomain || body.siteUrl || "").trim();
+    if (!rawDomain && isWpOrDigital) {
+      rawDomain = "unbound.local";
+    }
     if (!rawDomain) return NextResponse.json({ success: false, error: "Site domain is required (e.g. client.com or client.com/crm)." }, { status: 400 });
     const { domain } = splitDomainInput(rawDomain);
-    if (!domain || !domain.includes(".")) {
+    if (!domain || (!domain.includes(".") && !isWpOrDigital)) {
       return NextResponse.json({ success: false, error: "Enter a valid domain (e.g. client.com or client.com/crm)." }, { status: 400 });
     }
     const derived = deriveCheckoutTarget(rawDomain);
@@ -50,12 +55,15 @@ export async function POST(req: NextRequest) {
     const basePath = derived.base_path;
 
     // Hosting identity (no API token — manual auth.php upload flow).
-    const hostingUsername = String(body.hostingUsername || body.cpanelUser || "").trim();
-    const hostingServerUrl = cleanServerUrl(String(body.hostingServerUrl || body.cpanelHost || ""));
-    if (!hostingUsername) {
+    // For WordPress plugins and digital assets, hosting credentials are not required.
+    const hostingUsername = String(body.hostingUsername || body.cpanelUser || (isWpOrDigital ? "wp-customer" : "")).trim();
+    const hostingServerUrl = isWpOrDigital
+      ? cleanServerUrl(String(body.hostingServerUrl || body.cpanelHost || "https://client.local"))
+      : cleanServerUrl(String(body.hostingServerUrl || body.cpanelHost || ""));
+    if (!hostingUsername && !isWpOrDigital) {
       return NextResponse.json({ success: false, error: "Hosting username is required." }, { status: 400 });
     }
-    if (!hostingServerUrl) {
+    if (!hostingServerUrl && !isWpOrDigital) {
       return NextResponse.json({ success: false, error: "Hosting server URL is required (e.g. https://cpanel.client.com:2083)." }, { status: 400 });
     }
     // cPanel host/user/token are OPTIONAL legacy fields: bootstrap runs in
@@ -85,8 +93,10 @@ export async function POST(req: NextRequest) {
     // what failed and fixes it instead of the money being refused.
     // Manual-upload orders have no cPanel token by design: they skip the
     // probe entirely (unchecked) and go straight to Test Connection.
-    let serverVerified: "verified" | "unchecked" | "needs_help" = "unchecked";
-    let serverCheckMessage = "Manual setup: upload auth.php, then press Test Connection.";
+    let serverVerified: "verified" | "unchecked" | "needs_help" = isWpOrDigital ? "verified" : "unchecked";
+    let serverCheckMessage = isWpOrDigital
+      ? "Instant digital delivery: license key and plugin download ready."
+      : "Manual setup: upload auth.php, then press Test Connection.";
     if (cpanelHost && cpanelUser && cpanelApiToken) {
       try {
         const probe = await cpanelTestConnection({ host: cpanelHost, user: cpanelUser, apiToken: cpanelApiToken });

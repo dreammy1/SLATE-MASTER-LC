@@ -213,4 +213,11 @@ Slate_WP_License::init(array(
     assert.match(activateSrc, /isUnbound\s*=\s*!lic\.domain/);
     assert.match(activateSrc, /domain:\s*lic\.domain\s*\|\|\s*domain\s*\|\|\s*undefined/);
   });
+
+  it("11. verifies order creation API makes hostingUsername and hostingServerUrl optional for WP and digital packages", () => {
+    const ordersApiSrc = fs.readFileSync(path.join(root, "app/api/orders/route.ts"), "utf8");
+    assert.match(ordersApiSrc, /const isWpOrDigital = pkg\.productType === "wordpress_plugin" \|\| pkg\.productType === "digital_product"/);
+    assert.match(ordersApiSrc, /if \(!hostingUsername && !isWpOrDigital\)/);
+    assert.match(ordersApiSrc, /if \(!hostingServerUrl && !isWpOrDigital\)/);
+  });
 });
