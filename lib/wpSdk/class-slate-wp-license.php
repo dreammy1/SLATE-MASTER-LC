@@ -428,11 +428,11 @@ class Slate_WP_License {
      */
     protected function apply_update_to_transient($transient, $json, $plugin_file) {
         $raw_new = !empty($json['new_version']) ? (string) $json['new_version'] : '';
-        $clean_new = ltrim($raw_new, 'vV');
-        $clean_current = ltrim((string) $this->config['version'], 'vV');
+        $clean_new = ltrim(trim($raw_new), 'vV');
+        $clean_current = ltrim(trim((string) $this->config['version']), 'vV');
 
         $is_newer = (!empty($clean_new) && version_compare($clean_new, $clean_current, '>'));
-        $update_available = !empty($json['update_available']) || $is_newer;
+        $update_available = $is_newer && (!isset($json['update_available']) || !empty($json['update_available']));
 
         if ($update_available && !empty($clean_new)) {
             $item = (object) array(
@@ -556,11 +556,20 @@ class Slate_WP_License {
         if (function_exists('delete_transient')) {
             delete_transient($cache_key);
         }
+
+        $transient = function_exists('get_site_transient') ? get_site_transient('update_plugins') : null;
+        if (!is_object($transient)) {
+            $transient = (object) array(
+                'last_checked' => time(),
+                'response'     => array(),
+                'no_update'    => array(),
+            );
+        }
+
         if (function_exists('delete_site_transient')) {
             delete_site_transient('update_plugins');
         }
 
-        $transient = function_exists('get_site_transient') ? get_site_transient('update_plugins') : (object) array();
         $updated = $this->check_for_updates($transient);
 
         if (function_exists('set_site_transient') && is_object($updated)) {
@@ -574,16 +583,33 @@ class Slate_WP_License {
      * Remote ping listener to trigger transient invalidation from Master admin.
      */
     public function handle_remote_update_ping() {
-        if (!isset($_GET['slate_update_ping'])) {
+        $token_param = isset($_REQUEST['slate_update_ping']) ? sanitize_text_field($_REQUEST['slate_update_ping']) : '';
+        if (empty($token_param)) {
             return;
         }
 
-        $token_param = sanitize_text_field($_GET['slate_update_ping']);
-        $data = $this->get_data();
-        $key = !empty($data['key']) ? $data['key'] : '';
-        $expected_token = md5($key . $this->config['slug']);
+        if (!empty($_REQUEST['slug']) && sanitize_key($_REQUEST['slug']) !== $this->config['slug']) {
+            return;
+        }
 
-        if ($token_param === $expected_token || $token_param === $key || $token_param === '1') {
+        $data = $this->get_data();
+        $key = !empty($data['key']) ? trim($data['key']) : '';
+        $key_last4 = !empty($key) ? substr($key, -4) : '';
+
+        $expected_token_full  = md5($key . $this->config['slug']);
+        $expected_token_last4 = !empty($key_last4) ? md5($key_last4 . $this->config['slug']) : '';
+        $expected_token_slug  = md5($this->config['slug']);
+
+        $token_valid = (
+            $token_param === $expected_token_full ||
+            (!empty($expected_token_last4) && $token_param === $expected_token_last4) ||
+            $token_param === $expected_token_slug ||
+            $token_param === $key ||
+            (!empty($key_last4) && $token_param === $key_last4) ||
+            $token_param === '1'
+        );
+
+        if ($token_valid) {
             $info = $this->force_check_updates();
             $payload = array(
                 'success' => true,

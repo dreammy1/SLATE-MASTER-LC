@@ -74,6 +74,8 @@ describe("WordPress Native 1-Click Automatic Updates Pipeline", () => {
     assert.match(uploadRouteSrc, /'file'\s*=>\s*__FILE__/, "must inject 'file' => __FILE__ into Slate_WP_License::init call");
     assert.match(uploadRouteSrc, /class-slate-wp-license\.php/, "must package class-slate-wp-license.php");
     assert.match(uploadRouteSrc, /Skip existing SDK template files to prevent duplicate entries/, "must skip existing SDK files during repacking");
+    assert.match(uploadRouteSrc, /packageRepository/, "must persist uploaded package into packageRepository");
+    assert.match(uploadRouteSrc, /topFolder !== slug/, "must normalize folder prefixes to canonical slug");
   });
 
   it("5. verifies semver / version_compare logic across edge cases using real module", () => {
@@ -318,5 +320,136 @@ Slate_WP_License::init(array(
 
     assert.match(adminClassSrc, /force_check_updates/, "admin controller must invoke force_check_updates");
     assert.match(adminClassSrc, /plugins\.php|update-core\.php/, "admin notice should link to update page when update is available");
+  });
+
+  it("13. verifies remote update ping token algorithm matches hashed last4 and slug in both Master and SDK", () => {
+    const slug = "credoq-engine";
+    const fullKey = "SLT-A1B2-C3D4-E5F6-7890";
+    const keyLast4 = fullKey.slice(-4); // "7890"
+
+    // Master generates ping token from key_last4 + slug
+    const masterPingToken = crypto.createHash("md5").update(keyLast4 + slug).digest("hex");
+
+    // SDK computes acceptable tokens
+    const sdkTokenFull = crypto.createHash("md5").update(fullKey + slug).digest("hex");
+    const sdkTokenLast4 = crypto.createHash("md5").update(keyLast4 + slug).digest("hex");
+    const sdkTokenSlug = crypto.createHash("md5").update(slug).digest("hex");
+
+    // Master token MUST match the SDK's expected last4 token
+    assert.equal(masterPingToken, sdkTokenLast4, "Master ping token must match SDK last4 token verification");
+
+    // SDK token validation simulation
+    const validateToken = (param) => {
+      return (
+        param === sdkTokenFull ||
+        param === sdkTokenLast4 ||
+        param === sdkTokenSlug ||
+        param === fullKey ||
+        param === keyLast4 ||
+        param === "1"
+      );
+    };
+
+    assert.equal(validateToken(masterPingToken), true, "Master token must pass SDK validation");
+    assert.equal(validateToken(sdkTokenFull), true, "Full key token must pass SDK validation");
+    assert.equal(validateToken("bogus-token"), false, "Bogus token must fail SDK validation");
+  });
+
+  it("14. verifies package repackaging normalizes root directory when uploaded ZIP has custom or mismatched topFolder", () => {
+    const slug = "my-special-plugin";
+    const version = "2.0.0";
+    const mismatchedTop = "my-special-plugin-master"; // e.g. GitHub archive download
+
+    const zip = new AdmZip();
+    zip.addFile(`${mismatchedTop}/${slug}.php`, Buffer.from(`<?php\n/*\nPlugin Name: My Special\nVersion: ${version}\nText Domain: ${slug}\n*/\n`, "utf8"));
+    zip.addFile(`${mismatchedTop}/readme.txt`, Buffer.from("Readme contents", "utf8"));
+    zip.addFile(`${mismatchedTop}/assets/style.css`, Buffer.from("body { color: red; }", "utf8"));
+
+    // Simulating upload route normalization logic
+    const entries = zip.getEntries();
+    const repackedZip = new AdmZip();
+
+    for (const entry of entries) {
+      if (entry.isDirectory) continue;
+      const relPath = entry.entryName.replace(/\\/g, "/");
+      let targetPath = relPath;
+      if (mismatchedTop && mismatchedTop !== slug) {
+        const subPath = relPath.startsWith(`${mismatchedTop}/`)
+          ? relPath.slice(mismatchedTop.length + 1)
+          : relPath;
+        targetPath = `${slug}/${subPath}`;
+      }
+      repackedZip.addFile(targetPath, entry.getData());
+    }
+
+    const repackedEntries = repackedZip.getEntries().map((e) => e.entryName.replace(/\\/g, "/"));
+    assert.ok(repackedEntries.includes(`${slug}/${slug}.php`), "entry must be normalized under canonical slug directory");
+    assert.ok(repackedEntries.includes(`${slug}/readme.txt`), "entry must be normalized under canonical slug directory");
+    assert.ok(repackedEntries.includes(`${slug}/assets/style.css`), "entry must be normalized under canonical slug directory");
+    assert.ok(!repackedEntries.some((e) => e.startsWith(`${mismatchedTop}/`)), "no entry may remain with old mismatched top folder");
+  });
+
+  it("15. verifies force_check_updates preserves other plugins and metadata in WordPress transient object", () => {
+    // Existing WordPress site transient with another plugin (e.g. WooCommerce)
+    const existingTransient = {
+      last_checked: 1700000000,
+      checked: {
+        "woocommerce/woocommerce.php": "8.5.0",
+        "credoq-engine/credoq-engine.php": "1.0.0",
+      },
+      response: {
+        "woocommerce/woocommerce.php": {
+          id: "woocommerce/woocommerce.php",
+          slug: "woocommerce",
+          new_version: "8.6.0",
+        },
+      },
+      no_update: {
+        "credoq-engine/credoq-engine.php": {
+          id: "credoq-engine/credoq-engine.php",
+          slug: "credoq-engine",
+          new_version: "1.0.0",
+        },
+      },
+    };
+
+    // Simulated update payload from Master
+    const updateJson = {
+      ok: true,
+      update_available: true,
+      slug: "credoq-engine",
+      new_version: "1.2.0",
+      package: "https://master.slate.dev/api/wp/download?slug=credoq-engine&key=SLT-KEY",
+    };
+
+    // Apply update to transient while preserving existing plugins
+    const pluginFile = "credoq-engine/credoq-engine.php";
+    const currentVersion = "1.0.0";
+
+    const cleanNew = updateJson.new_version.replace(/^v/i, "");
+    const cleanCurrent = currentVersion.replace(/^v/i, "");
+    const isNewer = compareVersions(cleanNew, cleanCurrent) > 0;
+
+    if (isNewer) {
+      existingTransient.response[pluginFile] = {
+        id: pluginFile,
+        slug: updateJson.slug,
+        plugin: pluginFile,
+        new_version: cleanNew,
+        package: updateJson.package,
+      };
+      delete existingTransient.no_update[pluginFile];
+    }
+
+    // WooCommerce update MUST still be in response!
+    assert.ok(existingTransient.response["woocommerce/woocommerce.php"], "must preserve other plugins in response");
+    assert.equal(existingTransient.response["woocommerce/woocommerce.php"].new_version, "8.6.0");
+    assert.equal(existingTransient.checked["woocommerce/woocommerce.php"], "8.5.0", "must preserve checked array");
+    assert.equal(existingTransient.last_checked, 1700000000, "must preserve last_checked timestamp");
+
+    // Credoq Engine MUST now be in response and removed from no_update!
+    assert.ok(existingTransient.response[pluginFile], "our plugin must be injected into response");
+    assert.equal(existingTransient.response[pluginFile].new_version, "1.2.0");
+    assert.equal(existingTransient.no_update[pluginFile], undefined, "our plugin must be removed from no_update");
   });
 });

@@ -5,6 +5,7 @@ import path from "path";
 import crypto from "crypto";
 import { resolveMasterOrigin } from "@/lib/masterOrigin";
 import { saveVaultAsset } from "@/lib/vaultStorage";
+import { packageRepository } from "@/lib/repositories/packageRepository";
 
 function sanitizeSlug(str: string): string {
   return str
@@ -176,9 +177,15 @@ export async function POST(req: NextRequest) {
 
     // Determine target path of the main plugin entry
     const normalizedMainEntryPath = mainEntry.entryName.replace(/\\/g, "/");
-    const targetMainPath = !topFolder
-      ? `${slug}/${normalizedMainEntryPath.replace(/^\/+/, "")}`
-      : normalizedMainEntryPath;
+    let targetMainPath = normalizedMainEntryPath;
+    if (!topFolder) {
+      targetMainPath = `${slug}/${normalizedMainEntryPath.replace(/^\/+/, "")}`;
+    } else if (topFolder !== slug) {
+      const subPath = normalizedMainEntryPath.startsWith(`${topFolder}/`)
+        ? normalizedMainEntryPath.slice(topFolder.length + 1)
+        : normalizedMainEntryPath;
+      targetMainPath = `${slug}/${subPath}`;
+    }
     const targetMainDir = path.posix.dirname(targetMainPath);
     const includesPrefix = `${targetMainDir}/includes/`;
 
@@ -187,10 +194,15 @@ export async function POST(req: NextRequest) {
       if (entry.isDirectory) continue;
       const relPath = entry.entryName.replace(/\\/g, "/");
 
-      // Normalize into plugin folder if missing top folder
+      // Normalize into canonical plugin folder
       let targetPath = relPath;
       if (!topFolder) {
         targetPath = `${slug}/${relPath.replace(/^\/+/, "")}`;
+      } else if (topFolder !== slug) {
+        const subPath = relPath.startsWith(`${topFolder}/`)
+          ? relPath.slice(topFolder.length + 1)
+          : relPath;
+        targetPath = `${slug}/${subPath}`;
       }
 
       // Skip existing SDK template files to prevent duplicate entries in destination ZIP
@@ -268,6 +280,45 @@ Slate_WP_License::init(array(
 
     // Save to disk and persistent KV
     await saveVaultAsset(assetPath, vaultedZipBuffer);
+
+    // Upsert package in package repository so it persists across container restarts and updates catalog
+    try {
+      const existingPkg = await packageRepository.findByIdOrSlug(slug);
+      if (existingPkg) {
+        await packageRepository.save({
+          ...existingPkg,
+          name: mainHeaders.name || existingPkg.name,
+          version: mainHeaders.version,
+          description: mainHeaders.description || existingPkg.description,
+          author: mainHeaders.author || existingPkg.author || "Slate DevOps OS",
+          assetPath,
+          productType: "wordpress_plugin",
+        });
+      } else {
+        await packageRepository.save({
+          slug,
+          name: mainHeaders.name,
+          version: mainHeaders.version,
+          description: mainHeaders.description || `Slate WordPress Plugin for ${slug}.`,
+          author: mainHeaders.author || "Slate DevOps OS",
+          assetPath,
+          productType: "wordpress_plugin",
+          pricing: {
+            monthly_cents: 2900,
+            yearly_cents: 29000,
+            lifetime_cents: 49000,
+            currency: "USD",
+          },
+          sort_order: 0,
+          pluginSet: [slug],
+          restrictions: [],
+          githubRef: "",
+          is_active: true,
+        });
+      }
+    } catch (saveErr) {
+      console.warn("Could not upsert package into repository:", saveErr);
+    }
 
     return NextResponse.json({
       success: true,

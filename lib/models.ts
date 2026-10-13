@@ -182,6 +182,7 @@ export interface Package {
   slug: string;
   name: string;
   description: string;
+  author?: string;
   productType?: ProductType;
   assetPath?: string;
   version?: string;

@@ -524,8 +524,9 @@ async function handleWpPluginPushNotify(c: Ctx) {
     const rawKeyHint = lic.key_last4 || "";
     const pingToken = crypto.createHash("md5").update(rawKeyHint + (lic.package_slug || "")).digest("hex");
     try {
-      const pingUrl = `${domain}/?slate_update_ping=${pingToken}`;
-      const ajaxUrl = `${domain}/wp-admin/admin-ajax.php?action=slate_wp_notify_update&slate_update_ping=${pingToken}`;
+      const slugParam = encodeURIComponent(pkgSlug || "");
+      const pingUrl = `${domain}/?slate_update_ping=${pingToken}&slug=${slugParam}`;
+      const ajaxUrl = `${domain}/wp-admin/admin-ajax.php?action=slate_wp_notify_update&slate_update_ping=${pingToken}&slug=${slugParam}`;
       const res = await Promise.race([
         fetch(pingUrl, { signal: AbortSignal.timeout(3500) }).catch(() => null),
         fetch(ajaxUrl, { signal: AbortSignal.timeout(3500) }).catch(() => null),

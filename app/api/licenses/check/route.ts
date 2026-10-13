@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import fs from "fs";
+import path from "path";
 import { findLicenseByHash, getLicenses, updateLicense } from "@/lib/storage";
 import { hashLicenseKey } from "@/lib/licensing";
 import { corsPreflight, withCors } from "@/lib/cors";
@@ -93,10 +95,30 @@ async function handleCheck(keyRaw: string, domainRaw: string, slugRaw?: string, 
       );
       if (pkg?.version) {
         latestVersion = pkg.version.replace(/^v/i, "").trim();
-        const cleanClientVer = String(versionRaw || "").replace(/^v/i, "").trim();
-        if (cleanClientVer && compareVersions(latestVersion, cleanClientVer) > 0) {
-          updateAvailable = true;
+      }
+
+      // Check vault directory for newer release if present
+      const vaultDir = path.resolve(process.cwd(), "vault", "wp-plugins", effectiveSlug);
+      if (fs.existsSync(vaultDir)) {
+        try {
+          const files = fs.readdirSync(vaultDir);
+          for (const f of files) {
+            const m = f.match(/^(?:.*)-(?:v)?([0-9a-zA-Z._-]+)\.zip$/i);
+            if (m && m[1]) {
+              const fileVer = m[1].replace(/^v/i, "").trim();
+              if (compareVersions(fileVer, latestVersion || "0.0.0") > 0) {
+                latestVersion = fileVer;
+              }
+            }
+          }
+        } catch {
+          // ignore
         }
+      }
+
+      const cleanClientVer = String(versionRaw || "").replace(/^v/i, "").trim();
+      if (cleanClientVer && latestVersion && compareVersions(latestVersion, cleanClientVer) > 0) {
+        updateAvailable = true;
       }
     } catch {
       // non-fatal

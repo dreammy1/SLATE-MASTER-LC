@@ -46,9 +46,9 @@ async function handleUpdateCheck(
     try {
       const files = fs.readdirSync(vaultDir);
       for (const f of files) {
-        const m = f.match(/^(?:.*)-v([0-9a-zA-Z._-]+)\.zip$/);
+        const m = f.match(/^(?:.*)-(?:v)?([0-9a-zA-Z._-]+)\.zip$/i);
         if (m && m[1]) {
-          const fileVersion = m[1];
+          const fileVersion = m[1].replace(/^v/i, "");
           if (compareVersions(fileVersion, pkgVersion) > 0) {
             pkgVersion = fileVersion;
           }

@@ -119,9 +119,9 @@ export async function GET(req: NextRequest) {
       try {
         const files = fs.readdirSync(vaultDir);
         for (const f of files) {
-          const m = f.match(/^(?:.*)-v([0-9a-zA-Z._-]+)\.zip$/);
+          const m = f.match(/^(?:.*)-(?:v)?([0-9a-zA-Z._-]+)\.zip$/i);
           if (m && m[1]) {
-            const fileVersion = m[1];
+            const fileVersion = m[1].replace(/^v/i, "");
             if (compareVersions(fileVersion, targetVersion) > 0) {
               targetVersion = fileVersion;
             }
@@ -134,7 +134,7 @@ export async function GET(req: NextRequest) {
 
     const safeVersion = targetVersion.replace(/[^a-zA-Z0-9._-]/g, "");
     let assetPath = pkg?.assetPath;
-    if (!assetPath || versionParam || !fs.existsSync(path.resolve(process.cwd(), assetPath))) {
+    if (!assetPath || versionParam) {
       assetPath = `vault/wp-plugins/${slug}/${slug}-v${safeVersion}.zip`;
     }
 
