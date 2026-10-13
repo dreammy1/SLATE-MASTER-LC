@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import path from "path";
+import fs from "fs";
 import { packageRepository } from "@/lib/repositories/packageRepository";
 import { findLicenseByHash, updateLicense } from "@/lib/storage";
 import { hashLicenseKey } from "@/lib/licensing";
 import { corsPreflight, withCors, CORS_STREAM_HEADERS } from "@/lib/cors";
 import { getVaultAsset } from "@/lib/vaultStorage";
+import { compareVersions } from "@/lib/versionCompare";
 
 export async function OPTIONS() {
   return corsPreflight();
@@ -15,6 +18,7 @@ export async function GET(req: NextRequest) {
     const slug = String(url.searchParams.get("slug") || "").trim().toLowerCase();
     const key = url.searchParams.get("key") || url.searchParams.get("license_key") || "";
     const site = String(url.searchParams.get("site") || url.searchParams.get("domain") || "").trim();
+    const versionParam = String(url.searchParams.get("version") || "").trim();
 
     if (!key) {
       return withCors(
@@ -107,12 +111,39 @@ export async function GET(req: NextRequest) {
       (p) => p.slug.toLowerCase() === slug || p.id === slug
     );
 
-    const version = pkg?.version || "1.0.0";
-    const safeVersion = version.replace(/[^a-zA-Z0-9._-]/g, "");
-    const assetPath = pkg?.assetPath || `vault/wp-plugins/${slug}/${slug}-v${safeVersion}.zip`;
+    let targetVersion = versionParam || pkg?.version || "1.0.0";
+
+    // Scan vault directory for latest version if not explicitly passed
+    const vaultDir = path.resolve(process.cwd(), "vault", "wp-plugins", slug);
+    if (!versionParam && fs.existsSync(vaultDir)) {
+      try {
+        const files = fs.readdirSync(vaultDir);
+        for (const f of files) {
+          const m = f.match(/^(?:.*)-v([0-9a-zA-Z._-]+)\.zip$/);
+          if (m && m[1]) {
+            const fileVersion = m[1];
+            if (compareVersions(fileVersion, targetVersion) > 0) {
+              targetVersion = fileVersion;
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    const safeVersion = targetVersion.replace(/[^a-zA-Z0-9._-]/g, "");
+    let assetPath = pkg?.assetPath;
+    if (!assetPath || versionParam || !fs.existsSync(path.resolve(process.cwd(), assetPath))) {
+      assetPath = `vault/wp-plugins/${slug}/${slug}-v${safeVersion}.zip`;
+    }
 
     // Fetch package from vault
-    const asset = await getVaultAsset(assetPath, slug);
+    let asset = await getVaultAsset(assetPath, slug);
+
+    if (!asset || !asset.buffer) {
+      asset = await getVaultAsset(`vault/wp-plugins/${slug}/${slug}.zip`, slug);
+    }
 
     if (!asset || !asset.buffer) {
       return withCors(

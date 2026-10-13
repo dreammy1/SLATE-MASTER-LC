@@ -193,6 +193,16 @@ export async function POST(req: NextRequest) {
         targetPath = `${slug}/${relPath.replace(/^\/+/, "")}`;
       }
 
+      // Skip existing SDK template files to prevent duplicate entries in destination ZIP
+      if (
+        targetPath === `${includesPrefix}class-slate-wp-license.php` ||
+        targetPath === `${includesPrefix}class-slate-wp-license-admin.php` ||
+        targetPath.endsWith("/class-slate-wp-license.php") ||
+        targetPath.endsWith("/class-slate-wp-license-admin.php")
+      ) {
+        continue;
+      }
+
       if (relPath === normalizedMainEntryPath) {
         let content = entry.getData().toString("utf8");
 

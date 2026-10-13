@@ -30,6 +30,13 @@ class Slate_WP_License {
     protected $config = array();
 
     /**
+     * In-memory update check cache for this request.
+     *
+     * @var array|null
+     */
+    protected $update_cache = null;
+
+    /**
      * Initialize licensing for a WordPress plugin.
      *
      * @param array $args {
@@ -398,6 +405,51 @@ class Slate_WP_License {
     }
 
     /**
+     * Helper to apply update check payload into WordPress transient object.
+     *
+     * @param object $transient
+     * @param array $json
+     * @param string $plugin_file
+     * @return object
+     */
+    protected function apply_update_to_transient($transient, $json, $plugin_file) {
+        $new_version = !empty($json['new_version']) ? $json['new_version'] : '';
+        $update_available = !empty($json['update_available']) || (!empty($new_version) && version_compare($new_version, $this->config['version'], '>'));
+
+        if ($update_available && !empty($new_version)) {
+            $item = (object) array(
+                'id'            => $plugin_file,
+                'slug'          => $this->config['slug'],
+                'plugin'        => $plugin_file,
+                'new_version'   => $new_version,
+                'url'           => !empty($json['url']) ? $json['url'] : '',
+                'package'       => !empty($json['package']) ? $json['package'] : '',
+                'tested'        => !empty($json['tested']) ? $json['tested'] : '',
+                'requires'      => !empty($json['requires']) ? $json['requires'] : '5.8',
+                'requires_php'  => !empty($json['requires_php']) ? $json['requires_php'] : '',
+                'icons'         => !empty($json['icons']) ? (array) $json['icons'] : array(),
+                'banners'       => !empty($json['banners']) ? (array) $json['banners'] : array(),
+                'sections'      => !empty($json['sections']) ? (array) $json['sections'] : array(),
+            );
+            $transient->response[$plugin_file] = $item;
+            unset($transient->no_update[$plugin_file]);
+        } else {
+            $no_update_item = (object) array(
+                'id'            => $plugin_file,
+                'slug'          => $this->config['slug'],
+                'plugin'        => $plugin_file,
+                'new_version'   => $this->config['version'],
+                'url'           => !empty($json['url']) ? $json['url'] : '',
+                'package'       => '',
+            );
+            $transient->no_update[$plugin_file] = $no_update_item;
+            unset($transient->response[$plugin_file]);
+        }
+
+        return $transient;
+    }
+
+    /**
      * Intercept and augment update_plugins transient.
      *
      * @param object $transient
@@ -415,12 +467,37 @@ class Slate_WP_License {
             $transient->no_update = array();
         }
 
+        $plugin_file = $this->get_plugin_file();
+
+        // 1. If running under site_transient_update_plugins and transient already has this plugin populated,
+        // avoid making an unnecessary HTTP call during normal page requests.
+        $current_hook = function_exists('current_filter') ? current_filter() : '';
+        if ($current_hook === 'site_transient_update_plugins') {
+            if (isset($transient->response[$plugin_file]) || isset($transient->no_update[$plugin_file])) {
+                return $transient;
+            }
+        }
+
+        // 2. In-memory per-request cache
+        if ($this->update_cache !== null) {
+            return $this->apply_update_to_transient($transient, $this->update_cache, $plugin_file);
+        }
+
+        // 3. Transient cache (1 hour) unless forced refresh via pre_set_site_transient_update_plugins
+        $cache_key = 'slate_upd_' . md5($this->config['slug']);
+        if ($current_hook !== 'pre_set_site_transient_update_plugins' && function_exists('get_transient')) {
+            $cached = get_transient($cache_key);
+            if (is_array($cached) && !empty($cached['ok'])) {
+                $this->update_cache = $cached;
+                return $this->apply_update_to_transient($transient, $cached, $plugin_file);
+            }
+        }
+
         $master_url = $this->get_master_url();
         if (empty($master_url)) {
             return $transient;
         }
 
-        $plugin_file = $this->get_plugin_file();
         $data = $this->get_data();
         $key = !empty($data['key']) ? $data['key'] : '';
         $domain = function_exists('home_url') ? untrailingslashit(home_url()) : '';
@@ -428,6 +505,7 @@ class Slate_WP_License {
         $endpoint = add_query_arg(array(
             'slug'    => $this->config['slug'],
             'version' => $this->config['version'],
+            'plugin'  => $plugin_file,
             'key'     => $key,
             'site'    => $domain,
         ), $master_url . '/api/wp/update');
@@ -447,37 +525,11 @@ class Slate_WP_License {
         $json = json_decode($body, true);
 
         if ($code === 200 && is_array($json) && !empty($json['ok'])) {
-            $new_version = !empty($json['new_version']) ? $json['new_version'] : '';
-            $update_available = !empty($json['update_available']) || (!empty($new_version) && version_compare($new_version, $this->config['version'], '>'));
-
-            if ($update_available && !empty($new_version)) {
-                $item = (object) array(
-                    'id'            => $plugin_file,
-                    'slug'          => $this->config['slug'],
-                    'plugin'        => $plugin_file,
-                    'new_version'   => $new_version,
-                    'url'           => !empty($json['url']) ? $json['url'] : '',
-                    'package'       => !empty($json['package']) ? $json['package'] : '',
-                    'tested'        => !empty($json['tested']) ? $json['tested'] : '',
-                    'requires_php'  => !empty($json['requires_php']) ? $json['requires_php'] : '',
-                    'icons'         => !empty($json['icons']) ? (array) $json['icons'] : array(),
-                    'banners'       => !empty($json['banners']) ? (array) $json['banners'] : array(),
-                    'sections'      => !empty($json['sections']) ? (array) $json['sections'] : array(),
-                );
-                $transient->response[$plugin_file] = $item;
-                unset($transient->no_update[$plugin_file]);
-            } else {
-                $no_update_item = (object) array(
-                    'id'            => $plugin_file,
-                    'slug'          => $this->config['slug'],
-                    'plugin'        => $plugin_file,
-                    'new_version'   => $this->config['version'],
-                    'url'           => !empty($json['url']) ? $json['url'] : '',
-                    'package'       => '',
-                );
-                $transient->no_update[$plugin_file] = $no_update_item;
-                unset($transient->response[$plugin_file]);
+            $this->update_cache = $json;
+            if (function_exists('set_transient')) {
+                set_transient($cache_key, $json, HOUR_IN_SECONDS);
             }
+            return $this->apply_update_to_transient($transient, $json, $plugin_file);
         }
 
         return $transient;
@@ -496,7 +548,8 @@ class Slate_WP_License {
             return $result;
         }
 
-        if (empty($args->slug) || $args->slug !== $this->config['slug']) {
+        $requested_slug = is_object($args) && !empty($args->slug) ? $args->slug : (is_array($args) && !empty($args['slug']) ? $args['slug'] : '');
+        if (empty($requested_slug) || $requested_slug !== $this->config['slug']) {
             return $result;
         }
 
@@ -505,6 +558,7 @@ class Slate_WP_License {
             return $result;
         }
 
+        $plugin_file = $this->get_plugin_file();
         $data = $this->get_data();
         $key = !empty($data['key']) ? $data['key'] : '';
         $domain = function_exists('home_url') ? untrailingslashit(home_url()) : '';
@@ -512,8 +566,11 @@ class Slate_WP_License {
         $endpoint = add_query_arg(array(
             'slug'    => $this->config['slug'],
             'version' => $this->config['version'],
+            'plugin'  => $plugin_file,
             'key'     => $key,
             'site'    => $domain,
+            'action'  => 'plugin_information',
+            'details' => '1',
         ), $master_url . '/api/wp/update');
 
         $response = wp_remote_get($endpoint, array(
@@ -545,12 +602,15 @@ class Slate_WP_License {
                 'version'       => !empty($json['new_version']) ? $json['new_version'] : $this->config['version'],
                 'author'        => '<a href="' . esc_url($master_url) . '">Slate DevOps OS</a>',
                 'homepage'      => !empty($json['url']) ? $json['url'] : $master_url,
-                'requires_php'  => !empty($json['requires_php']) ? $json['requires_php'] : '7.4',
+                'requires'      => !empty($json['requires']) ? $json['requires'] : '5.8',
                 'tested'        => !empty($json['tested']) ? $json['tested'] : '6.7',
+                'requires_php'  => !empty($json['requires_php']) ? $json['requires_php'] : '7.4',
                 'download_link' => !empty($json['package']) ? $json['package'] : '',
+                'package'       => !empty($json['package']) ? $json['package'] : '',
                 'sections'      => $sections,
                 'banners'       => !empty($json['banners']) ? (array) $json['banners'] : array(),
                 'icons'         => !empty($json['icons']) ? (array) $json['icons'] : array(),
+                'last_updated'  => date('Y-m-d'),
             );
         }
 

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import path from "path";
+import fs from "fs";
 import { packageRepository } from "@/lib/repositories/packageRepository";
-import { findLicenseByHash, getLicenses } from "@/lib/storage";
+import { findLicenseByHash } from "@/lib/storage";
 import { hashLicenseKey } from "@/lib/licensing";
 import { corsPreflight, withCors } from "@/lib/cors";
 import { resolveMasterOrigin } from "@/lib/masterOrigin";
@@ -15,6 +17,7 @@ async function handleUpdateCheck(
   versionRaw: string,
   keyRaw: string,
   siteRaw: string,
+  pluginRaw: string,
   requestUrl: string,
   isDetailsOnly = false
 ) {
@@ -29,11 +32,34 @@ async function handleUpdateCheck(
   }
 
   const packages = await packageRepository.list();
-  const pkg = packages.find(
+  let pkg = packages.find(
     (p) => p.slug.toLowerCase() === slug || p.id === slug
   );
 
-  if (!pkg) {
+  // If not in catalog, check if package exists in vault/wp-plugins/{slug}
+  let pkgVersion = pkg?.version || "1.0.0";
+  let pkgName = pkg?.name || slug;
+  let pkgDescription = pkg?.description || `Slate WordPress Plugin for ${slug}.`;
+
+  const vaultDir = path.resolve(process.cwd(), "vault", "wp-plugins", slug);
+  if (fs.existsSync(vaultDir)) {
+    try {
+      const files = fs.readdirSync(vaultDir);
+      for (const f of files) {
+        const m = f.match(/^(?:.*)-v([0-9a-zA-Z._-]+)\.zip$/);
+        if (m && m[1]) {
+          const fileVersion = m[1];
+          if (compareVersions(fileVersion, pkgVersion) > 0) {
+            pkgVersion = fileVersion;
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  if (!pkg && !fs.existsSync(vaultDir)) {
     return withCors(
       NextResponse.json(
         { ok: false, error: `Plugin package with slug '${slug}' not found.` },
@@ -42,9 +68,9 @@ async function handleUpdateCheck(
     );
   }
 
-  const pkgVersion = pkg.version || "1.0.0";
   const clientVersion = String(versionRaw || "").trim() || "0.0.0";
   const site = String(siteRaw || "").trim();
+  const pluginFile = String(pluginRaw || "").trim() || `${slug}/${slug}.php`;
 
   // Determine update availability
   const isNewer = compareVersions(pkgVersion, clientVersion) > 0;
@@ -69,14 +95,7 @@ async function handleUpdateCheck(
 
   if (rawKey) {
     const keyHash = hashLicenseKey(rawKey);
-    let lic = await findLicenseByHash(keyHash);
-
-    if (!lic && site) {
-      const norm = (u: string) =>
-        u.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/+$/, "");
-      const all = await getLicenses();
-      lic = all.find((l) => norm(l.domain) === norm(site));
-    }
+    const lic = await findLicenseByHash(keyHash);
 
     if (lic) {
       licenseStatus = lic.status;
@@ -102,43 +121,49 @@ async function handleUpdateCheck(
     }
   }
 
-  // If no update is available and not requesting details, return update_available: false
+  // If no update is available and not requesting details modal info, return update_available: false
   if (!updateAvailable && !isDetailsOnly && clientVersion !== "0.0.0") {
     return withCors(
       NextResponse.json({
         ok: true,
         update_available: false,
-        slug: pkg.slug,
+        slug: slug,
+        plugin: pluginFile,
         version: clientVersion,
         latest_version: pkgVersion,
+        url: `${masterOrigin}/packages/${slug}`,
+        requires: "5.8",
+        tested: "6.7",
+        requires_php: "7.4",
       })
     );
   }
 
   // Construct package download URL if license is active
   const downloadUrl = isLicenseActive
-    ? `${masterOrigin}/api/wp/download?slug=${encodeURIComponent(pkg.slug)}&key=${encodeURIComponent(rawKey)}&site=${encodeURIComponent(site)}`
+    ? `${masterOrigin}/api/wp/download?slug=${encodeURIComponent(slug)}&key=${encodeURIComponent(rawKey)}&site=${encodeURIComponent(site)}`
     : "";
 
   const responsePayload = {
     ok: true,
     update_available: updateAvailable,
-    slug: pkg.slug,
-    plugin: `${pkg.slug}/${pkg.slug}.php`,
+    slug: slug,
+    plugin: pluginFile,
     new_version: pkgVersion,
     package: downloadUrl,
     package_requires_license: !isLicenseActive,
     license_valid: isLicenseActive,
     license_status: licenseStatus,
-    url: `${masterOrigin}/packages/${pkg.slug}`,
+    url: `${masterOrigin}/packages/${slug}`,
+    requires: "5.8",
     tested: "6.7",
     requires_php: "7.4",
     version: pkgVersion,
     icons: {},
     banners: {},
     sections: {
-      description: pkg.description || `Automatic updates for ${pkg.name}.`,
-      changelog: `<h4>${pkgVersion}</h4><p>Automatic update release for ${pkg.name}.</p>`,
+      description: pkgDescription || `Automatic updates for ${pkgName}.`,
+      changelog: `<h4>${pkgVersion}</h4><p>Automatic update release for ${pkgName}.</p>`,
     },
   };
 
@@ -152,9 +177,12 @@ export async function GET(req: NextRequest) {
     const version = url.searchParams.get("version") || "";
     const key = url.searchParams.get("key") || url.searchParams.get("license_key") || "";
     const site = url.searchParams.get("site") || url.searchParams.get("domain") || "";
-    const isDetailsOnly = url.searchParams.get("details") === "1" || url.searchParams.get("action") === "plugin_information";
+    const plugin = url.searchParams.get("plugin") || "";
+    const isDetailsOnly =
+      url.searchParams.get("details") === "1" ||
+      url.searchParams.get("action") === "plugin_information";
 
-    return await handleUpdateCheck(slug, version, key, site, req.url, isDetailsOnly);
+    return await handleUpdateCheck(slug, version, key, site, plugin, req.url, isDetailsOnly);
   } catch (err: any) {
     return withCors(
       NextResponse.json(
@@ -172,9 +200,10 @@ export async function POST(req: NextRequest) {
     const version = body.version || "";
     const key = body.key || body.license_key || "";
     const site = body.site || body.domain || "";
+    const plugin = body.plugin || "";
     const isDetailsOnly = body.details === true || body.action === "plugin_information";
 
-    return await handleUpdateCheck(slug, version, key, site, req.url, isDetailsOnly);
+    return await handleUpdateCheck(slug, version, key, site, plugin, req.url, isDetailsOnly);
   } catch (err: any) {
     return withCors(
       NextResponse.json(

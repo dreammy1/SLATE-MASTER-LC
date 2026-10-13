@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import AdmZip from "adm-zip";
+import { compareVersions } from "../../lib/versionCompare.ts";
 
 const root = process.cwd();
 
@@ -31,8 +32,8 @@ describe("WordPress Native 1-Click Automatic Updates Pipeline", () => {
     assert.match(updateRouteSrc, /findLicenseByHash/, "must find license by hash");
 
     // Response structure
-    assert.match(updateRouteSrc, /slug:\s*pkg\.slug/, "must return slug");
-    assert.match(updateRouteSrc, /plugin:\s*`\$\{pkg\.slug\}\/\$\{pkg\.slug\}\.php`/, "must return canonical plugin basename");
+    assert.match(updateRouteSrc, /slug:\s*slug/, "must return slug");
+    assert.match(updateRouteSrc, /plugin:\s*pluginFile/, "must return plugin basename");
     assert.match(updateRouteSrc, /new_version:\s*pkgVersion/, "must return new_version");
     assert.match(updateRouteSrc, /package:\s*downloadUrl/, "must return package download URL or empty string");
     assert.match(updateRouteSrc, /url:/, "must return plugin detail URL");
@@ -65,43 +66,17 @@ describe("WordPress Native 1-Click Automatic Updates Pipeline", () => {
     assert.match(sdkClassSrc, /public\s+function\s+plugins_api_handler/, "must implement plugins_api_handler callback");
     assert.match(sdkClassSrc, /public\s+function\s+get_plugin_file/, "must resolve canonical plugin basename");
     assert.match(sdkClassSrc, /\$this->init_updater\(\);/, "constructor must call init_updater");
+    assert.match(sdkClassSrc, /apply_update_to_transient/, "must have helper to apply update transients");
+    assert.match(sdkClassSrc, /plugin_information/, "plugins_api_handler must query plugin_information action");
   });
 
-  it("4. verifies package upload route injects updater-capable SDK and passes file parameter", () => {
+  it("4. verifies package upload route injects updater-capable SDK, passes file parameter, and prevents duplicate files", () => {
     assert.match(uploadRouteSrc, /'file'\s*=>\s*__FILE__/, "must inject 'file' => __FILE__ into Slate_WP_License::init call");
     assert.match(uploadRouteSrc, /class-slate-wp-license\.php/, "must package class-slate-wp-license.php");
+    assert.match(uploadRouteSrc, /Skip existing SDK template files to prevent duplicate entries/, "must skip existing SDK files during repacking");
   });
 
-  it("5. verifies semver / version_compare logic across edge cases", () => {
-    // Extracted version comparison algorithm matching app/api/wp/update/route.ts
-    function compareVersions(v1, v2) {
-      const clean = (v) => v.replace(/^v/i, "").trim();
-      const parts1 = clean(v1).split(/[.-]/);
-      const parts2 = clean(v2).split(/[.-]/);
-      const maxLen = Math.max(parts1.length, parts2.length);
-
-      for (let i = 0; i < maxLen; i++) {
-        const p1 = parts1[i] ?? "0";
-        const p2 = parts2[i] ?? "0";
-
-        const n1 = parseInt(p1, 10);
-        const n2 = parseInt(p2, 10);
-
-        const isNum1 = !isNaN(n1) && String(n1) === p1;
-        const isNum2 = !isNaN(n2) && String(n2) === p2;
-
-        if (isNum1 && isNum2) {
-          if (n1 > n2) return 1;
-          if (n1 < n2) return -1;
-        } else {
-          const cmp = p1.localeCompare(p2);
-          if (cmp !== 0) return cmp > 0 ? 1 : -1;
-        }
-      }
-
-      return 0;
-    }
-
+  it("5. verifies semver / version_compare logic across edge cases using real module", () => {
     // Higher version available
     assert.equal(compareVersions("1.2.0", "1.0.0"), 1);
     assert.equal(compareVersions("2.0.0", "1.9.9"), 1);
@@ -111,11 +86,20 @@ describe("WordPress Native 1-Click Automatic Updates Pipeline", () => {
 
     // Identical version (up to date)
     assert.equal(compareVersions("1.0.0", "1.0.0"), 0);
+    assert.equal(compareVersions("1.0", "1.0.0"), 0);
     assert.equal(compareVersions("v2.3.4", "2.3.4"), 0);
 
     // Lower version (client is ahead)
     assert.equal(compareVersions("1.0.0", "1.1.0"), -1);
     assert.equal(compareVersions("1.0.0", "2.0.0"), -1);
+
+    // Pre-release edge cases (stable release has higher precedence than pre-release)
+    assert.equal(compareVersions("1.2.0", "1.2.0-rc1"), 1, "stable 1.2.0 must be greater than 1.2.0-rc1");
+    assert.equal(compareVersions("1.2.0-rc1", "1.2.0"), -1, "1.2.0-rc1 must be less than stable 1.2.0");
+    assert.equal(compareVersions("1.2.0", "1.2.0rc1"), 1, "inline 1.2.0rc1 must be less than 1.2.0");
+    assert.equal(compareVersions("1.2.0-rc2", "1.2.0-rc1"), 1, "1.2.0-rc2 must be greater than 1.2.0-rc1");
+    assert.equal(compareVersions("1.2.0-beta", "1.2.0-alpha"), 1, "beta must be greater than alpha");
+    assert.equal(compareVersions("1.2.0-beta", "1.2.0-rc1"), -1, "beta must be less than rc1");
   });
 
   it("6. simulates WordPress transient injection and update notice presentation", () => {
@@ -136,6 +120,7 @@ describe("WordPress Native 1-Click Automatic Updates Pipeline", () => {
       license_valid: true,
       license_status: "active",
       url: "https://master.slate.dev/packages/" + slug,
+      requires: "5.8",
       tested: "6.7",
       requires_php: "7.4",
       version: latestVersion,
@@ -162,6 +147,7 @@ describe("WordPress Native 1-Click Automatic Updates Pipeline", () => {
         new_version: updateResponse.new_version,
         url: updateResponse.url,
         package: updateResponse.package,
+        requires: updateResponse.requires,
         tested: updateResponse.tested,
         requires_php: updateResponse.requires_php,
         sections: updateResponse.sections,
@@ -192,6 +178,7 @@ describe("WordPress Native 1-Click Automatic Updates Pipeline", () => {
       new_version: "2.1.0",
       package: "https://master.slate.dev/api/wp/download?slug=" + slug + "&key=SLT-KEY",
       url: "https://master.slate.dev/packages/" + slug,
+      requires: "5.8",
       tested: "6.7",
       requires_php: "7.4",
       sections: {
@@ -207,20 +194,23 @@ describe("WordPress Native 1-Click Automatic Updates Pipeline", () => {
       version: updateResponse.new_version,
       author: '<a href="https://master.slate.dev">Slate DevOps OS</a>',
       homepage: updateResponse.url,
+      requires: updateResponse.requires,
       requires_php: updateResponse.requires_php,
       tested: updateResponse.tested,
       download_link: updateResponse.package,
+      package: updateResponse.package,
       sections: updateResponse.sections,
     };
 
     assert.equal(pluginInfo.slug, slug);
     assert.equal(pluginInfo.version, "2.1.0");
+    assert.equal(pluginInfo.requires, "5.8");
     assert.equal(pluginInfo.requires_php, "7.4");
     assert.equal(pluginInfo.tested, "6.7");
     assert.equal(pluginInfo.sections.changelog, "<h4>2.1.0</h4><p>Release changelog.</p>");
   });
 
-  it("8. performs real ZIP packaging with updater, vault asset storage, and SHA-256 verification", () => {
+  it("8. performs real ZIP packaging with updater, vault asset storage, repacking, and SHA-256 verification", () => {
     const slug = "e2e-updater-pack";
     const version = "1.5.0";
 
@@ -265,6 +255,10 @@ Slate_WP_License::init(array(
 
       assert.ok(entryNames.includes(`${slug}/${slug}.php`));
       assert.ok(entryNames.includes(`${slug}/includes/class-slate-wp-license.php`));
+
+      // Verify no duplicate entries
+      const sdkEntries = entryNames.filter((name) => name === `${slug}/includes/class-slate-wp-license.php`);
+      assert.equal(sdkEntries.length, 1, "must not contain duplicate SDK entries");
 
       const mainContent = readBackZip.getEntry(`${slug}/${slug}.php`).getData().toString("utf8");
       assert.match(mainContent, /Slate_WP_License::init/);
