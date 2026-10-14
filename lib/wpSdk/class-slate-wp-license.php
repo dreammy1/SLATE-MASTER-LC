@@ -427,7 +427,7 @@ class Slate_WP_License {
      * @return object
      */
     protected function apply_update_to_transient($transient, $json, $plugin_file) {
-        $raw_new = !empty($json['new_version']) ? (string) $json['new_version'] : '';
+        $raw_new = !empty($json['new_version']) ? (string) $json['new_version'] : (!empty($json['latest_version']) ? (string) $json['latest_version'] : '');
         $clean_new = ltrim(trim($raw_new), 'vV');
         $clean_current = ltrim(trim((string) $this->config['version']), 'vV');
 
@@ -489,7 +489,10 @@ class Slate_WP_License {
 
         // 1. In-memory per-request cache
         if ($this->update_cache !== null) {
-            return $this->apply_update_to_transient($transient, $this->update_cache, $plugin_file);
+            if (!empty($this->update_cache['ok'])) {
+                return $this->apply_update_to_transient($transient, $this->update_cache, $plugin_file);
+            }
+            return $transient;
         }
 
         // 2. Transient cache (1 hour) unless forced refresh via pre_set_site_transient_update_plugins
@@ -497,9 +500,12 @@ class Slate_WP_License {
         $current_hook = function_exists('current_filter') ? current_filter() : '';
         if ($current_hook !== 'pre_set_site_transient_update_plugins' && function_exists('get_transient')) {
             $cached = get_transient($cache_key);
-            if (is_array($cached) && !empty($cached['ok'])) {
+            if (is_array($cached)) {
                 $this->update_cache = $cached;
-                return $this->apply_update_to_transient($transient, $cached, $plugin_file);
+                if (!empty($cached['ok'])) {
+                    return $this->apply_update_to_transient($transient, $cached, $plugin_file);
+                }
+                return $transient;
             }
         }
 
@@ -527,6 +533,10 @@ class Slate_WP_License {
         ));
 
         if (is_wp_error($response)) {
+            $this->update_cache = array('ok' => false);
+            if (function_exists('set_transient')) {
+                set_transient($cache_key, array('ok' => false), 300);
+            }
             return $transient;
         }
 
@@ -542,6 +552,10 @@ class Slate_WP_License {
             return $this->apply_update_to_transient($transient, $json, $plugin_file);
         }
 
+        $this->update_cache = array('ok' => false);
+        if (function_exists('set_transient')) {
+            set_transient($cache_key, array('ok' => false), 300);
+        }
         return $transient;
     }
 
@@ -652,7 +666,13 @@ class Slate_WP_License {
         }
 
         $requested_slug = is_object($args) && !empty($args->slug) ? $args->slug : (is_array($args) && !empty($args['slug']) ? $args['slug'] : '');
-        if (empty($requested_slug) || $requested_slug !== $this->config['slug']) {
+        $plugin_file = $this->get_plugin_file();
+        $matches_slug = (
+            $requested_slug === $this->config['slug'] ||
+            $requested_slug === $plugin_file ||
+            $requested_slug === dirname($plugin_file)
+        );
+        if (empty($requested_slug) || !$matches_slug) {
             return $result;
         }
 
@@ -661,7 +681,6 @@ class Slate_WP_License {
             return $result;
         }
 
-        $plugin_file = $this->get_plugin_file();
         $data = $this->get_data();
         $key = !empty($data['key']) ? $data['key'] : '';
         $domain = function_exists('home_url') ? untrailingslashit(home_url()) : '';

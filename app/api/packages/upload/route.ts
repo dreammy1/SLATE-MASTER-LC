@@ -218,7 +218,7 @@ export async function POST(req: NextRequest) {
       if (relPath === normalizedMainEntryPath) {
         let content = entry.getData().toString("utf8");
 
-        // Inject bootstrap if not already present
+        // Inject bootstrap if not already present, or upgrade existing init call with 'file' parameter
         if (!content.includes("Slate_WP_License::init")) {
           const escapedName = mainHeaders.name.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
           const escapedMasterUrl = masterUrl.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
@@ -258,6 +258,11 @@ Slate_WP_License::init(array(
           } else {
             content += bootstrapCode;
           }
+        } else if (!content.includes("'file'") && !content.includes('"file"')) {
+          content = content.replace(
+            /(Slate_WP_License::init\s*\(\s*array\s*\([\s\S]*?)(\s*\)\s*;)/,
+            `$1    'file'       => __FILE__,\n)$2`
+          );
         }
 
         outZip.addFile(targetPath, Buffer.from(content, "utf8"));

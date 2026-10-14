@@ -33,7 +33,7 @@ async function handleUpdateCheck(
 
   const packages = await packageRepository.list();
   let pkg = packages.find(
-    (p) => p.slug.toLowerCase() === slug || p.id === slug
+    (p) => p.slug.toLowerCase() === slug || p.id.toLowerCase() === slug
   );
 
   // If not in catalog, check if package exists in vault/wp-plugins/{slug}
@@ -134,6 +134,7 @@ async function handleUpdateCheck(
         slug: slug,
         plugin: pluginFile,
         version: cleanClientVersion,
+        new_version: pkgVersion,
         latest_version: pkgVersion,
         url: `${masterOrigin}/packages/${slug}`,
         requires: "5.8",
@@ -145,7 +146,7 @@ async function handleUpdateCheck(
 
   // Construct package download URL if license is active
   const downloadUrl = isLicenseActive
-    ? `${masterOrigin}/api/wp/download?slug=${encodeURIComponent(slug)}&key=${encodeURIComponent(rawKey)}&site=${encodeURIComponent(site)}`
+    ? `${masterOrigin}/api/wp/download?slug=${encodeURIComponent(slug)}&key=${encodeURIComponent(rawKey)}&site=${encodeURIComponent(site)}&version=${encodeURIComponent(pkgVersion)}`
     : "";
 
   const responsePayload = {

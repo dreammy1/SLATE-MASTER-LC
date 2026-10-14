@@ -4,7 +4,7 @@ import AdmZip from "adm-zip";
 import { KvStore } from "./persistence/kvStore";
 
 export async function saveVaultAsset(assetPath: string, buffer: Buffer): Promise<void> {
-  const normalizedPath = assetPath.replace(/\\/g, "/");
+  const normalizedPath = assetPath.replace(/\\/g, "/").replace(/^\/+/, "");
   const fullDiskPath = path.resolve(process.cwd(), normalizedPath);
   const dir = path.dirname(fullDiskPath);
 
@@ -29,7 +29,7 @@ export async function getVaultAsset(
   assetPath: string,
   fallbackSlug?: string
 ): Promise<{ buffer: Buffer; fileName: string } | null> {
-  const normalizedPath = assetPath.replace(/\\/g, "/");
+  const normalizedPath = assetPath.replace(/\\/g, "/").replace(/^\/+/, "");
   const fullDiskPath = path.resolve(process.cwd(), normalizedPath);
   const fileName = path.basename(fullDiskPath);
 

@@ -475,4 +475,48 @@ Slate_WP_License::init(array(
     assert.equal(decideApiAccess("GET", "/api/clients").access, "admin");
     assert.equal(decideApiAccess("POST", "/api/admin/deploy").access, "admin");
   });
+
+  it("17. verifies update route includes explicit version in download URL and returns new_version even when up to date", () => {
+    assert.match(updateRouteSrc, /&version=\$\{encodeURIComponent\(pkgVersion\)\}/, "must pass version in package download URL");
+    assert.match(updateRouteSrc, /new_version:\s*pkgVersion/, "must return new_version when up to date");
+    assert.match(updateRouteSrc, /p\.id\.toLowerCase\(\)\s*===\s*slug/, "must match package id case-insensitively");
+  });
+
+  it("18. verifies WordPress SDK caches transient failure for 5 minutes without erasing existing update notices, and accepts fallback latest_version", () => {
+    assert.match(sdkClassSrc, /set_transient\(\$cache_key,\s*array\('ok'\s*=>\s*false\),\s*300\)/, "must cache failure response for 300 seconds to protect WP admin");
+    assert.match(sdkClassSrc, /if\s*\(!empty\(\$this->update_cache\['ok'\]\)\)/, "must avoid wiping existing transient when cached update check failed");
+    assert.match(sdkClassSrc, /!empty\(\$json\['latest_version'\]\)/, "must fallback to latest_version if new_version is omitted");
+  });
+
+  it("19. verifies WordPress SDK plugins_api_handler matches plugin_file and directory basename", () => {
+    assert.match(sdkClassSrc, /\$requested_slug\s*===\s*\$plugin_file/, "plugins_api_handler must accept plugin_file in requested slug");
+    assert.match(sdkClassSrc, /\$requested_slug\s*===\s*dirname\(\$plugin_file\)/, "plugins_api_handler must accept dirname of plugin_file");
+  });
+
+  it("20. verifies package upload upgrades legacy SDK bootstrap calls to include 'file' => __FILE__", () => {
+    const legacyBootstrap = `<?php
+/*
+ * Plugin Name: Old Pack
+ * Version: 1.0.0
+ * Text Domain: old-pack
+ */
+
+Slate_WP_License::init(array(
+    'slug'       => 'old-pack',
+    'name'       => 'Old Pack',
+    'version'    => '1.0.0',
+    'master_url' => 'https://master.slate.dev',
+));
+`;
+    let upgraded = legacyBootstrap;
+    if (upgraded.includes("Slate_WP_License::init") && !upgraded.includes("'file'") && !upgraded.includes('"file"')) {
+      upgraded = upgraded.replace(
+        /(Slate_WP_License::init\s*\(\s*array\s*\([\s\S]*?)(\s*\)\s*;)/,
+        `$1    'file'       => __FILE__,\n)$2`
+      );
+    }
+
+    assert.match(upgraded, /'file'\s*=>\s*__FILE__/, "must inject 'file' => __FILE__ into existing init block");
+    assert.match(uploadRouteSrc, /!content\.includes\(['"]'file'['"]\)/, "upload route must check and upgrade legacy bootstrap");
+  });
 });

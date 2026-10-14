@@ -382,8 +382,10 @@ export function clientFromParts(
 ): ClientRecord {
   const lic = licenseState(license);
   const isWp = (pkg as any)?.productType === "wordpress_plugin" ||
-    Boolean(license?.package_slug?.includes("engine") || license?.package_slug?.includes("plugin")) ||
+    Boolean(pkg?.assetPath) ||
+    Boolean(license?.package_slug) ||
     order.cpanelUser === "wp-customer" ||
+    Boolean(order.package_id && /plugin|wp|engine/i.test(order.package_id)) ||
     pkg?.slug === "credoq-engine";
 
   const siteStatus = site?.status || (isWp ? (license?.status === "active" ? "ONLINE" : "INACTIVE") : "UNKNOWN");
@@ -391,7 +393,7 @@ export function clientFromParts(
   const remoteAccess = site?.remoteAccess || (isWp ? "wp_plugin" : "unknown");
   const lastHealthStatus = site?.lastHealthStatus || (isWp ? (license?.status === "active" ? "ONLINE" : "OFFLINE") : null);
   const lastHealthAt = site?.lastHealthAt || (isWp ? (license?.last_seen_at || license?.updatedAt || order.createdAt) : null);
-  const activePlugins = site?.activePlugins?.length ? site.activePlugins : (pkg?.pluginSet || (pkg?.slug ? [pkg.slug] : []));
+  const activePlugins = site?.activePlugins?.length ? site.activePlugins : (pkg?.pluginSet || (pkg?.slug ? [pkg.slug] : (license?.package_slug ? [license.package_slug] : [])));
 
   return {
     id: order.id,
@@ -408,8 +410,8 @@ export function clientFromParts(
     cpanelUser: order.cpanelUser || "",
     cpanelLinked: Boolean(order.cpanelApiTokenEncrypted),
     packageId: order.package_id || null,
-    packageName: pkg?.name || "Unknown package",
-    packageSlug: pkg?.slug || "",
+    packageName: pkg?.name || license?.package_slug || "Unknown package",
+    packageSlug: pkg?.slug || license?.package_slug || "",
     pluginSet: pkg?.pluginSet || [],
     billingCycle: order.billing_cycle || "",
     payMethod: order.payMethod || "",
@@ -489,6 +491,10 @@ export async function listClients(query?: string): Promise<ClientListResult> {
   const pkgIds = new Set<string>();
   orders.forEach((o) => o.package_id && pkgIds.add(o.package_id));
   sites.forEach((s) => s.package_id && pkgIds.add(s.package_id));
+  licenses.forEach((l) => {
+    if (l.package_id) pkgIds.add(l.package_id);
+    if (l.package_slug) pkgIds.add(l.package_slug);
+  });
   const pkgMap = new Map<string, Package | null>();
   await Promise.all(Array.from(pkgIds).map(async (id) => { pkgMap.set(id, (await getPackage(id)) || null); }));
 
@@ -498,7 +504,12 @@ export async function listClients(query?: string): Promise<ClientListResult> {
   for (const order of orders) {
     const { license, site } = resolveLinks(order, licenses, sites);
     if (site) claimedSiteIds.add(site.id);
-    clients.push(clientFromParts(order, license, site, pkgMap.get(order.package_id) || null));
+    const resolvedPkg =
+      (order.package_id ? pkgMap.get(order.package_id) : null) ||
+      (license?.package_id ? pkgMap.get(license.package_id) : null) ||
+      (license?.package_slug ? pkgMap.get(license.package_slug) : null) ||
+      null;
+    clients.push(clientFromParts(order, license, site, resolvedPkg));
   }
   for (const site of sites) {
     if (claimedSiteIds.has(site.id)) continue;
